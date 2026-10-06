@@ -280,29 +280,61 @@ def write_reference_workspace(
 
     groups = group_references(system_population)
 
-    selected_group_refs: dict[tuple[str, ...], list[str]] = {}
-    for record in references.to_dict(orient="records"):
-        key_parts: list[str] = []
+    def group_key(record: dict[str, Any]) -> tuple[str, ...]:
+        parts: list[str] = []
         for dimension in DEFAULT_GROUP_DIMENSIONS:
             value = record.get(dimension)
             if value is None or value is pd.NA:
-                key_parts.append("<missing>")
+                parts.append("<missing>")
                 continue
             try:
                 if pd.isna(value):
-                    key_parts.append("<missing>")
+                    parts.append("<missing>")
                     continue
             except (TypeError, ValueError):
                 pass
-            key_parts.append(str(value))
-        selected_group_refs.setdefault(tuple(key_parts), []).append(str(record["reference_id"]))
+            text = str(value).strip()
+            parts.append(text if text else "<missing>")
+        return tuple(parts)
+
+    selected_lookup = {
+        (str(row.get("source_account")), str(row.get("source_post_id"))): str(row.get("reference_id"))
+        for row in references.to_dict(orient="records")
+    }
+
+    members_by_group: dict[tuple[str, ...], list[dict[str, Any]]] = {}
+    for record in system_population.to_dict(orient="records"):
+        member = {
+            "account": _clean(record.get("account")),
+            "post_id": _clean(record.get("post_id")),
+            "url": _clean(record.get("url")),
+            "created_at": _clean(record.get("created_at")),
+            "views": _clean(record.get("views")),
+            "account_views_pct": _clean(record.get("account_views_pct")),
+            "global_views_pct": _clean(record.get("global_views_pct")),
+            "save_rate": _clean(record.get("save_rate")),
+            "share_rate": _clean(record.get("share_rate")),
+            "hook_text": _clean(record.get("hook_text")),
+            "topic": _clean(record.get("topic")),
+            "primary_language_code": _clean(record.get("primary_language_code")),
+            "slide_count": _clean(record.get("slide_count")),
+            "rank_position": _clean(record.get("_rank_position")),
+        }
+        lookup_key = (str(record.get("account")), str(record.get("post_id")))
+        member["reference_id"] = selected_lookup.get(lookup_key)
+        members_by_group.setdefault(group_key(record), []).append(member)
+
+    for members in members_by_group.values():
+        members.sort(key=lambda item: item.get("rank_position") or 10**9)
 
     group_rows = groups.where(pd.notna(groups), None).to_dict(orient="records")
     for row in group_rows:
         key = tuple(str(row.get(dimension, "<missing>")) for dimension in DEFAULT_GROUP_DIMENSIONS)
-        ids = selected_group_refs.get(key, [])
+        members = members_by_group.get(key, [])
+        ids = [str(member["reference_id"]) for member in members if member.get("reference_id")]
         row["selected_references"] = len(ids)
         row["reference_ids"] = ids
+        row["members"] = members
 
     (out_dir / "candidate_groups.json").write_text(
         json.dumps(group_rows, ensure_ascii=False, indent=2, default=str),
