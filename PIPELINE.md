@@ -40,7 +40,30 @@ data/02_media/tiktok/                 <- local creative source of truth
                               creative_master.parquet
                                       |
                                       v
-                                  validate
+                                   validate
+                                      |
+                                      v
+                              extract-references
+                         --strategy system (default)
+                                      |
+                   +------------------+------------------+
+                   |                                     |
+                   v                                     v
+             full system map                       representative refs
+              system.json                           details/REF-*.json
+                   |                                     |
+                   +------------------+------------------+
+                                      |
+                                      v
+                            Reference/System Workspace
+                       System -> Accounts -> Structures
+                       -> References -> Compare -> Selected
+                                      |
+                                      v
+                                selected.json
+                                      |
+                                      v
+                                creative-bank
 ```
 
 ## Sources of truth
@@ -48,39 +71,18 @@ data/02_media/tiktok/                 <- local creative source of truth
 1. Raw scrape JSON/JSONL: collected metadata evidence.
 2. Local media: creative pixel/video evidence.
 3. Vision output: interpretation layer, not raw truth.
-4. `creative_master`: normalized, validated interface for downstream research.
+4. `creative_master`: normalized, validated downstream evidence interface.
+5. Reference Workspace: a generated decision surface over the evidence, not a new truth source.
 
 ## Invariants
 
 - Raw scrape runs are immutable.
 - Performance metrics are not shown to Gemini during creative interpretation.
 - Every derived stage is reproducible from the stage immediately above it.
-- New manifests use portable project-relative paths when possible.
 - `creative_master` has one row per unique `account+post_id`.
-- `content_type` is only `slideshow` or `video`.
-- Exploratory analysis does not belong in this canonical repository.
-
-
-## Optional showcase export
-
-After `creative_master` validates successfully, a presentation site can be generated without changing the canonical evidence dataset:
-
-```text
-creative_master.parquet
-        |
-        v
- export-showcase
-        |
-        v
- data/06_showcase/
- index.html + app.js + style.css
-        +
- overview/accounts/timeline/dimensions/posts JSON
-        |
-        v
- showcase --open
-```
-
-`data/06_showcase/` is generated and disposable. Every export refreshes the packaged UI template, rebuilds JSON, and clears stale generated media assets before exporting optional media.
-
-The default export anonymizes creator identities and omits raw analysis/media paths. The site is a presentation layer only, not a replacement for `creative_master`.
+- Multiple accounts from one operator are not treated as independent validation.
+- Reference sampling must expose account coverage and sampling concentration.
+- System mapping uses the full observed dataset/reference population before a small reference sample is inspected.
+- Candidate structures are descriptive; creative-family promotion happens downstream.
+- Raw Vision `analysis_json` is normalized before handoff.
+- Only explicitly selected references proceed to Creative Bank.

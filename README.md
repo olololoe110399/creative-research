@@ -1,27 +1,28 @@
 # Creative Research
 
-Reusable production evidence pipeline for public TikTok creative and distribution research.
+Reusable evidence pipeline for reverse-engineering public creative/distribution systems.
 
-The repository intentionally owns the market-evidence side of the workflow:
+This repository owns the **market evidence** side only:
 
 ```text
-Apify raw data
-  -> selected target accounts
-  -> local creative media
-  -> slideshow/video manifests
-  -> Gemini creative interpretation
+public accounts
+  -> raw evidence + media
+  -> Vision interpretation
   -> validated creative_master
-  -> ranked Reference Workspace
-  -> selected references for downstream production
+  -> whole-system map
+  -> representative reference sample
+  -> inspect / compare / select
+  -> selected.json
+  -> downstream creative-bank
 ```
 
-It excludes downstream creative families, experiments, first-party learning, RAG, and agent orchestration. The Reference Workspace is the production handoff surface. Showcase remains optional for broad dataset exploration/presentation.
+The goal is not to build a generic analytics dashboard. The generated UI is a working research surface for understanding an operator's whole content system before choosing examples to adapt downstream.
 
 ## Requirements
 
 - Python 3.11+
 - `uv`
-- `ffprobe` optional but recommended for video metadata
+- `ffprobe` optional but useful for video metadata
 - `APIFY_TOKEN` only for scraping / rare media fallback
 - `GEMINI_API_KEY` only for Vision stages
 
@@ -34,15 +35,9 @@ uv run creative-research init
 uv run pytest
 ```
 
-Commit `uv.lock` after dependency resolution. Never commit real API keys or research datasets.
+Never commit real API keys or research datasets.
 
 ## CLI
-
-```bash
-uv run creative-research --help
-```
-
-Canonical commands:
 
 ```text
 scrape
@@ -53,69 +48,37 @@ vision-slides
 download-videos
 vision-videos
 build-master
+
 rank-posts
 extract-references
 query
 group-references
 references
-export-showcase
-showcase
 
 init
 doctor
 status
 validate
 adopt
+version
 ```
-
-## Production checks
-
-```bash
-uv run ruff check .
-uv run pytest --cov=creative_research --cov-report=term-missing
-uv run creative-research validate
-```
-
-`creative-research validate` verifies the master schema, unique `account+post_id` keys, valid content types, nonblank identities, and nonnegative core metrics.
 
 ## Workspace
 
 ```text
 data/
-├── 00_raw/apify/             # immutable Apify scrape runs
-├── 01_selected/targets/      # selected/merged target-account data
-├── 02_media/tiktok/          # local source media
-├── 03_manifests/slides/      # slideshow manifest
-├── 03_video_media/           # downloaded videos + video manifest
-├── 04_vision/slides/         # slideshow Vision outputs
-├── 04_vision/videos/         # video Vision outputs
-├── 05_master/                # canonical normalized dataset
-├── 06_showcase/              # generated self-contained static showcase site
-└── 07_exports/               # portable downstream reference packs
+├── 00_raw/apify/             # immutable scrape runs
+├── 01_selected/targets/      # selected target-account data
+├── 02_media/tiktok/          # archived source pixels/video
+├── 03_manifests/slides/
+├── 03_video_media/
+├── 04_vision/slides/
+├── 04_vision/videos/
+├── 05_master/                # canonical normalized evidence
+└── 07_exports/               # generated system/reference workspaces
 ```
 
-Generated manifests use project-relative paths whenever possible. Vision readers resolve those paths from `CREATIVE_RESEARCH_PROJECT_ROOT` or the current working directory.
-
-## Example config
-
-Tracked config files are examples only:
-
-```text
-config/target_accounts.example.txt
-config/reference_accounts.example.txt
-examples/data/creative_master.example.csv
-```
-
-Create local research files from the examples:
-
-```bash
-cp config/target_accounts.example.txt config/target_accounts.txt
-cp config/reference_accounts.example.txt config/reference_accounts.txt
-```
-
-`config/*.txt` and all real `data/` artifacts are ignored by Git; only explicit `*.example.txt` files and synthetic files under `examples/` should be committed.
-
-## End-to-end pipeline
+## Canonical evidence pipeline
 
 ### 1. Scrape
 
@@ -125,11 +88,11 @@ uv run creative-research scrape \
   --out data/00_raw/apify/run-001
 ```
 
-### 2. Merge/select target accounts
+### 2. Select accounts
 
 ```bash
 uv run creative-research select-accounts \
-  --sources data/00_raw/apify/run-001 data/00_raw/apify/run-002 \
+  --sources data/00_raw/apify/run-001 \
   --accounts creator_alpha creator_beta creator_gamma \
   --out data/01_selected/targets
 ```
@@ -150,7 +113,7 @@ uv run creative-research manifest-slides \
   --out data/03_manifests/slides
 ```
 
-### 5. Analyze slideshows
+### 5. Vision: slideshows
 
 ```bash
 uv run creative-research vision-slides \
@@ -159,27 +122,22 @@ uv run creative-research vision-slides \
   --model gemini-3.5-flash-lite
 ```
 
-Performance metrics are not sent to Gemini; they are joined after interpretation.
+Performance metrics are not shown to Gemini during creative interpretation.
 
-### 6. Download video posts
+### 6. Download + analyze videos
 
 ```bash
 uv run creative-research download-videos \
   data/02_media/tiktok \
-  --out data/03_video_media \
-  --cookies-from-browser chrome
-```
+  --out data/03_video_media
 
-### 7. Analyze videos
-
-```bash
 uv run creative-research vision-videos \
   data/03_video_media/video_manifest.csv \
   --out data/04_vision/videos \
   --model gemini-3.8-flash
 ```
 
-### 8. Build the canonical master dataset
+### 7. Build master
 
 ```bash
 uv run creative-research build-master \
@@ -190,19 +148,161 @@ uv run creative-research build-master \
 uv run creative-research validate
 ```
 
-Outputs:
+`creative_master` remains the canonical normalized evidence interface.
 
-```text
-data/05_master/
-├── creative_master.parquet
-├── creative_master.csv
-├── creative_master.jsonl
-└── report.json
+## System-first reference workflow
+
+The default workflow is deliberately **not "take the global top 30"**.
+
+A portfolio may contain stronger/larger accounts. Global top-N selection can make one or two accounts dominate the sample and hide how the wider operator system works.
+
+### Build the workspace
+
+```bash
+uv run creative-research extract-references \
+  data/05_master/creative_master.parquet \
+  --out data/07_exports/study-system \
+  --content-type slideshow \
+  --rank relative \
+  --strategy system \
+  --top 30 \
+  --media remote
+
+uv run creative-research references \
+  --dir data/07_exports/study-system \
+  --open
 ```
 
-### 9. Build the production Reference Workspace
+### Selection strategies
 
-Use account-relative performance by default so one large account does not dominate selection:
+`--strategy system` is the default.
+
+It:
+
+1. covers each observed account first when sample size allows;
+2. then balances account-relative performance;
+3. rewards structural novelty across hook, angle, format, product placement, audience, language, and visual type;
+4. penalizes repeated sampling from accounts already represented.
+
+This produces a **representative inspection sample**, not independent validation. Multiple accounts operated by one person are still one operator system.
+
+Other modes:
+
+```bash
+--strategy account-balanced
+--strategy top
+```
+
+- `account-balanced`: near-even reference counts per account.
+- `top`: raw ranked sample; useful later when exploiting an already-understood structure.
+
+### Generated workspace
+
+```text
+data/07_exports/study-system/
+├── index.html
+├── app.js
+├── style.css
+├── favicon.svg
+│
+├── system.json                 # full-master/operator map
+├── candidate_groups.json       # structures from full reference population
+├── workspace.json              # representative detailed refs
+├── manifest.json
+│
+├── references.parquet
+├── references.csv
+├── references.jsonl
+│
+├── details/
+│   └── REF-xxxx.json
+└── media/                      # copy/hybrid only
+```
+
+No second Vision pass is performed. `details/REF-xxxx.json` is normalized from the existing Vision `analysis_json`.
+
+## What the UI shows
+
+The generated UI is ordered around the actual research decision:
+
+1. **System** — full dataset size, account coverage, content mix, selection bias, creative dimensions.
+2. **Accounts** — account roles, posting cadence, performance context, and how many references each account contributes.
+3. **Structures** — descriptive hook × angle × format × product-placement groups across the full reference population.
+4. **References** — representative actual executions with media and slide-level Vision detail.
+5. **Compare** — compare 2–4 executions and surface exact shared structure.
+6. **Selected** — curate only the references worth sending downstream.
+
+The UI explicitly shows account coverage and largest-account share so sampling bias is visible rather than hidden.
+
+## Reference detail contract
+
+Each selected reference contains:
+
+```text
+source/provenance
+selection strategy + reason + performance rank
+performance metrics
+
+creative
+  audience / topic / angle / format
+  hook mechanism
+
+sequence[]
+  slide position
+  role
+  overlay text
+  visual type/description
+  product visibility
+  confidence
+
+product
+CTA
+visual system
+proof
+attention mechanisms
+uncertainty
+deterministic blueprint
+media manifest
+```
+
+Raw `analysis_json` is not handed downstream.
+
+## Handoff to Creative Bank
+
+After understanding the system and inspecting references, use **Selected → Export selected.json**.
+
+Then downstream:
+
+```bash
+uv run creative-bank references import \
+  ../creative-research/data/07_exports/study-system \
+  --project study-001 \
+  --selection ~/Downloads/selected.json
+```
+
+Only the human-curated reference IDs proceed to family/brief/experiment work.
+
+## Media modes
+
+Default:
+
+```bash
+--media remote
+```
+
+Other options:
+
+```bash
+--media none
+--media copy
+--media hybrid
+```
+
+Use `copy` for durable local source assets and `hybrid` when remote-first/local-fallback is useful.
+
+## Useful utilities
+
+Rank without exporting:
 
 ```bash
 uv run creative-research rank-posts \
@@ -212,59 +312,7 @@ uv run creative-research rank-posts \
   --top 50
 ```
 
-Export the selected source material as a portable handoff:
-
-```bash
-uv run creative-research extract-references \
-  data/05_master/creative_master.parquet \
-  --out data/07_exports/study-reference-pack \
-  --content-type slideshow \
-  --rank relative \
-  --top 30 \
-  --media remote
-
-uv run creative-research references \
-  --dir data/07_exports/study-reference-pack \
-  --open
-```
-
-The v2 pack contains flat analytics tables plus full production details and a self-contained UI:
-
-```text
-data/07_exports/study-reference-pack/
-├── index.html
-├── app.js
-├── style.css
-├── favicon.svg
-├── workspace.json
-├── candidate_groups.json
-├── manifest.json
-├── references.parquet
-├── references.csv
-├── references.jsonl
-├── details/
-│   └── REF-xxxx.json
-└── media/                  # copy/hybrid only
-```
-
-Each detail record is normalized from the existing Vision `analysis_json`: slide roles/text/visuals, hook, product reveal, CTA, confidence, deterministic blueprint, performance, provenance, and media references. No second Vision pass is performed.
-
-The UI is a production workbench:
-- **References** — inspect actual creatives and slide sequences.
-- **Groups** — descriptive candidate structures, not families.
-- **Compare** — compare 2–4 references and surface exact shared structure.
-- **Selected** — curate the references to send downstream and export `selected.json`.
-
-Remote media is the lightweight default. Use `--media copy` for durable local assets or `--media hybrid` for both.
-
-Descriptive grouping is available without assigning creative-family truth:
-
-```bash
-uv run creative-research group-references \
-  data/07_exports/study-reference-pack/references.parquet
-```
-
-Use `query` for explicit filters instead of one-off notebooks:
+Explicit filtering:
 
 ```bash
 uv run creative-research query \
@@ -274,59 +322,38 @@ uv run creative-research query \
   --columns account,post_id,url,hook_text,views,account_views_pct
 ```
 
-### 10. Broad dataset showcase (optional)
-
-The Showcase is useful for aggregate exploration and sharing, but it is not the production handoff workflow.
+Standalone descriptive grouping:
 
 ```bash
-uv run creative-research export-showcase \
-  data/05_master/creative_master.parquet \
-  --out data/06_showcase \
-  --media remote \
-  --media-limit 0 \
-  --include-text \
-  --references data/07_exports/study-reference-pack/references.parquet
+uv run creative-research group-references \
+  data/07_exports/study-system/references.parquet
 ```
 
-Every export regenerates a self-contained static site in `data/06_showcase/`: the packaged UI template is overwritten with the current version, JSON is rebuilt from `creative_master`, and stale generated media assets are cleared before optional media is exported.
+## Boundaries
+
+This repository ends at:
 
 ```text
-data/06_showcase/
-├── index.html
-├── app.js
-├── style.css
-├── favicon.svg
-├── overview.json
-├── accounts.json
-├── timeline.json
-├── dimensions.json
-├── posts.json
-├── references.json
-├── manifest.json
-└── AI_STUDIO_PROMPT.md
+market evidence
+-> system understanding
+-> curated reference handoff
 ```
 
-Serve it over local HTTP:
+It does **not** own:
 
-```bash
-uv run creative-research showcase --open
-```
+- downstream creative families;
+- briefs/variants;
+- first-party experiment results;
+- validated playbooks;
+- product decisions.
 
-By default, creator identities, raw post IDs/URLs, free text, media paths, raw Vision analysis, and media assets are excluded. Use `--media remote` for scraped TikTok/CDN URLs, `--media copy` for local static assets, or `--media hybrid` for remote media with local fallbacks. See [`docs/SHOWCASE.md`](docs/SHOWCASE.md).
-
-This repository ends at validated evidence plus a curated Reference Workspace handoff. Creative families, briefs, experiments, results, and playbooks belong downstream. Pattern banks, hypotheses, experiments, and playbooks belong in a separate downstream layer.
-
-## Resume behavior
-
-Long-running stages preserve progress:
-
-- media archive skips existing files
-- video downloader skips existing videos
-- slideshow Vision caches by schema/model/media SHA1
-- video Vision caches analyzed videos
-
-Run the same command again after interruption.
+Those belong in the downstream Creative Bank/project layer.
 
 ## Test philosophy
 
-Tests are local and deterministic. They do not call Apify, TikTok, or Gemini. Runtime integrations rely on retry/cache behavior while CI tests local pipeline contracts.
+Tests are deterministic and do not call TikTok, Apify, or Gemini.
+
+```bash
+uv run ruff check .
+uv run pytest --cov=creative_research --cov-report=term-missing
+```

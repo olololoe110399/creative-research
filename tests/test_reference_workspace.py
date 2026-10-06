@@ -43,7 +43,7 @@ def analysis_json() -> str:
 
 def ref_row() -> dict[str, object]:
     return {
-        "reference_schema_version": "creative-reference-pack-v2", "reference_id": "REF-0001", "selection_strategy": "top", "rank_mode": "relative", "rank_position": 1, "rank_score": 0.97, "source_platform": "tiktok", "source_account": "creator", "source_post_id": "123", "source_url": "https://example.test/123", "created_at": "2026-01-01T00:00:00Z", "views": 10000, "save_rate": 0.04, "share_rate": 0.01, "account_views_pct": 0.97, "global_views_pct": 0.90, "primary_language_code": "en", "audience_segment": "student", "niche": "study", "topic": "active recall", "content_angle": "education", "value_type": "how_to", "hook_text": "5 study mistakes", "hook_technique": "list_or_number", "content_format": "listicle", "slide_count": 3, "product_family": "single_product", "product_placement_style": "late_reveal", "product_position": 3, "cta_type": "try_product", "cta_position": 3, "dominant_visual_type": "notes_or_document", "visual_aesthetic": "study aesthetic", "creative_formula": "list hook -> value -> product CTA",
+        "reference_schema_version": "creative-reference-pack-v2", "reference_id": "REF-0001", "selection_strategy": "system", "selection_reason": "account_coverage", "rank_mode": "relative", "rank_position": 1, "rank_score": 0.97, "source_platform": "tiktok", "source_account": "creator", "source_post_id": "123", "source_url": "https://example.test/123", "created_at": "2026-01-01T00:00:00Z", "views": 10000, "save_rate": 0.04, "share_rate": 0.01, "account_views_pct": 0.97, "global_views_pct": 0.90, "primary_language_code": "en", "audience_segment": "student", "niche": "study", "topic": "active recall", "content_angle": "education", "value_type": "how_to", "hook_text": "5 study mistakes", "hook_technique": "list_or_number", "content_format": "listicle", "slide_count": 3, "product_family": "single_product", "product_placement_style": "late_reveal", "product_position": 3, "cta_type": "try_product", "cta_position": 3, "dominant_visual_type": "notes_or_document", "visual_aesthetic": "study aesthetic", "creative_formula": "list hook -> value -> product CTA",
     }
 
 
@@ -57,16 +57,28 @@ def test_detail_exposes_existing_slide_level_vision_without_raw_analysis(tmp_pat
     assert detail["sequence"][1]["primary_text"] == "Active recall"
     assert detail["product"]["first_position"] == 3
     assert detail["blueprint"]["sequence_roles"] == ["hook", "value", "cta"]
+    assert detail["selection"]["reason"] == "account_coverage"
     assert "analysis_json" not in json.dumps(detail)
 
 
 def test_workspace_writes_details_groups_and_static_files(tmp_path: Path) -> None:
     refs = pd.DataFrame([ref_row()])
     sources = pd.DataFrame([source_row()])
-    report = write_reference_workspace(refs, sources, out_dir=tmp_path, media_mode="none")
+    report = write_reference_workspace(
+        refs,
+        sources,
+        system_population=refs,
+        system_map={"dataset": {"posts": 1}},
+        out_dir=tmp_path,
+        media_mode="none",
+    )
     assert report["details"] == 1
     assert (tmp_path / "details/REF-0001.json").is_file()
     assert (tmp_path / "workspace.json").is_file()
     assert (tmp_path / "candidate_groups.json").is_file()
+    assert (tmp_path / "system.json").is_file()
+    groups = json.loads((tmp_path / "candidate_groups.json").read_text(encoding="utf-8"))
+    assert groups[0]["selected_references"] == 1
+    assert groups[0]["reference_ids"] == ["REF-0001"]
     (tmp_path / "manifest.json").write_text("{}", encoding="utf-8")
     assert validate_reference_workspace(tmp_path) == []

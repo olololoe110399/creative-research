@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.8.0 - 2026-10-07
+
+- Make whole-system understanding the first step of the generated research workspace.
+- Add `system.json` with full-dataset account, cadence, performance, dimension, and reference-selection coverage.
+- Add `--strategy system` as the default reference sampler: cover accounts first, then balance performance, structural novelty, and account concentration.
+- Add `--strategy account-balanced` for near-even per-account sampling while retaining `--strategy top` for later exploitation.
+- Build candidate structures from the full reference population instead of only the selected reference sample.
+- Redesign the UI as System → Accounts → Structures → References → Compare → Selected.
+- Surface largest-account share, account coverage, reference counts per account, and dimension coverage so sample bias is visible.
+- Rename shared media helpers around the Reference Workspace.
+- Remove the legacy Showcase commands, server, static bundle, docs, tests, and workspace directory.
+- Keep `selected.json` as the explicit curated handoff into Creative Bank.
+
+
 ## 0.7.0 - 2026-10-07
 
 - Upgrade downstream handoff to `creative-reference-pack-v2`.

@@ -32,10 +32,8 @@ jobs:
       - name: Critical lint
         run: uv run ruff check .
 
-      - name: Check static JavaScript
-        run: |
-          node --check src/creative_research/showcase_static/app.js
-          node --check src/creative_research/reference_workspace_static/app.js
+      - name: Check workspace JavaScript
+        run: node --check src/creative_research/reference_workspace_static/app.js
 
       - name: Test
         run: uv run pytest --cov=creative_research --cov-report=term-missing
@@ -51,10 +49,6 @@ jobs:
 
           wheel = glob.glob("dist/*.whl")[0]
           required = {
-              "creative_research/showcase_static/index.html",
-              "creative_research/showcase_static/app.js",
-              "creative_research/showcase_static/style.css",
-              "creative_research/showcase_static/favicon.svg",
               "creative_research/reference_workspace_static/index.html",
               "creative_research/reference_workspace_static/app.js",
               "creative_research/reference_workspace_static/style.css",
@@ -64,6 +58,6 @@ jobs:
               names = set(archive.namelist())
           missing = sorted(required - names)
           if missing:
-              raise SystemExit("Missing showcase assets in wheel: " + ", ".join(missing))
+              raise SystemExit("Missing workspace assets in wheel: " + ", ".join(missing))
           print("Static assets packaged:", ", ".join(sorted(required)))
           PY

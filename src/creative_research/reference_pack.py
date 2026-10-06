@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import math
 import re
 import shutil
 from datetime import UTC, datetime
@@ -71,6 +72,16 @@ DEFAULT_GROUP_DIMENSIONS = [
     "product_placement_style",
 ]
 
+SELECTION_DIVERSITY_DIMENSIONS = (
+    "hook_technique",
+    "content_angle",
+    "content_format",
+    "product_placement_style",
+    "audience_segment",
+    "primary_language_code",
+    "dominant_visual_type",
+)
+
 
 def load_master(path: str | Path) -> tuple[Path, pd.DataFrame]:
     resolved = resolve_path(path)
@@ -136,6 +147,172 @@ def rank_master(
     return work.reset_index(drop=True)
 
 
+def _account_balanced_select(ranked: pd.DataFrame, top: int) -> pd.DataFrame:
+    if ranked.empty:
+        return ranked.copy()
+    if top <= 0 or top >= len(ranked):
+        result = ranked.copy()
+        result["selection_reason"] = "account_balanced"
+        return result
+
+    work = ranked.copy()
+    work["_rank_position"] = range(1, len(work) + 1)
+    queues = {
+        str(account): group.index.tolist()
+        for account, group in work.groupby("account", sort=False, dropna=False)
+    }
+    accounts = list(queues)
+    selected: list[int] = []
+    cursor = {account: 0 for account in accounts}
+    while len(selected) < top:
+        progressed = False
+        for account in accounts:
+            pos = cursor[account]
+            queue = queues[account]
+            if pos >= len(queue):
+                continue
+            selected.append(queue[pos])
+            cursor[account] = pos + 1
+            progressed = True
+            if len(selected) >= top:
+                break
+        if not progressed:
+            break
+
+    result = work.loc[selected].copy()
+    result["selection_reason"] = "account_balanced"
+    return result.reset_index(drop=True)
+
+
+def _system_select(ranked: pd.DataFrame, top: int) -> pd.DataFrame:
+    if ranked.empty:
+        return ranked.copy()
+    if top <= 0 or top >= len(ranked):
+        result = ranked.copy()
+        result["selection_reason"] = "full_population"
+        return result
+
+    work = ranked.copy()
+    work["_rank_position"] = range(1, len(work) + 1)
+    quality = pd.to_numeric(work["rank_score"], errors="coerce")
+    work["_selection_quality"] = quality.rank(pct=True).fillna(0.0)
+
+    selected: list[int] = []
+    reasons: dict[int, str] = {}
+    selected_counts: dict[str, int] = {}
+    seen: dict[str, set[str]] = {dimension: set() for dimension in SELECTION_DIVERSITY_DIMENSIONS}
+
+    def add(index: int, reason: str) -> None:
+        selected.append(index)
+        reasons[index] = reason
+        account = str(work.at[index, "account"])
+        selected_counts[account] = selected_counts.get(account, 0) + 1
+        for dimension in SELECTION_DIVERSITY_DIMENSIONS:
+            if dimension not in work.columns:
+                continue
+            value = work.at[index, dimension]
+            if pd.isna(value):
+                continue
+            text = str(value).strip()
+            if text:
+                seen[dimension].add(text)
+
+    # First guarantee breadth across accounts when the requested sample allows it.
+    best_by_account = (
+        work.sort_values("_selection_quality", ascending=False, kind="mergesort")
+        .groupby("account", dropna=False, sort=False)
+        .head(1)
+        .sort_values("_selection_quality", ascending=False, kind="mergesort")
+    )
+    for index in best_by_account.index:
+        if len(selected) >= top:
+            break
+        add(int(index), "account_coverage")
+
+    remaining = set(work.index) - set(selected)
+    account_total = max(1, int(work["account"].nunique()))
+    soft_cap = max(2, math.ceil(top / account_total) + 1)
+
+    while len(selected) < top and remaining:
+        best_index: int | None = None
+        best_score = float("-inf")
+        best_novelty = 0.0
+
+        eligible = {
+            index
+            for index in remaining
+            if selected_counts.get(str(work.at[index, "account"]), 0) < soft_cap
+        }
+        if not eligible:
+            eligible = remaining
+
+        for index in eligible:
+            row = work.loc[index]
+            novelty_parts: list[float] = []
+            for dimension in SELECTION_DIVERSITY_DIMENSIONS:
+                if dimension not in work.columns:
+                    continue
+                value = row.get(dimension)
+                if pd.isna(value):
+                    continue
+                text = str(value).strip()
+                if text:
+                    novelty_parts.append(1.0 if text not in seen[dimension] else 0.0)
+
+            novelty = (
+                sum(novelty_parts) / len(novelty_parts)
+                if novelty_parts
+                else 0.0
+            )
+            account = str(row.get("account"))
+            balance = 1.0 / (1.0 + selected_counts.get(account, 0))
+            score = (
+                0.45 * float(row["_selection_quality"])
+                + 0.35 * novelty
+                + 0.20 * balance
+            )
+            if score > best_score:
+                best_score = score
+                best_index = int(index)
+                best_novelty = novelty
+
+        if best_index is None:
+            break
+        add(
+            best_index,
+            "structure_diversity" if best_novelty > 0 else "performance_balance",
+        )
+        remaining.remove(best_index)
+
+    result = work.loc[selected].copy()
+    result["selection_reason"] = [reasons[int(index)] for index in result.index]
+    return result.reset_index(drop=True)
+
+
+def select_reference_candidates(
+    df: pd.DataFrame,
+    *,
+    strategy: str = "system",
+    rank: str = "relative",
+    content_type: str = "slideshow",
+    top: int = 30,
+) -> tuple[pd.DataFrame, pd.DataFrame]:
+    ranked = rank_master(df, rank=rank, content_type=content_type, top=None)
+    ranked["_rank_position"] = range(1, len(ranked) + 1)
+
+    if strategy == "top":
+        selected = ranked if top <= 0 else ranked.head(top).copy()
+        selected["selection_reason"] = "top_ranked"
+    elif strategy == "account-balanced":
+        selected = _account_balanced_select(ranked, top)
+    elif strategy == "system":
+        selected = _system_select(ranked, top)
+    else:
+        raise ValueError(f"Unknown selection strategy: {strategy}")
+
+    return ranked.reset_index(drop=True), selected.reset_index(drop=True)
+
+
 def build_reference_rows(
     df: pd.DataFrame,
     *,
@@ -145,8 +322,14 @@ def build_reference_rows(
     out = pd.DataFrame(index=df.index)
     out["reference_schema_version"] = REFERENCE_EXPORT_SCHEMA_VERSION
     out["reference_id"] = [f"REF-{i:04d}" for i in range(1, len(df) + 1)]
-    out["rank_position"] = range(1, len(df) + 1)
+    out["rank_position"] = (
+        df["_rank_position"]
+        if "_rank_position" in df.columns
+        else range(1, len(df) + 1)
+    )
     out["selection_strategy"] = selection_strategy
+    if "selection_reason" in df.columns:
+        out["selection_reason"] = df["selection_reason"]
     out["rank_mode"] = rank_mode
     out["rank_score"] = _numeric(df, "rank_score")
     out["source_platform"] = "tiktok"
