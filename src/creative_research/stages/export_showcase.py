@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import shutil
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -533,6 +534,9 @@ def export_showcase(
     media_limit: int = 100,
 ) -> dict[str, Any]:
     out_dir.mkdir(parents=True, exist_ok=True)
+    assets_dir = out_dir / "assets"
+    if assets_dir.exists():
+        shutil.rmtree(assets_dir)
     static_files = sync_showcase_site(out_dir)
 
     aliases = _account_aliases(df)
