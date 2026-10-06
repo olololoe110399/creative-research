@@ -21,6 +21,7 @@ def test_canonical_commands_exist() -> None:
         "extract-references",
         "query",
         "group-references",
+        "references",
         "export-showcase",
         "showcase",
     }

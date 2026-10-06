@@ -26,6 +26,7 @@ COMMANDS = {
     "extract-references": "creative_research.stages.extract_references",
     "query": "creative_research.stages.query",
     "group-references": "creative_research.stages.group_references",
+    "references": "creative_research.stages.references",
     "export-showcase": "creative_research.stages.export_showcase",
     "showcase": "creative_research.stages.showcase",
 }
@@ -51,6 +52,7 @@ Canonical evidence pipeline:
   extract-references Export a portable ranked creative reference pack
   query              Filter normalized creative tables without ad-hoc Pandas
   group-references   Build descriptive candidate groups from a reference pack
+  references         Serve a generated production Reference Workspace
   export-showcase    Build a self-contained showcase site from creative_master
   showcase           Serve the generated showcase locally
 
@@ -72,7 +74,8 @@ Examples:
   uv run creative-research vision-slides data/03_manifests/slides/full_manifest.csv --out data/04_vision/slides
   uv run creative-research build-master --slides data/04_vision/slides/creative_study_v2.parquet --videos data/04_vision/videos/creative_video_study.parquet
   uv run creative-research rank-posts data/05_master/creative_master.parquet --content-type slideshow --top 50
-  uv run creative-research extract-references data/05_master/creative_master.parquet --out data/07_exports/study-reference-pack --top 30 --media copy
+  uv run creative-research extract-references data/05_master/creative_master.parquet --out data/07_exports/study-reference-pack --top 30 --media remote
+  uv run creative-research references --dir data/07_exports/study-reference-pack --open
   uv run creative-research export-showcase data/05_master/creative_master.parquet --out data/06_showcase
   uv run creative-research showcase --open
 
@@ -80,6 +83,7 @@ Detailed stage help:
   uv run creative-research vision-slides --help
   uv run creative-research vision-videos --help
   uv run creative-research extract-references --help
+  uv run creative-research references --help
   uv run creative-research export-showcase --help
   uv run creative-research showcase --help
 """

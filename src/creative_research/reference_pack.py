@@ -12,7 +12,7 @@ import pandas as pd
 from creative_research.pathing import portable_path, project_root, resolve_path
 from creative_research.validation import read_table
 
-REFERENCE_EXPORT_SCHEMA_VERSION = "creative-reference-pack-v1"
+REFERENCE_EXPORT_SCHEMA_VERSION = "creative-reference-pack-v2"
 
 REFERENCE_FIELDS = [
     "content_type",
@@ -33,6 +33,8 @@ REFERENCE_FIELDS = [
     "content_angle",
     "value_type",
     "hook_text",
+    "hook_position",
+    "hook_position_unit",
     "hook_technique",
     "hook_psychological_trigger",
     "hook_replicable_formula",
@@ -43,6 +45,9 @@ REFERENCE_FIELDS = [
     "duration_seconds",
     "dominant_visual_type",
     "visual_aesthetic",
+    "image_realism",
+    "text_overlay_style",
+    "visual_consistency",
     "pinterest_like_aesthetic",
     "product_family",
     "product_placement_style",
@@ -131,11 +136,17 @@ def rank_master(
     return work.reset_index(drop=True)
 
 
-def build_reference_rows(df: pd.DataFrame, *, rank_mode: str) -> pd.DataFrame:
+def build_reference_rows(
+    df: pd.DataFrame,
+    *,
+    rank_mode: str,
+    selection_strategy: str = "top",
+) -> pd.DataFrame:
     out = pd.DataFrame(index=df.index)
     out["reference_schema_version"] = REFERENCE_EXPORT_SCHEMA_VERSION
     out["reference_id"] = [f"REF-{i:04d}" for i in range(1, len(df) + 1)]
     out["rank_position"] = range(1, len(df) + 1)
+    out["selection_strategy"] = selection_strategy
     out["rank_mode"] = rank_mode
     out["rank_score"] = _numeric(df, "rank_score")
     out["source_platform"] = "tiktok"
@@ -198,6 +209,7 @@ def write_reference_pack(
     rank_mode: str,
     content_type: str,
     media_mode: str,
+    selection_strategy: str = "top",
 ) -> dict[str, object]:
     out_dir.mkdir(parents=True, exist_ok=True)
     write_table(references, out_dir / "references.parquet")
@@ -210,6 +222,7 @@ def write_reference_pack(
         "source_master": portable_path(source_master),
         "rows": int(len(references)),
         "rank_mode": rank_mode,
+        "selection_strategy": selection_strategy,
         "content_type": content_type,
         "media_mode": media_mode,
         "columns": list(references.columns),
@@ -225,6 +238,7 @@ def write_reference_pack(
         f"- Schema: {REFERENCE_EXPORT_SCHEMA_VERSION}",
         f"- References: {len(references)}",
         f"- Rank mode: {rank_mode}",
+        f"- Selection strategy: {selection_strategy}",
         f"- Content type: {content_type}",
         f"- Media mode: {media_mode}",
         "",
