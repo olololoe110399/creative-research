@@ -162,3 +162,19 @@ def test_export_showcase_writes_expected_bundle_and_aggregates(
     assert {
         item["value"] for item in dimensions["hook_technique"]
     } == {"list_or_number", "question"}
+
+
+def test_export_showcase_replaces_static_template_and_stale_assets(
+    tmp_path: Path,
+) -> None:
+    (tmp_path / "index.html").write_text("stale", encoding="utf-8")
+    stale = tmp_path / "assets/thumbnails/old.jpg"
+    stale.parent.mkdir(parents=True)
+    stale.write_bytes(b"old")
+
+    export_showcase(sample_master(), tmp_path)
+
+    assert "Creative Evidence" in (
+        tmp_path / "index.html"
+    ).read_text(encoding="utf-8")
+    assert not (tmp_path / "assets").exists()
