@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import shutil
 from importlib import resources
 from pathlib import Path
 from typing import Any
@@ -258,6 +259,8 @@ def write_reference_workspace(
         raise ValueError("Reference rows and source rows must have identical length/order")
 
     details_dir = out_dir / "details"
+    if details_dir.exists():
+        shutil.rmtree(details_dir)
     details_dir.mkdir(parents=True, exist_ok=True)
     details: list[dict[str, Any]] = []
     for reference, source in zip(
@@ -279,6 +282,7 @@ def write_reference_workspace(
         encoding="utf-8",
     )
     payload = {
+        "pack_id": out_dir.name,
         "reference_schema_version": references["reference_schema_version"].iloc[0] if len(references) else None,
         "references": details,
     }
