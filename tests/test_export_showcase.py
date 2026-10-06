@@ -77,9 +77,9 @@ def sample_master() -> pd.DataFrame:
     )
 
 
-def test_export_showcase_is_public_safe_by_default(tmp_path: Path) -> None:
+def test_export_showcase_is_share_safe_by_default(tmp_path: Path) -> None:
     manifest = export_showcase(sample_master(), tmp_path)
-    assert manifest["public_safe_defaults"] is True
+    assert manifest["share_safe_defaults"] is True
 
     posts = json.loads(
         (tmp_path / "posts.json").read_text(encoding="utf-8")
