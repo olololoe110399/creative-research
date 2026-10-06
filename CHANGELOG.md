@@ -2,8 +2,8 @@
 
 ## 0.5.1 - 2026-10-06
 
-- Add opt-in thumbnail and video-preview assets for showcase exports.
-- Use anonymized asset filenames and keep media disabled by default.
+- Add opt-in remote, copied, and hybrid media modes for showcase exports.
+- Reuse archived TikTok/CDN media URLs and support anonymized local fallback assets.
 - Add `--media-limit` to cap media payload size for dashboard demos.
 - Update AI Studio prompt to render image cards and inline video previews when available.
 - Add deterministic media-export tests and re-identification caveats.
