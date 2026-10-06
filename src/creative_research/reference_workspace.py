@@ -8,7 +8,7 @@ from typing import Any
 
 import pandas as pd
 
-from creative_research.reference_pack import group_references
+from creative_research.reference_pack import DEFAULT_GROUP_DIMENSIONS, group_references
 from creative_research.reference_media import export_media_for_post
 
 STATIC_FILES = ("index.html", "app.js", "style.css", "favicon.svg")
@@ -279,7 +279,31 @@ def write_reference_workspace(
         )
 
     groups = group_references(system_population)
+
+    selected_group_refs: dict[tuple[str, ...], list[str]] = {}
+    for record in references.to_dict(orient="records"):
+        key_parts: list[str] = []
+        for dimension in DEFAULT_GROUP_DIMENSIONS:
+            value = record.get(dimension)
+            if value is None or value is pd.NA:
+                key_parts.append("<missing>")
+                continue
+            try:
+                if pd.isna(value):
+                    key_parts.append("<missing>")
+                    continue
+            except (TypeError, ValueError):
+                pass
+            key_parts.append(str(value))
+        selected_group_refs.setdefault(tuple(key_parts), []).append(str(record["reference_id"]))
+
     group_rows = groups.where(pd.notna(groups), None).to_dict(orient="records")
+    for row in group_rows:
+        key = tuple(str(row.get(dimension, "<missing>")) for dimension in DEFAULT_GROUP_DIMENSIONS)
+        ids = selected_group_refs.get(key, [])
+        row["selected_references"] = len(ids)
+        row["reference_ids"] = ids
+
     (out_dir / "candidate_groups.json").write_text(
         json.dumps(group_rows, ensure_ascii=False, indent=2, default=str),
         encoding="utf-8",
