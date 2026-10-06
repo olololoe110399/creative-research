@@ -129,6 +129,10 @@ def test_export_showcase_writes_expected_bundle_and_aggregates(
     export_showcase(sample_master(), tmp_path)
 
     expected = {
+        "index.html",
+        "app.js",
+        "style.css",
+        "favicon.svg",
         "overview.json",
         "accounts.json",
         "timeline.json",
