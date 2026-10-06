@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.5.1 - 2026-10-06
+
+- Add opt-in thumbnail and video-preview assets for showcase exports.
+- Use anonymized asset filenames and keep media disabled by default.
+- Add `--media-limit` to cap media payload size for dashboard demos.
+- Update AI Studio prompt to render image cards and inline video previews when available.
+- Add deterministic media-export tests and re-identification caveats.
+
 ## 0.5.0 - 2026-10-06
 
 - Add `export-showcase` for public-safe dashboard / AI Studio bundles.
