@@ -174,6 +174,7 @@ def build_reference_detail(
             "rank_mode": reference.get("rank_mode"),
             "rank_position": _clean(reference.get("rank_position")),
             "rank_score": _clean(reference.get("rank_score")),
+            "reason": _clean(reference.get("selection_reason")),
         },
         "performance": {
             key: _clean(reference.get(key))
