@@ -11,6 +11,7 @@ Apify raw data
   -> slideshow/video manifests
   -> Gemini creative interpretation
   -> validated creative_master
+  -> ranked reference packs for downstream production
 ```
 
 It excludes OCR experiments, EDA, notebooks, RAG, agents, and knowledge-bank logic. The optional showcase is a presentation layer over the validated evidence, not an analysis/knowledge layer.
@@ -51,6 +52,10 @@ vision-slides
 download-videos
 vision-videos
 build-master
+rank-posts
+extract-references
+query
+group-references
 export-showcase
 showcase
 
@@ -83,7 +88,8 @@ data/
 ├── 04_vision/slides/         # slideshow Vision outputs
 ├── 04_vision/videos/         # video Vision outputs
 ├── 05_master/                # canonical normalized dataset
-└── 06_showcase/              # generated self-contained static showcase site
+├── 06_showcase/              # generated self-contained static showcase site
+└── 07_exports/               # portable downstream reference packs
 ```
 
 Generated manifests use project-relative paths whenever possible. Vision readers resolve those paths from `CREATIVE_RESEARCH_PROJECT_ROOT` or the current working directory.
@@ -192,7 +198,49 @@ data/05_master/
 └── report.json
 ```
 
-### 9. Build and view the showcase (optional)
+### 9. Rank and export production references
+
+Use account-relative performance by default so one large account does not dominate selection:
+
+```bash
+uv run creative-research rank-posts \
+  data/05_master/creative_master.parquet \
+  --content-type slideshow \
+  --rank relative \
+  --top 50
+```
+
+Export the selected source material as a portable handoff:
+
+```bash
+uv run creative-research extract-references \
+  data/05_master/creative_master.parquet \
+  --out data/07_exports/study-reference-pack \
+  --content-type slideshow \
+  --rank relative \
+  --top 30
+```
+
+The pack contains `references.parquet/csv/jsonl`, `manifest.json`, and `summary.md`. Use `--media copy` only when downstream work needs local source media.
+
+Descriptive grouping is available without assigning creative-family truth:
+
+```bash
+uv run creative-research group-references \
+  data/07_exports/study-reference-pack/references.parquet
+```
+
+Use `query` for explicit filters instead of one-off notebooks:
+
+```bash
+uv run creative-research query \
+  data/05_master/creative_master.parquet \
+  --where "content_type=slideshow" \
+  --where "account_views_pct>=0.75" \
+  --columns account,post_id,url,hook_text,views,account_views_pct
+```
+
+### 10. Build and view the showcase (optional)
 
 ```bash
 uv run creative-research export-showcase \
@@ -200,7 +248,8 @@ uv run creative-research export-showcase \
   --out data/06_showcase \
   --media remote \
   --media-limit 0 \
-  --include-text
+  --include-text \
+  --references data/07_exports/study-reference-pack/references.parquet
 ```
 
 Every export regenerates a self-contained static site in `data/06_showcase/`: the packaged UI template is overwritten with the current version, JSON is rebuilt from `creative_master`, and stale generated media assets are cleared before optional media is exported.
@@ -216,6 +265,7 @@ data/06_showcase/
 ├── timeline.json
 ├── dimensions.json
 ├── posts.json
+├── references.json
 ├── manifest.json
 └── AI_STUDIO_PROMPT.md
 ```
@@ -228,7 +278,7 @@ uv run creative-research showcase --open
 
 By default, creator identities, raw post IDs/URLs, free text, media paths, raw Vision analysis, and media assets are excluded. Use `--media remote` for scraped TikTok/CDN URLs, `--media copy` for local static assets, or `--media hybrid` for remote media with local fallbacks. See [`docs/SHOWCASE.md`](docs/SHOWCASE.md).
 
-This repository ends at validated evidence plus an optional presentation export. Pattern banks, hypotheses, experiments, and playbooks belong in a separate downstream layer.
+This repository ends at validated evidence, ranked reference handoff, and an optional presentation export. Pattern banks, hypotheses, experiments, and playbooks belong in a separate downstream layer.
 
 ## Resume behavior
 
