@@ -585,7 +585,9 @@ def export_showcase(
             "AI_STUDIO_PROMPT.md",
         ],
         "share_safe_defaults": (
-            not include_identities and not include_text
+            not include_identities
+            and not include_text
+            and media_mode == "none"
         ),
         "identities_included": include_identities,
         "free_text_included": include_text,
