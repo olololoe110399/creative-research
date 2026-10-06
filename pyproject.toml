@@ -1,0 +1,55 @@
+[project]
+name = "creative-research"
+version = "0.4.0"
+description = "Reusable evidence pipeline for public creative and distribution research"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+  "apify-client>=2.0.0",
+  "google-genai>=1.0.0",
+  "httpx>=0.27.0",
+  "pandas>=2.2.0",
+  "pyarrow>=18.0.0",
+  "pydantic>=2.9.0",
+  "yt-dlp>=2025.1.0",
+]
+
+[project.scripts]
+creative-research = "creative_research.cli:main"
+
+[dependency-groups]
+dev = [
+  "pytest>=8.3.0",
+  "pytest-cov>=6.0.0",
+  "ruff>=0.8.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+# Existing stage modules came from proven research scripts. In production CI we
+# enforce critical Python correctness now, while refactoring style incrementally.
+[tool.ruff.lint]
+select = ["E9", "F63", "F7", "F82"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+addopts = "-ra"
+
+[tool.coverage.run]
+branch = true
+source = ["creative_research"]
+omit = [
+  "src/creative_research/stages/vision_slides.py",
+  "src/creative_research/stages/vision_videos.py",
+]
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = true

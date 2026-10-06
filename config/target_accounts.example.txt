@@ -1,0 +1,5 @@
+# Example target accounts for a research project.
+# Replace with public account handles you are authorized to research.
+creator_alpha
+creator_beta
+creator_gamma
