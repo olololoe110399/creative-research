@@ -173,3 +173,38 @@ def test_account_balanced_strategy_limits_account_dominance() -> None:
     )
     counts = selected["account"].value_counts()
     assert counts.max() - counts.min() <= 1
+
+
+def test_system_strategy_soft_caps_account_concentration() -> None:
+    rows = []
+    for account, base in (("a", 0.99), ("b", 0.75), ("c", 0.65)):
+        for i in range(10):
+            rows.append(
+                {
+                    "account": account,
+                    "post_id": f"{account}{i}",
+                    "content_type": "slideshow",
+                    "views": 10000 - i,
+                    "account_views_pct": max(0.01, base - i * 0.01),
+                    "global_views_pct": max(0.01, base - i * 0.01),
+                    "save_rate": 0.03,
+                    "share_rate": 0.01,
+                    "hook_technique": "list" if i % 2 == 0 else "question",
+                    "content_angle": "education",
+                    "content_format": "listicle",
+                    "product_placement_style": "late_reveal",
+                    "audience_segment": "student",
+                    "primary_language_code": "en",
+                    "dominant_visual_type": "notes",
+                }
+            )
+    _, selected = select_reference_candidates(
+        pd.DataFrame(rows),
+        strategy="system",
+        rank="relative",
+        content_type="slideshow",
+        top=9,
+    )
+    counts = selected["account"].value_counts()
+    assert set(counts.index) == {"a", "b", "c"}
+    assert counts.max() <= 4
