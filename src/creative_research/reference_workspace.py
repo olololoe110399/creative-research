@@ -12,7 +12,7 @@ from creative_research.reference_pack import group_references
 from creative_research.showcase_media import export_media_for_post
 
 STATIC_FILES = ("index.html", "app.js", "style.css", "favicon.svg")
-REQUIRED_DATA_FILES = ("workspace.json", "candidate_groups.json", "manifest.json")
+REQUIRED_DATA_FILES = ("workspace.json", "system.json", "candidate_groups.json", "manifest.json")
 
 
 def _clean(value: Any) -> Any:
@@ -252,6 +252,8 @@ def write_reference_workspace(
     references: pd.DataFrame,
     source_rows: pd.DataFrame,
     *,
+    system_population: pd.DataFrame,
+    system_map: dict[str, Any],
     out_dir: Path,
     media_mode: str,
 ) -> dict[str, Any]:
@@ -275,10 +277,14 @@ def write_reference_workspace(
             encoding="utf-8",
         )
 
-    groups = group_references(references)
+    groups = group_references(system_population)
     group_rows = groups.where(pd.notna(groups), None).to_dict(orient="records")
     (out_dir / "candidate_groups.json").write_text(
         json.dumps(group_rows, ensure_ascii=False, indent=2, default=str),
+        encoding="utf-8",
+    )
+    (out_dir / "system.json").write_text(
+        json.dumps(system_map, ensure_ascii=False, indent=2, default=str),
         encoding="utf-8",
     )
     payload = {
@@ -291,4 +297,9 @@ def write_reference_workspace(
         encoding="utf-8",
     )
     static_files = sync_reference_workspace(out_dir)
-    return {"details": len(details), "groups": len(group_rows), "static_files": static_files}
+    return {
+        "details": len(details),
+        "groups": len(group_rows),
+        "system_posts": int(system_map.get("dataset", {}).get("posts", 0)),
+        "static_files": static_files,
+    }
