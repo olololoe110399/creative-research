@@ -199,7 +199,7 @@ uv run creative-research export-showcase \
   --out data/06_showcase
 ```
 
-By default, creator identities, raw post IDs/URLs, free text, media paths, and raw Vision analysis are excluded. The command writes aggregate JSON, anonymized post data, and `AI_STUDIO_PROMPT.md` for Google AI Studio Build. See [`docs/SHOWCASE.md`](docs/SHOWCASE.md).
+By default, creator identities, raw post IDs/URLs, free text, media paths, raw Vision analysis, and media assets are excluded. Add `--media thumbnails` for visual cards or `--media previews` to also copy selected video files. The command writes aggregate JSON, anonymized post data, and `AI_STUDIO_PROMPT.md` for Google AI Studio Build. See [`docs/SHOWCASE.md`](docs/SHOWCASE.md).
 
 This repository ends at validated evidence plus an optional presentation export. Pattern banks, hypotheses, experiments, and playbooks belong in a separate downstream layer.
 

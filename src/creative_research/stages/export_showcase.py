@@ -10,6 +10,8 @@ from typing import Any
 
 import pandas as pd
 
+from creative_research.showcase_media import export_media_for_post, select_media_keys
+
 SHOWCASE_SCHEMA_VERSION = "creative-showcase-v1"
 
 DIMENSIONS = (
@@ -167,6 +169,7 @@ def build_overview(
     *,
     include_identities: bool,
     include_text: bool,
+    media_mode: str,
 ) -> dict[str, Any]:
     created = pd.to_datetime(
         df.get("created_at"),
@@ -190,6 +193,7 @@ def build_overview(
             "free_text_included": include_text,
             "raw_analysis_included": False,
             "source_media_paths_included": False,
+            "media_mode": media_mode,
         },
         "dataset": {
             "posts": int(len(df)),
@@ -365,6 +369,9 @@ def build_posts(
     *,
     include_identities: bool,
     include_text: bool,
+    out_dir: Path,
+    media_mode: str,
+    media_keys: set[tuple[str, str]],
 ) -> list[dict[str, Any]]:
     work = df.copy()
     work["_created_at"] = pd.to_datetime(
@@ -417,6 +424,20 @@ def build_posts(
                 if field in record:
                     row[field] = _json_scalar(record[field])
 
+        key = (
+            str(record.get("account") or ""),
+            str(record.get("post_id") or ""),
+        )
+        if media_mode != "none" and key in media_keys:
+            row.update(
+                export_media_for_post(
+                    record,
+                    row["post_key"],
+                    out_dir,
+                    mode=media_mode,
+                )
+            )
+
         rows.append(row)
 
     return rows
@@ -436,6 +457,8 @@ Build a polished, responsive analytics dashboard from the attached JSON files:
 - Clearly label claims as observations from this dataset, not universal TikTok benchmarks.
 - Do not expose hidden IDs, raw analysis JSON, source media paths, or anything not present in the files.
 - The dashboard itself should render from the JSON data without requiring Gemini calls.
+- If a post contains `thumbnail_path`, render it as a lazy-loaded image card.
+- If a post contains `video_path`, render an inline muted video preview with controls and poster/thumbnail when available.
 
 ## Product goal
 Make this feel like a research artifact worth sharing publicly: clean, credible,
@@ -472,6 +495,8 @@ visual, data-dense, and easy to screenshot for social posts.
 
 5. Post explorer
    - searchable/filterable table using `posts.json`
+   - use a visual card/grid mode when `thumbnail_path` exists
+   - show inline video preview when `video_path` exists
    - show only fields present in the file
    - if text fields are absent, do not invent them
 
@@ -498,14 +523,26 @@ def export_showcase(
     *,
     include_identities: bool = False,
     include_text: bool = False,
+    media_mode: str = "none",
+    media_limit: int = 100,
 ) -> dict[str, Any]:
     out_dir.mkdir(parents=True, exist_ok=True)
 
     aliases = _account_aliases(df)
+    if media_mode not in {"none", "thumbnails", "previews"}:
+        raise ValueError(f"Unsupported media_mode: {media_mode}")
+
+    media_keys = (
+        select_media_keys(df.to_dict(orient="records"), limit=media_limit)
+        if media_mode != "none"
+        else set()
+    )
+
     overview = build_overview(
         df,
         include_identities=include_identities,
         include_text=include_text,
+        media_mode=media_mode,
     )
     accounts = build_accounts(
         df,
@@ -519,6 +556,9 @@ def export_showcase(
         aliases,
         include_identities=include_identities,
         include_text=include_text,
+        out_dir=out_dir,
+        media_mode=media_mode,
+        media_keys=media_keys,
     )
 
     _write_json(out_dir / "overview.json", overview)
@@ -545,10 +585,15 @@ def export_showcase(
             "AI_STUDIO_PROMPT.md",
         ],
         "share_safe_defaults": (
-            not include_identities and not include_text
+            not include_identities
+            and not include_text
+            and media_mode == "none"
         ),
         "identities_included": include_identities,
         "free_text_included": include_text,
+        "media_mode": media_mode,
+        "media_limit": media_limit if media_mode != "none" else 0,
+        "media_posts_selected": len(media_keys),
     }
     _write_json(out_dir / "manifest.json", manifest)
     return manifest
@@ -572,7 +617,7 @@ def _read_master(path: Path) -> pd.DataFrame:
 def main() -> None:
     ap = argparse.ArgumentParser(
         description=(
-            "Export a public-safe JSON bundle from creative_master "
+            "Export a share-safe JSON/media bundle from creative_master "
             "for dashboard/showcase use."
         )
     )
@@ -600,6 +645,24 @@ def main() -> None:
             "Off by default for public sharing."
         ),
     )
+    ap.add_argument(
+        "--media",
+        choices=["none", "thumbnails", "previews"],
+        default="none",
+        help=(
+            "Optional visual assets. thumbnails copies one cover/first-slide "
+            "image per selected post; previews also copies selected video files."
+        ),
+    )
+    ap.add_argument(
+        "--media-limit",
+        type=int,
+        default=100,
+        help=(
+            "Maximum posts to receive media assets, ranked by global view "
+            "percentile/views. Use 0 for all posts."
+        ),
+    )
     args = ap.parse_args()
 
     master = Path(args.master).expanduser().resolve()
@@ -610,6 +673,8 @@ def main() -> None:
         out,
         include_identities=args.include_identities,
         include_text=args.include_text,
+        media_mode=args.media,
+        media_limit=args.media_limit,
     )
 
     print(

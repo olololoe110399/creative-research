@@ -1,6 +1,6 @@
 [project]
 name = "creative-research"
-version = "0.5.0"
+version = "0.5.1"
 description = "Reusable evidence pipeline for public creative and distribution research"
 readme = "README.md"
 requires-python = ">=3.11"
