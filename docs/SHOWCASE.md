@@ -4,7 +4,7 @@
 \`creative_master\` into a small JSON bundle designed for dashboards,
 demos, and AI Studio Build.
 
-The exporter is **public-safe by default**:
+The exporter is **share-safe by default**:
 
 - creator identities are replaced with deterministic aliases such as
   \`Creator 01\`
@@ -57,7 +57,7 @@ Even with both flags enabled, the exporter never includes
 
 ## Interpretation
 
-The bundle is evidence for this dataset, not a claim about the platform
+The default export reduces accidental disclosure but does not guarantee de-identification; exact metrics can still make public-source posts recognizable.\n\nThe bundle is evidence for this dataset, not a claim about the platform
 as a whole. Dashboard copy should use language such as
 “observed in this dataset” and should show sample size beside
 comparisons.
