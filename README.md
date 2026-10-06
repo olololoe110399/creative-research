@@ -2,7 +2,7 @@
 
 Reusable production evidence pipeline for public TikTok creative and distribution research.
 
-The repository intentionally does one job only:
+The repository intentionally owns the market-evidence side of the workflow:
 
 ```text
 Apify raw data
@@ -11,10 +11,11 @@ Apify raw data
   -> slideshow/video manifests
   -> Gemini creative interpretation
   -> validated creative_master
-  -> ranked reference packs for downstream production
+  -> ranked Reference Workspace
+  -> selected references for downstream production
 ```
 
-It excludes OCR experiments, EDA, notebooks, RAG, agents, and knowledge-bank logic. The optional showcase is a presentation layer over the validated evidence, not an analysis/knowledge layer.
+It excludes downstream creative families, experiments, first-party learning, RAG, and agent orchestration. The Reference Workspace is the production handoff surface. Showcase remains optional for broad dataset exploration/presentation.
 
 ## Requirements
 
@@ -56,6 +57,7 @@ rank-posts
 extract-references
 query
 group-references
+references
 export-showcase
 showcase
 
@@ -198,7 +200,7 @@ data/05_master/
 └── report.json
 ```
 
-### 9. Rank and export production references
+### 9. Build the production Reference Workspace
 
 Use account-relative performance by default so one large account does not dominate selection:
 
@@ -218,10 +220,42 @@ uv run creative-research extract-references \
   --out data/07_exports/study-reference-pack \
   --content-type slideshow \
   --rank relative \
-  --top 30
+  --top 30 \
+  --media remote
+
+uv run creative-research references \
+  --dir data/07_exports/study-reference-pack \
+  --open
 ```
 
-The pack contains `references.parquet/csv/jsonl`, `manifest.json`, and `summary.md`. Use `--media copy` only when downstream work needs local source media.
+The v2 pack contains flat analytics tables plus full production details and a self-contained UI:
+
+```text
+data/07_exports/study-reference-pack/
+├── index.html
+├── app.js
+├── style.css
+├── favicon.svg
+├── workspace.json
+├── candidate_groups.json
+├── manifest.json
+├── references.parquet
+├── references.csv
+├── references.jsonl
+├── details/
+│   └── REF-xxxx.json
+└── media/                  # copy/hybrid only
+```
+
+Each detail record is normalized from the existing Vision `analysis_json`: slide roles/text/visuals, hook, product reveal, CTA, confidence, deterministic blueprint, performance, provenance, and media references. No second Vision pass is performed.
+
+The UI is a production workbench:
+- **References** — inspect actual creatives and slide sequences.
+- **Groups** — descriptive candidate structures, not families.
+- **Compare** — compare 2–4 references and surface exact shared structure.
+- **Selected** — curate the references to send downstream and export `selected.json`.
+
+Remote media is the lightweight default. Use `--media copy` for durable local assets or `--media hybrid` for both.
 
 Descriptive grouping is available without assigning creative-family truth:
 
@@ -240,7 +274,9 @@ uv run creative-research query \
   --columns account,post_id,url,hook_text,views,account_views_pct
 ```
 
-### 10. Build and view the showcase (optional)
+### 10. Broad dataset showcase (optional)
+
+The Showcase is useful for aggregate exploration and sharing, but it is not the production handoff workflow.
 
 ```bash
 uv run creative-research export-showcase \
@@ -278,7 +314,7 @@ uv run creative-research showcase --open
 
 By default, creator identities, raw post IDs/URLs, free text, media paths, raw Vision analysis, and media assets are excluded. Use `--media remote` for scraped TikTok/CDN URLs, `--media copy` for local static assets, or `--media hybrid` for remote media with local fallbacks. See [`docs/SHOWCASE.md`](docs/SHOWCASE.md).
 
-This repository ends at validated evidence, ranked reference handoff, and an optional presentation export. Pattern banks, hypotheses, experiments, and playbooks belong in a separate downstream layer.
+This repository ends at validated evidence plus a curated Reference Workspace handoff. Creative families, briefs, experiments, results, and playbooks belong downstream. Pattern banks, hypotheses, experiments, and playbooks belong in a separate downstream layer.
 
 ## Resume behavior
 
