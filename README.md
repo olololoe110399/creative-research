@@ -51,6 +51,7 @@ vision-slides
 download-videos
 vision-videos
 build-master
+export-showcase
 
 init
 doctor
@@ -80,7 +81,8 @@ data/
 ├── 03_video_media/           # downloaded videos + video manifest
 ├── 04_vision/slides/         # slideshow Vision outputs
 ├── 04_vision/videos/         # video Vision outputs
-└── 05_master/                # canonical normalized dataset
+├── 05_master/                # canonical normalized dataset
+└── 06_showcase/              # optional public-safe JSON presentation bundle
 ```
 
 Generated manifests use project-relative paths whenever possible. Vision readers resolve those paths from `CREATIVE_RESEARCH_PROJECT_ROOT` or the current working directory.
@@ -189,7 +191,17 @@ data/05_master/
 └── report.json
 ```
 
-This repository ends at validated evidence. Pattern banks, hypotheses, experiments, and playbooks belong in a separate downstream layer.
+### 9. Export a public showcase bundle (optional)
+
+```bash
+uv run creative-research export-showcase \
+  data/05_master/creative_master.parquet \
+  --out data/06_showcase
+```
+
+By default, creator identities, raw post IDs/URLs, free text, media paths, and raw Vision analysis are excluded. The command writes aggregate JSON, anonymized post data, and `AI_STUDIO_PROMPT.md` for Google AI Studio Build. See [`docs/SHOWCASE.md`](docs/SHOWCASE.md).
+
+This repository ends at validated evidence plus an optional presentation export. Pattern banks, hypotheses, experiments, and playbooks belong in a separate downstream layer.
 
 ## Resume behavior
 
