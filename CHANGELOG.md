@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.7.0 - 2026-10-07
+
+- Upgrade downstream handoff to `creative-reference-pack-v2`.
+- Reuse existing slideshow Vision `analysis_json`; no Vision rerun is required.
+- Export per-reference `details/REF-xxxx.json` with slide-level sequence, hook, product, CTA, visual evidence, confidence, and a deterministic blueprint.
+- Add explicit remote/local/hybrid media manifests for production reference review.
+- Generate a self-contained Reference Workspace with References, Groups, Compare, and Selected views.
+- Add browser-side `selected.json` export for downstream Creative Bank curation.
+- Add `creative-research references --open` to serve the generated workspace locally.
+- Make remote media the default for reference extraction while retaining copy/hybrid modes.
+- Keep Showcase as an optional research/presentation surface rather than the production reference workflow.
+
 ## 0.6.0 - 2026-10-07
 
 - Add `rank-posts` for account-relative, breakout, save-rate, and balanced ranking.
