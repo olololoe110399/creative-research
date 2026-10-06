@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.5.0 - 2026-10-06
+
+- Add `export-showcase` for public-safe dashboard / AI Studio bundles.
+- Anonymize creator identities and omit raw analysis/media paths by default.
+- Add account, timeline, dimension, and post-level showcase JSON exports.
+- Generate a ready-to-use AI Studio Build prompt with each export.
+- Add deterministic exporter tests and public-showcase documentation.
+
 ## 0.4.0 - 2026-10-06
 
 - Breaking rename from the project-specific package/CLI to generic `creative-research`.

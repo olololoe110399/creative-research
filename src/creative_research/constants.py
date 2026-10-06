@@ -13,6 +13,7 @@ WORKSPACE_DIRS = (
     "data/04_vision/slides",
     "data/04_vision/videos",
     "data/05_master",
+    "data/06_showcase",
 )
 
 DEFAULT_MASTER_PATH = Path("data/05_master/creative_master.parquet")

@@ -59,3 +59,21 @@ data/02_media/tiktok/                 <- local creative source of truth
 - `creative_master` has one row per unique `account+post_id`.
 - `content_type` is only `slideshow` or `video`.
 - Exploratory analysis does not belong in this canonical repository.
+
+
+## Optional showcase export
+
+After `creative_master` validates successfully, a public-safe presentation bundle can be generated without changing the canonical evidence dataset:
+
+```text
+creative_master.parquet
+        |
+        v
+ export-showcase
+        |
+        v
+ data/06_showcase/
+ overview.json + accounts.json + timeline.json + dimensions.json + posts.json
+```
+
+The export anonymizes creator identities and omits raw analysis/media paths by default. It is intended for dashboards and AI Studio Build, not as a replacement for `creative_master`.
