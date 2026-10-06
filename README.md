@@ -82,7 +82,7 @@ data/
 ├── 04_vision/slides/         # slideshow Vision outputs
 ├── 04_vision/videos/         # video Vision outputs
 ├── 05_master/                # canonical normalized dataset
-└── 06_showcase/              # optional public-safe JSON presentation bundle
+└── 06_showcase/              # optional share-safe JSON presentation bundle
 ```
 
 Generated manifests use project-relative paths whenever possible. Vision readers resolve those paths from `CREATIVE_RESEARCH_PROJECT_ROOT` or the current working directory.
