@@ -457,8 +457,11 @@ Build a polished, responsive analytics dashboard from the attached JSON files:
 - Clearly label claims as observations from this dataset, not universal TikTok benchmarks.
 - Do not expose hidden IDs, raw analysis JSON, source media paths, or anything not present in the files.
 - The dashboard itself should render from the JSON data without requiring Gemini calls.
-- If a post contains `thumbnail_path`, render it as a lazy-loaded image card.
-- If a post contains `video_path`, render an inline muted video preview with controls and poster/thumbnail when available.
+- For images, prefer `thumbnail_url`; if it fails and `thumbnail_path` exists, fall back to the local asset.
+- If `slide_urls` exists, render a compact swipeable slideshow/carousel.
+- For video, prefer `video_url`; if playback fails and `video_path` exists, fall back to the copied local video.
+- Use `thumbnail_url` or `thumbnail_path` as the video poster when available.
+- If `post_url` exists, provide a subtle “View original” link.
 
 ## Product goal
 Make this feel like a research artifact worth sharing publicly: clean, credible,
@@ -495,8 +498,10 @@ visual, data-dense, and easy to screenshot for social posts.
 
 5. Post explorer
    - searchable/filterable table using `posts.json`
-   - use a visual card/grid mode when `thumbnail_path` exists
-   - show inline video preview when `video_path` exists
+   - visual card/grid mode when any thumbnail/media field exists
+   - slideshow carousel when `slide_urls` exists
+   - inline video when `video_url` or `video_path` exists
+   - “View original” when `post_url` exists
    - show only fields present in the file
    - if text fields are absent, do not invent them
 
@@ -529,7 +534,7 @@ def export_showcase(
     out_dir.mkdir(parents=True, exist_ok=True)
 
     aliases = _account_aliases(df)
-    if media_mode not in {"none", "thumbnails", "previews"}:
+    if media_mode not in {"none", "remote", "copy", "hybrid"}:
         raise ValueError(f"Unsupported media_mode: {media_mode}")
 
     media_keys = (
@@ -647,11 +652,11 @@ def main() -> None:
     )
     ap.add_argument(
         "--media",
-        choices=["none", "thumbnails", "previews"],
+        choices=["none", "remote", "copy", "hybrid"],
         default="none",
         help=(
-            "Optional visual assets. thumbnails copies one cover/first-slide "
-            "image per selected post; previews also copies selected video files."
+            "Optional visual media. remote exports scraped TikTok/CDN URLs; "
+            "copy exports local assets; hybrid exports remote URLs plus local fallbacks."
         ),
     )
     ap.add_argument(
@@ -659,7 +664,7 @@ def main() -> None:
         type=int,
         default=100,
         help=(
-            "Maximum posts to receive media assets, ranked by global view "
+            "Maximum posts to receive media fields/assets, ranked by global view "
             "percentile/views. Use 0 for all posts."
         ),
     )
