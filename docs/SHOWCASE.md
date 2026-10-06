@@ -183,3 +183,22 @@ and raw post IDs are omitted.
 The dashboard is descriptive. Copy should say “observed in this dataset,” show
 sample size beside comparisons, and avoid causal claims from categorical
 associations.
+
+
+## Review an extracted reference pack
+
+The showcase can highlight a production reference selection without changing the full-dataset analysis.
+
+```bash
+uv run creative-research export-showcase \
+  data/05_master/creative_master.parquet \
+  --out data/06_showcase \
+  --media remote \
+  --media-limit 0 \
+  --include-text \
+  --references data/07_exports/study-reference-pack/references.parquet
+
+uv run creative-research showcase --open
+```
+
+This writes `references.json`, adds `REF-xxxx` badges to matching posts, and enables the **References** tab. A reference selection is descriptive source material; it is not a validated creative family or causal claim.

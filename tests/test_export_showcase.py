@@ -138,6 +138,7 @@ def test_export_showcase_writes_expected_bundle_and_aggregates(
         "timeline.json",
         "dimensions.json",
         "posts.json",
+        "references.json",
         "manifest.json",
         "AI_STUDIO_PROMPT.md",
     }
@@ -178,3 +179,41 @@ def test_export_showcase_replaces_static_template_and_stale_assets(
         tmp_path / "index.html"
     ).read_text(encoding="utf-8")
     assert not (tmp_path / "assets").exists()
+
+
+def test_export_showcase_highlights_reference_pack(tmp_path: Path) -> None:
+    references = pd.DataFrame(
+        [
+            {
+                "reference_id": "REF-0001",
+                "source_account": "real_creator_a",
+                "source_post_id": "111",
+                "rank_position": 1,
+                "rank_mode": "relative",
+                "rank_score": 0.80,
+            }
+        ]
+    )
+
+    manifest = export_showcase(
+        sample_master(),
+        tmp_path,
+        include_text=True,
+        references=references,
+    )
+
+    assert manifest["reference_posts"] == 1
+    selected = json.loads(
+        (tmp_path / "references.json").read_text(encoding="utf-8")
+    )
+    assert len(selected) == 1
+    assert selected[0]["reference_id"] == "REF-0001"
+    assert selected[0]["reference_rank"] == 1
+    assert selected[0]["hook_text"] == "Seven things to learn"
+
+    posts = json.loads(
+        (tmp_path / "posts.json").read_text(encoding="utf-8")
+    )
+    matched = [post for post in posts if post.get("reference_id")]
+    assert len(matched) == 1
+    assert matched[0]["reference_id"] == "REF-0001"

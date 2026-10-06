@@ -17,6 +17,10 @@ def test_canonical_commands_exist() -> None:
         "download-videos",
         "vision-videos",
         "build-master",
+        "rank-posts",
+        "extract-references",
+        "query",
+        "group-references",
         "export-showcase",
         "showcase",
     }

@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.6.0 - 2026-10-07
+
+- Add `rank-posts` for account-relative, breakout, save-rate, and balanced ranking.
+- Add `extract-references` to export portable ranked reference packs from `creative_master`.
+- Add `query` for explicit table filtering without ad-hoc notebooks.
+- Add `group-references` for descriptive candidate grouping without assigning creative families.
+- Add `data/07_exports/` as the canonical downstream handoff workspace.
+- Extend showcase exports with optional reference-pack matching, `references.json`, REF badges, and a selected-references view.
+- Keep downstream hypotheses, experiments, learnings, and playbooks outside this repository.
+
 ## 0.5.2 - 2026-10-07
 
 - Bundle the showcase UI as package static files and copy it into every showcase export.

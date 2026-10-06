@@ -365,6 +365,35 @@ def build_dimensions(
     return output
 
 
+def _build_reference_map(
+    references: pd.DataFrame | None,
+) -> dict[tuple[str, str], dict[str, Any]]:
+    if references is None or references.empty:
+        return {}
+    required = {"source_account", "source_post_id", "reference_id"}
+    missing = sorted(required - set(references.columns))
+    if missing:
+        raise ValueError(
+            "Reference pack is missing required columns: " + ", ".join(missing)
+        )
+
+    output: dict[tuple[str, str], dict[str, Any]] = {}
+    for record in references.to_dict(orient="records"):
+        key = (
+            str(record.get("source_account") or ""),
+            str(record.get("source_post_id") or ""),
+        )
+        if not all(key):
+            continue
+        output[key] = {
+            "reference_id": _json_scalar(record.get("reference_id")),
+            "reference_rank": _json_scalar(record.get("rank_position")),
+            "reference_rank_mode": _json_scalar(record.get("rank_mode")),
+            "reference_score": _json_scalar(record.get("rank_score")),
+        }
+    return output
+
+
 def build_posts(
     df: pd.DataFrame,
     aliases: dict[str, str],
@@ -374,6 +403,7 @@ def build_posts(
     out_dir: Path,
     media_mode: str,
     media_keys: set[tuple[str, str]],
+    reference_map: dict[tuple[str, str], dict[str, Any]] | None = None,
 ) -> list[dict[str, Any]]:
     work = df.copy()
     work["_created_at"] = pd.to_datetime(
@@ -430,6 +460,10 @@ def build_posts(
             str(record.get("account") or ""),
             str(record.get("post_id") or ""),
         )
+        reference = (reference_map or {}).get(key)
+        if reference:
+            row.update(reference)
+
         if media_mode != "none" and key in media_keys:
             row.update(
                 export_media_for_post(
@@ -450,7 +484,7 @@ def ai_studio_prompt() -> str:
 
 Build a polished, responsive analytics dashboard from the attached JSON files:
 `overview.json`, `accounts.json`, `timeline.json`,
-`dimensions.json`, and `posts.json`.
+`dimensions.json`, `posts.json`, and `references.json`.
 
 ## Hard rules
 - Treat the attached JSON files as the only source of numeric truth.
@@ -507,6 +541,12 @@ visual, data-dense, and easy to screenshot for social posts.
    - show only fields present in the file
    - if text fields are absent, do not invent them
 
+6. Selected references
+   - use `references.json`
+   - show the exported REF ID and selection rank
+   - make it easy to review only the source creatives selected for downstream work
+   - do not call reference selections validated families or causal winners
+
 ## Visual direction
 - editorial research dashboard, not a generic admin panel
 - strong typography, generous whitespace, compact metric cards
@@ -532,6 +572,7 @@ def export_showcase(
     include_text: bool = False,
     media_mode: str = "none",
     media_limit: int = 100,
+    references: pd.DataFrame | None = None,
 ) -> dict[str, Any]:
     out_dir.mkdir(parents=True, exist_ok=True)
     assets_dir = out_dir / "assets"
@@ -540,6 +581,7 @@ def export_showcase(
     static_files = sync_showcase_site(out_dir)
 
     aliases = _account_aliases(df)
+    reference_map = _build_reference_map(references)
     if media_mode not in {"none", "remote", "copy", "hybrid"}:
         raise ValueError(f"Unsupported media_mode: {media_mode}")
 
@@ -570,13 +612,20 @@ def export_showcase(
         out_dir=out_dir,
         media_mode=media_mode,
         media_keys=media_keys,
+        reference_map=reference_map,
     )
+    reference_posts = [post for post in posts if post.get("reference_id")]
+    overview["reference_selection"] = {
+        "posts": len(reference_posts),
+        "supplied": references is not None,
+    }
 
     _write_json(out_dir / "overview.json", overview)
     _write_json(out_dir / "accounts.json", accounts)
     _write_json(out_dir / "timeline.json", timeline)
     _write_json(out_dir / "dimensions.json", dimensions)
     _write_json(out_dir / "posts.json", posts)
+    _write_json(out_dir / "references.json", reference_posts)
 
     (out_dir / "AI_STUDIO_PROMPT.md").write_text(
         ai_studio_prompt(),
@@ -594,6 +643,7 @@ def export_showcase(
             "timeline.json",
             "dimensions.json",
             "posts.json",
+            "references.json",
             "AI_STUDIO_PROMPT.md",
         ],
         "share_safe_defaults": (
@@ -606,6 +656,7 @@ def export_showcase(
         "media_mode": media_mode,
         "media_limit": media_limit if media_mode != "none" else 0,
         "media_posts_selected": len(media_keys),
+        "reference_posts": len(reference_posts),
     }
     _write_json(out_dir / "manifest.json", manifest)
     return manifest
@@ -640,6 +691,13 @@ def main() -> None:
     ap.add_argument(
         "--out",
         default="data/06_showcase",
+    )
+    ap.add_argument(
+        "--references",
+        help=(
+            "Optional references.parquet/csv/jsonl from extract-references. "
+            "Matched posts are highlighted in the showcase."
+        ),
     )
     ap.add_argument(
         "--include-identities",
@@ -680,6 +738,12 @@ def main() -> None:
     master = Path(args.master).expanduser().resolve()
     out = Path(args.out).expanduser().resolve()
 
+    references = (
+        _read_master(Path(args.references).expanduser().resolve())
+        if args.references
+        else None
+    )
+
     manifest = export_showcase(
         _read_master(master),
         out,
@@ -687,6 +751,7 @@ def main() -> None:
         include_text=args.include_text,
         media_mode=args.media,
         media_limit=args.media_limit,
+        references=references,
     )
 
     print(
