@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Export a public-safe JSON bundle from creative_master for dashboard/showcase use."""
+"""Export a share-safe JSON bundle from creative_master for dashboard/showcase use."""
 from __future__ import annotations
 
 import argparse
@@ -426,8 +426,8 @@ def ai_studio_prompt() -> str:
     return """# AI Studio Build prompt — Creative Evidence Showcase
 
 Build a polished, responsive analytics dashboard from the attached JSON files:
-\`overview.json\`, \`accounts.json\`, \`timeline.json\`,
-\`dimensions.json\`, and \`posts.json\`.
+`overview.json`, `accounts.json`, `timeline.json`,
+`dimensions.json`, and `posts.json`.
 
 ## Hard rules
 - Treat the attached JSON files as the only source of numeric truth.
@@ -471,7 +471,7 @@ visual, data-dense, and easy to screenshot for social posts.
    - never imply causality
 
 5. Post explorer
-   - searchable/filterable table using \`posts.json\`
+   - searchable/filterable table using `posts.json`
    - show only fields present in the file
    - if text fields are absent, do not invent them
 
@@ -544,7 +544,7 @@ def export_showcase(
             "posts.json",
             "AI_STUDIO_PROMPT.md",
         ],
-        "public_safe_defaults": (
+        "share_safe_defaults": (
             not include_identities and not include_text
         ),
         "identities_included": include_identities,
