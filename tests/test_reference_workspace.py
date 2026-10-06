@@ -64,11 +64,55 @@ def test_detail_exposes_existing_slide_level_vision_without_raw_analysis(tmp_pat
 def test_workspace_writes_details_groups_and_static_files(tmp_path: Path) -> None:
     refs = pd.DataFrame([ref_row()])
     sources = pd.DataFrame([source_row()])
+    system_population = pd.DataFrame(
+        [
+            {
+                "account": "creator",
+                "post_id": "123",
+                "url": "https://example.test/123",
+                "created_at": "2026-01-01T00:00:00Z",
+                "views": 10000,
+                "account_views_pct": 0.97,
+                "global_views_pct": 0.90,
+                "save_rate": 0.04,
+                "share_rate": 0.01,
+                "hook_text": "5 study mistakes",
+                "topic": "active recall",
+                "primary_language_code": "en",
+                "slide_count": 3,
+                "_rank_position": 1,
+                "hook_technique": "list_or_number",
+                "content_angle": "education",
+                "content_format": "listicle",
+                "product_placement_style": "late_reveal",
+            },
+            {
+                "account": "other",
+                "post_id": "456",
+                "url": "https://example.test/456",
+                "created_at": "2026-01-02T00:00:00Z",
+                "views": 5000,
+                "account_views_pct": 0.80,
+                "global_views_pct": 0.70,
+                "save_rate": 0.03,
+                "share_rate": 0.01,
+                "hook_text": "Another list",
+                "topic": "study",
+                "primary_language_code": "en",
+                "slide_count": 5,
+                "_rank_position": 2,
+                "hook_technique": "list_or_number",
+                "content_angle": "education",
+                "content_format": "listicle",
+                "product_placement_style": "late_reveal",
+            },
+        ]
+    )
     report = write_reference_workspace(
         refs,
         sources,
-        system_population=refs,
-        system_map={"dataset": {"posts": 1}},
+        system_population=system_population,
+        system_map={"dataset": {"posts": 2}},
         out_dir=tmp_path,
         media_mode="none",
     )
@@ -78,7 +122,11 @@ def test_workspace_writes_details_groups_and_static_files(tmp_path: Path) -> Non
     assert (tmp_path / "candidate_groups.json").is_file()
     assert (tmp_path / "system.json").is_file()
     groups = json.loads((tmp_path / "candidate_groups.json").read_text(encoding="utf-8"))
+    assert groups[0]["posts"] == 2
     assert groups[0]["selected_references"] == 1
     assert groups[0]["reference_ids"] == ["REF-0001"]
+    assert len(groups[0]["members"]) == 2
+    assert groups[0]["members"][0]["reference_id"] == "REF-0001"
+    assert groups[0]["members"][1]["reference_id"] is None
     (tmp_path / "manifest.json").write_text("{}", encoding="utf-8")
     assert validate_reference_workspace(tmp_path) == []

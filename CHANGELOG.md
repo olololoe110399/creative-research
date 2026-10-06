@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.8.1 - 2026-10-07
+
+- Fix Structures interaction so clicking a group opens its full population membership instead of silently filtering only the representative reference sample.
+- Add full member rows to `candidate_groups.json` with account, post, performance, hook/topic, rank, original URL, and optional representative REF ID.
+- Keep representative references explicitly separate from full group population and make sampled refs directly inspectable from the group detail drawer.
+
+
 ## 0.8.0 - 2026-10-07
 
 - Make whole-system understanding the first step of the generated research workspace.
