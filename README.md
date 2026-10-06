@@ -13,7 +13,7 @@ Apify raw data
   -> validated creative_master
 ```
 
-It excludes OCR experiments, EDA, notebooks, dashboards, RAG, agents, and knowledge-bank logic.
+It excludes OCR experiments, EDA, notebooks, RAG, agents, and knowledge-bank logic. The optional showcase is a presentation layer over the validated evidence, not an analysis/knowledge layer.
 
 ## Requirements
 
@@ -52,6 +52,7 @@ download-videos
 vision-videos
 build-master
 export-showcase
+showcase
 
 init
 doctor
@@ -82,7 +83,7 @@ data/
 ├── 04_vision/slides/         # slideshow Vision outputs
 ├── 04_vision/videos/         # video Vision outputs
 ├── 05_master/                # canonical normalized dataset
-└── 06_showcase/              # optional share-safe JSON presentation bundle
+└── 06_showcase/              # generated self-contained static showcase site
 ```
 
 Generated manifests use project-relative paths whenever possible. Vision readers resolve those paths from `CREATIVE_RESEARCH_PROJECT_ROOT` or the current working directory.
@@ -191,15 +192,41 @@ data/05_master/
 └── report.json
 ```
 
-### 9. Export a public showcase bundle (optional)
+### 9. Build and view the showcase (optional)
 
 ```bash
 uv run creative-research export-showcase \
   data/05_master/creative_master.parquet \
-  --out data/06_showcase
+  --out data/06_showcase \
+  --media remote \
+  --media-limit 0 \
+  --include-text
 ```
 
-By default, creator identities, raw post IDs/URLs, free text, media paths, raw Vision analysis, and media assets are excluded. Use `--media remote` for scraped TikTok/CDN URLs, `--media copy` for local static assets, or `--media hybrid` for remote media with local fallbacks. The command writes aggregate JSON, anonymized post data, and `AI_STUDIO_PROMPT.md` for Google AI Studio Build. See [`docs/SHOWCASE.md`](docs/SHOWCASE.md).
+Every export regenerates a self-contained static site in `data/06_showcase/`: the packaged UI template is overwritten with the current version, JSON is rebuilt from `creative_master`, and stale generated media assets are cleared before optional media is exported.
+
+```text
+data/06_showcase/
+├── index.html
+├── app.js
+├── style.css
+├── favicon.svg
+├── overview.json
+├── accounts.json
+├── timeline.json
+├── dimensions.json
+├── posts.json
+├── manifest.json
+└── AI_STUDIO_PROMPT.md
+```
+
+Serve it over local HTTP:
+
+```bash
+uv run creative-research showcase --open
+```
+
+By default, creator identities, raw post IDs/URLs, free text, media paths, raw Vision analysis, and media assets are excluded. Use `--media remote` for scraped TikTok/CDN URLs, `--media copy` for local static assets, or `--media hybrid` for remote media with local fallbacks. See [`docs/SHOWCASE.md`](docs/SHOWCASE.md).
 
 This repository ends at validated evidence plus an optional presentation export. Pattern banks, hypotheses, experiments, and playbooks belong in a separate downstream layer.
 

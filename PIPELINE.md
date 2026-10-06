@@ -63,7 +63,7 @@ data/02_media/tiktok/                 <- local creative source of truth
 
 ## Optional showcase export
 
-After `creative_master` validates successfully, a public-safe presentation bundle can be generated without changing the canonical evidence dataset:
+After `creative_master` validates successfully, a presentation site can be generated without changing the canonical evidence dataset:
 
 ```text
 creative_master.parquet
@@ -73,7 +73,14 @@ creative_master.parquet
         |
         v
  data/06_showcase/
- overview.json + accounts.json + timeline.json + dimensions.json + posts.json
+ index.html + app.js + style.css
+        +
+ overview/accounts/timeline/dimensions/posts JSON
+        |
+        v
+ showcase --open
 ```
 
-The export anonymizes creator identities and omits raw analysis/media paths by default. It is intended for dashboards and AI Studio Build, not as a replacement for `creative_master`.
+`data/06_showcase/` is generated and disposable. Every export refreshes the packaged UI template, rebuilds JSON, and clears stale generated media assets before exporting optional media.
+
+The default export anonymizes creator identities and omits raw analysis/media paths. The site is a presentation layer only, not a replacement for `creative_master`.

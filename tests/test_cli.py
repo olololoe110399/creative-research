@@ -18,6 +18,7 @@ def test_canonical_commands_exist() -> None:
         "vision-videos",
         "build-master",
         "export-showcase",
+        "showcase",
     }
 
 
