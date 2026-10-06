@@ -541,6 +541,12 @@ visual, data-dense, and easy to screenshot for social posts.
    - show only fields present in the file
    - if text fields are absent, do not invent them
 
+6. Selected references
+   - use `references.json`
+   - show the exported REF ID and selection rank
+   - make it easy to review only the source creatives selected for downstream work
+   - do not call reference selections validated families or causal winners
+
 ## Visual direction
 - editorial research dashboard, not a generic admin panel
 - strong typography, generous whitespace, compact metric cards
