@@ -32,8 +32,10 @@ jobs:
       - name: Critical lint
         run: uv run ruff check .
 
-      - name: Check showcase JavaScript
-        run: node --check src/creative_research/showcase_static/app.js
+      - name: Check static JavaScript
+        run: |
+          node --check src/creative_research/showcase_static/app.js
+          node --check src/creative_research/reference_workspace_static/app.js
 
       - name: Test
         run: uv run pytest --cov=creative_research --cov-report=term-missing
@@ -41,7 +43,7 @@ jobs:
       - name: Build package
         run: uv build
 
-      - name: Verify showcase assets in wheel
+      - name: Verify static assets in wheel
         run: |
           python - <<'PY'
           import glob
@@ -53,11 +55,15 @@ jobs:
               "creative_research/showcase_static/app.js",
               "creative_research/showcase_static/style.css",
               "creative_research/showcase_static/favicon.svg",
+              "creative_research/reference_workspace_static/index.html",
+              "creative_research/reference_workspace_static/app.js",
+              "creative_research/reference_workspace_static/style.css",
+              "creative_research/reference_workspace_static/favicon.svg",
           }
           with zipfile.ZipFile(wheel) as archive:
               names = set(archive.namelist())
           missing = sorted(required - names)
           if missing:
               raise SystemExit("Missing showcase assets in wheel: " + ", ".join(missing))
-          print("Showcase assets packaged:", ", ".join(sorted(required)))
+          print("Static assets packaged:", ", ".join(sorted(required)))
           PY
