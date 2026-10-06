@@ -11,6 +11,7 @@ from typing import Any
 import pandas as pd
 
 from creative_research.showcase_media import export_media_for_post, select_media_keys
+from creative_research.showcase_site import sync_showcase_site
 
 SHOWCASE_SCHEMA_VERSION = "creative-showcase-v1"
 
@@ -532,6 +533,7 @@ def export_showcase(
     media_limit: int = 100,
 ) -> dict[str, Any]:
     out_dir.mkdir(parents=True, exist_ok=True)
+    static_files = sync_showcase_site(out_dir)
 
     aliases = _account_aliases(df)
     if media_mode not in {"none", "remote", "copy", "hybrid"}:
@@ -582,6 +584,7 @@ def export_showcase(
         "generated_at": overview["generated_at"],
         "rows": int(len(df)),
         "files": [
+            *static_files,
             "overview.json",
             "accounts.json",
             "timeline.json",
