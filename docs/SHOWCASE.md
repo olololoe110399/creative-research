@@ -1,92 +1,137 @@
-# Public showcase export
+# Showcase
 
-\`creative-research export-showcase\` converts a validated
-\`creative_master\` into a small JSON bundle designed for dashboards,
-demos, and AI Studio Build.
+`creative-research export-showcase` converts a validated `creative_master` into a
+self-contained static site under `data/06_showcase/`.
 
-The exporter is **share-safe by default**:
+The showcase is a presentation layer only. It does not replace
+`creative_master`, add knowledge-bank logic, or change the evidence pipeline.
 
-- creator identities are replaced with deterministic aliases such as
-  \`Creator 01\`
-- raw \`post_id\`, URL, media paths, and raw Vision \`analysis_json\`
-  are never included by default
-- free-text fields such as hook text and creative formula are excluded
-  by default
-- metrics and normalized creative taxonomy are preserved for
-  visualization
+## Build
 
-## Export
-
-\`\`\`bash
+```bash
 uv run creative-research export-showcase \
   data/05_master/creative_master.parquet \
-  --out data/06_showcase
-\`\`\`
+  --out data/06_showcase \
+  --media remote \
+  --media-limit 0 \
+  --include-text
+```
 
-Outputs:
+Every export:
 
-\`\`\`text
+1. regenerates the JSON datasets,
+2. overwrites the packaged UI template with the current version,
+3. removes stale generated `assets/`,
+4. optionally exports remote/copied/hybrid media,
+5. writes a fresh manifest and AI Studio prompt.
+
+Output:
+
+```text
 data/06_showcase/
+├── index.html
+├── app.js
+├── style.css
+├── favicon.svg
 ├── overview.json
 ├── accounts.json
 ├── timeline.json
 ├── dimensions.json
 ├── posts.json
 ├── manifest.json
-└── AI_STUDIO_PROMPT.md
-\`\`\`
+├── AI_STUDIO_PROMPT.md
+└── assets/                 # only for copy/hybrid media when needed
+```
 
-Upload the five JSON data files plus \`AI_STUDIO_PROMPT.md\` to Google
-AI Studio Build.
+The UI source lives inside the Python package at
+`src/creative_research/showcase_static/`. Edit the package template, not the
+generated copies under `data/06_showcase/`.
 
-## Opt-in fields
+## View locally
 
-For a private dashboard, identities or model-derived free text can be
-explicitly included:
+The site uses `fetch()` to load JSON, so serve it over HTTP instead of opening
+`index.html` with `file://`.
 
-\`\`\`bash
+```bash
+uv run creative-research showcase
+```
+
+Default address:
+
+```text
+http://127.0.0.1:8765/
+```
+
+Open the browser automatically:
+
+```bash
+uv run creative-research showcase --open
+```
+
+Custom directory/port:
+
+```bash
+uv run creative-research showcase \
+  --dir data/06_showcase-private \
+  --host 127.0.0.1 \
+  --port 9000 \
+  --open
+```
+
+The server validates that the required HTML/CSS/JS and JSON files exist before
+starting. It never rebuilds the showcase implicitly.
+
+## Share-safe defaults
+
+With no opt-in flags:
+
+- creator identities use deterministic aliases such as `Creator 01`,
+- raw `post_id` and source URLs are omitted,
+- raw media paths and Vision `analysis_json` are omitted,
+- free-text hook/topic/formula fields are omitted,
+- media is disabled.
+
+These defaults reduce accidental disclosure but do not guarantee
+de-identification; exact public-source metrics can still make posts recognizable.
+
+## Optional text and identity
+
+For a private showcase:
+
+```bash
 uv run creative-research export-showcase \
   data/05_master/creative_master.parquet \
   --out data/06_showcase-private \
   --include-identities \
   --include-text
-\`\`\`
-
-Even with both flags enabled, the exporter never includes
-\`analysis_json\` or \`source_media_path\`.
-
-## Interpretation
-
-The default export reduces accidental disclosure but does not guarantee de-identification; exact metrics can still make public-source posts recognizable.\n\nThe bundle is evidence for this dataset, not a claim about the platform
-as a whole. Dashboard copy should use language such as
-“observed in this dataset” and should show sample size beside
-comparisons.
-
-
-## Optional media
-
-The exporter supports four media modes:
-
-```text
-none    JSON only
-remote  scraped TikTok/CDN URLs only
-copy    local copied assets only, plus canonical post URL
-hybrid  remote URLs + copied local fallback assets
 ```
 
-### Remote mode
+Even with both flags enabled, `analysis_json` and `source_media_path` are not
+exported.
 
-This is the lightest option for AI Studio demos:
+## Media modes
+
+```text
+none    no media
+remote  scraped TikTok/CDN URLs
+copy    copied local assets plus canonical post URL
+hybrid  remote URLs plus copied local fallbacks
+```
+
+### Remote
 
 ```bash
 uv run creative-research export-showcase \
   data/05_master/creative_master.parquet \
-  --out data/06_showcase-remote \
+  --out data/06_showcase \
   --media remote \
-  --media-limit 100
+  --media-limit 0
 ```
 
-The exporter reads the archived `raw.json` / `meta.json` for each post and may add:
+Remote mode reads the already archived `raw.json` / `meta.json`; it does not
+refresh TikTok over the network during export.
+
+Possible post fields include:
 
 ```text
 post_url
@@ -96,47 +141,45 @@ video_url
 video_fallback_urls[]
 ```
 
-For slideshow posts it prefers `slideshowImageLinks[].tiktokLink` and falls back to `downloadLink`.
-For covers it prefers `videoMeta.originalCoverUrl` and falls back to the archived cover URL.
-For video it reuses direct play/download URLs found in the archived raw record.
+Slideshow URLs prefer `slideshowImageLinks[].tiktokLink` and fall back to
+`downloadLink`. Covers prefer `videoMeta.originalCoverUrl`. Video URLs are
+selected from direct play/download URLs found in the archived raw record.
 
-Remote CDN URLs can expire or reject hotlinking later. They are convenient, not durable storage.
+Remote URLs can expire or reject hotlinking later.
 
-### Copy mode
-
-For a more durable deployed showcase:
+### Copy
 
 ```bash
 uv run creative-research export-showcase \
   data/05_master/creative_master.parquet \
-  --out data/06_showcase-copy \
   --media copy \
   --media-limit 50
 ```
 
-This copies local media to anonymized paths such as:
+Copied assets use anonymized paths such as:
 
 ```text
 assets/thumbnails/post-0001.jpg
 assets/videos/post-0042.mp4
 ```
 
-and adds `thumbnail_path` / `video_path` to `posts.json`.
-
-### Hybrid mode
-
-For the best UX when deploying a showcase:
+### Hybrid
 
 ```bash
 uv run creative-research export-showcase \
   data/05_master/creative_master.parquet \
-  --out data/06_showcase-hybrid \
   --media hybrid \
   --media-limit 100
 ```
 
-The dashboard should try remote media first and fall back to copied local assets when a CDN URL fails.
+The packaged UI prefers remote media and falls back to copied local assets when
+available.
 
-`--media-limit` ranks posts by global view percentile/views. Use `0` for all posts.
+Any media mode can make public-source posts recognizable even when creator names
+and raw post IDs are omitted.
 
-Any media mode can make public-source posts recognizable even when creator names and post IDs are omitted, so media exports are not marked as share-safe defaults.
+## Interpretation
+
+The dashboard is descriptive. Copy should say “observed in this dataset,” show
+sample size beside comparisons, and avoid causal claims from categorical
+associations.
