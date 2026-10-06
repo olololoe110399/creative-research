@@ -11,6 +11,7 @@ from creative_research.reference_pack import (
     copy_reference_media,
     group_references,
     rank_master,
+    select_reference_candidates,
 )
 
 
@@ -132,3 +133,43 @@ def test_copy_reference_media_uses_reference_ids(tmp_path: Path) -> None:
     copied = copy_reference_media(refs, tmp_path / "pack", root=tmp_path)
     assert copied.loc[0, "media_path"] == "media/REF-0001"
     assert (tmp_path / "pack/media/REF-0001/slide_001.jpg").read_bytes() == b"fake"
+
+
+def test_system_strategy_covers_accounts_before_more_from_strong_account() -> None:
+    df = pd.DataFrame(
+        [
+            {"account": "a", "post_id": "a1", "content_type": "slideshow", "views": 10000, "account_views_pct": 0.99, "global_views_pct": 0.99, "save_rate": 0.05, "share_rate": 0.01, "hook_technique": "list", "content_angle": "education", "content_format": "list", "product_placement_style": "late"},
+            {"account": "a", "post_id": "a2", "content_type": "slideshow", "views": 9000, "account_views_pct": 0.98, "global_views_pct": 0.98, "save_rate": 0.04, "share_rate": 0.01, "hook_technique": "list", "content_angle": "education", "content_format": "list", "product_placement_style": "late"},
+            {"account": "a", "post_id": "a3", "content_type": "slideshow", "views": 8000, "account_views_pct": 0.97, "global_views_pct": 0.97, "save_rate": 0.03, "share_rate": 0.01, "hook_technique": "question", "content_angle": "education", "content_format": "list", "product_placement_style": "late"},
+            {"account": "b", "post_id": "b1", "content_type": "slideshow", "views": 700, "account_views_pct": 0.70, "global_views_pct": 0.40, "save_rate": 0.02, "share_rate": 0.01, "hook_technique": "direct_address", "content_angle": "pain", "content_format": "story", "product_placement_style": "soft"},
+            {"account": "c", "post_id": "c1", "content_type": "slideshow", "views": 600, "account_views_pct": 0.60, "global_views_pct": 0.30, "save_rate": 0.02, "share_rate": 0.01, "hook_technique": "how_to", "content_angle": "tutorial", "content_format": "tutorial", "product_placement_style": "none"},
+        ]
+    )
+    _, selected = select_reference_candidates(
+        df,
+        strategy="system",
+        rank="relative",
+        content_type="slideshow",
+        top=3,
+    )
+    assert set(selected["account"]) == {"a", "b", "c"}
+    assert set(selected["selection_reason"]) == {"account_coverage"}
+
+
+def test_account_balanced_strategy_limits_account_dominance() -> None:
+    df = pd.DataFrame(
+        [
+            {"account": account, "post_id": f"{account}{i}", "content_type": "slideshow", "views": 1000 - i, "account_views_pct": 1 - i / 10, "global_views_pct": 0.5, "save_rate": 0.02, "share_rate": 0.01}
+            for account in ("a", "b", "c")
+            for i in range(3)
+        ]
+    )
+    _, selected = select_reference_candidates(
+        df,
+        strategy="account-balanced",
+        rank="relative",
+        content_type="slideshow",
+        top=7,
+    )
+    counts = selected["account"].value_counts()
+    assert counts.max() - counts.min() <= 1
