@@ -68,4 +68,5 @@ def test_workspace_writes_details_groups_and_static_files(tmp_path: Path) -> Non
     assert (tmp_path / "details/REF-0001.json").is_file()
     assert (tmp_path / "workspace.json").is_file()
     assert (tmp_path / "candidate_groups.json").is_file()
+    (tmp_path / "manifest.json").write_text("{}", encoding="utf-8")
     assert validate_reference_workspace(tmp_path) == []
