@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import math
 import re
 import shutil
 from datetime import UTC, datetime
@@ -229,12 +230,23 @@ def _system_select(ranked: pd.DataFrame, top: int) -> pd.DataFrame:
         add(int(index), "account_coverage")
 
     remaining = set(work.index) - set(selected)
+    account_total = max(1, int(work["account"].nunique()))
+    soft_cap = max(2, math.ceil(top / account_total) + 1)
+
     while len(selected) < top and remaining:
         best_index: int | None = None
         best_score = float("-inf")
         best_novelty = 0.0
 
-        for index in remaining:
+        eligible = {
+            index
+            for index in remaining
+            if selected_counts.get(str(work.at[index, "account"]), 0) < soft_cap
+        }
+        if not eligible:
+            eligible = remaining
+
+        for index in eligible:
             row = work.loc[index]
             novelty_parts: list[float] = []
             for dimension in SELECTION_DIVERSITY_DIMENSIONS:
