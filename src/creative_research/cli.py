@@ -47,7 +47,7 @@ Canonical evidence pipeline:
   vision-videos      Gemini analysis for full videos
   build-master       Merge slideshow + video Vision datasets
   rank-posts         Rank master posts for reference selection
-  extract-references Export a portable ranked creative reference pack
+  extract-references Build whole-system map + representative reference workspace
   query              Filter normalized creative tables without ad-hoc Pandas
   group-references   Build descriptive candidate groups from a reference pack
   references         Serve a generated system/reference workspace locally
