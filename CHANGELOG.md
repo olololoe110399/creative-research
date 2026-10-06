@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.5.2 - 2026-10-07
+
+- Bundle the showcase UI as package static files and copy it into every showcase export.
+- Add `creative-research showcase` with `--open`, `--host`, `--port`, and `--dir` options.
+- Make `data/06_showcase/` a self-contained static site that can be served locally or deployed as-is.
+- Overwrite packaged UI files and clear stale generated media assets on every export.
+- Make showcase metadata and media notices dataset/mode aware.
+- Explicitly package static showcase resources in the wheel and sync the project version in `uv.lock`.
+
 ## 0.5.1 - 2026-10-06
 
 - Add opt-in remote, copied, and hybrid media modes for showcase exports.
