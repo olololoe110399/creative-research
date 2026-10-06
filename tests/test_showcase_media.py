@@ -45,6 +45,7 @@ def test_showcase_thumbnail_media_is_opt_in_and_anonymized(
     assert "real_creator" not in posts[0]["thumbnail_path"]
     assert "123" not in posts[0]["thumbnail_path"]
     assert manifest["media_mode"] == "thumbnails"
+    assert manifest["share_safe_defaults"] is False
     assert manifest["media_posts_selected"] == 1
 
 
