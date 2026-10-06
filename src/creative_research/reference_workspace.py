@@ -9,7 +9,7 @@ from typing import Any
 import pandas as pd
 
 from creative_research.reference_pack import group_references
-from creative_research.showcase_media import export_media_for_post
+from creative_research.reference_media import export_media_for_post
 
 STATIC_FILES = ("index.html", "app.js", "style.css", "favicon.svg")
 REQUIRED_DATA_FILES = ("workspace.json", "system.json", "candidate_groups.json", "manifest.json")
