@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import shutil
 from importlib import resources
@@ -233,6 +234,11 @@ def build_reference_detail(
     }
 
 
+def population_item_id(account: Any, post_id: Any) -> str:
+    raw = f"{account}\0{post_id}".encode("utf-8")
+    return "POST-" + hashlib.sha1(raw).hexdigest()[:12].upper()
+
+
 def build_population_item(
     record: dict[str, Any],
     *,
@@ -360,10 +366,10 @@ def write_reference_workspace(
     population_items = [
         build_population_item(
             record,
-            item_id=f"POST-{index:06d}",
+            item_id=population_item_id(record.get("account"), record.get("post_id")),
             include_remote_preview=media_mode in {"remote", "hybrid"},
         )
-        for index, record in enumerate(population_records, start=1)
+        for record in population_records
     ]
     item_lookup = {
         (str(item["source"]["account"]), str(item["source"]["post_id"])): item
