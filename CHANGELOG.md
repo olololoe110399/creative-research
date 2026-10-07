@@ -7,7 +7,7 @@
 - Keep `REF-xxxx` as Suggested examples only; users can now inspect and select any full-population post from a Structure group.
 - Add `population.json` for UI browsing and `population.jsonl` for downstream Creative Bank import.
 - Add actual thumbnails to full-population Group Detail and large media cards for Suggested examples.
-- Add group search/account filters, per-row selection, Select suggested, and Clear group selection.
+- Add group search/account/language filters, sorting, per-row selection, Select suggested, Select visible, and Clear group selection.
 - Add a persistent selection bar and Selected-page coverage audit for group/account/language concentration.
 - Export `selected.json` using full-population POST IDs so selection is no longer limited to the suggested sample.
 
