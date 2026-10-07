@@ -237,6 +237,7 @@ def build_population_item(
     record: dict[str, Any],
     *,
     item_id: str,
+    include_remote_preview: bool,
 ) -> dict[str, Any]:
     """Normalize one full-population post for lightweight inspect/select."""
     analysis = _parse_json(record.get("analysis_json"))
@@ -244,7 +245,7 @@ def build_population_item(
     product = analysis.get("product") if isinstance(analysis.get("product"), dict) else {}
     cta = analysis.get("cta") if isinstance(analysis.get("cta"), dict) else {}
     visual = analysis.get("visual_style") if isinstance(analysis.get("visual_style"), dict) else {}
-    preview = preview_media_for_post(record)
+    preview = preview_media_for_post(record) if include_remote_preview else {}
     return {
         "item_id": item_id,
         "reference_id": None,
@@ -357,7 +358,11 @@ def write_reference_workspace(
 
     population_records = system_population.to_dict(orient="records")
     population_items = [
-        build_population_item(record, item_id=f"POST-{index:06d}")
+        build_population_item(
+            record,
+            item_id=f"POST-{index:06d}",
+            include_remote_preview=media_mode in {"remote", "hybrid"},
+        )
         for index, record in enumerate(population_records, start=1)
     ]
     item_lookup = {
