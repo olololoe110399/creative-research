@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.9.1 - 2026-10-07
+
+- Rename machine-selected account/group counts to **Suggested** so they are not confused with human Selected posts.
+- Add Group language filter and rank/views/save sorting.
+- Add **Select visible** for filtered group results with confirmation for large selections.
+- Keep duplicate selection controls in sync and visually mark selected group rows.
+
+
 ## 0.9.0 - 2026-10-07
 
 - Upgrade the handoff contract to `creative-reference-pack-v3`.
