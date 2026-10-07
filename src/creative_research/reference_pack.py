@@ -13,7 +13,7 @@ import pandas as pd
 from creative_research.pathing import portable_path, project_root, resolve_path
 from creative_research.validation import read_table
 
-REFERENCE_EXPORT_SCHEMA_VERSION = "creative-reference-pack-v2"
+REFERENCE_EXPORT_SCHEMA_VERSION = "creative-reference-pack-v3"
 
 REFERENCE_FIELDS = [
     "content_type",
