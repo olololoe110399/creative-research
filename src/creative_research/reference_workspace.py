@@ -9,7 +9,7 @@ from typing import Any
 import pandas as pd
 
 from creative_research.reference_pack import DEFAULT_GROUP_DIMENSIONS, group_references
-from creative_research.reference_media import export_media_for_post
+from creative_research.reference_media import export_media_for_post, preview_media_for_post
 
 STATIC_FILES = ("index.html", "app.js", "style.css", "favicon.svg")
 REQUIRED_DATA_FILES = ("workspace.json", "system.json", "candidate_groups.json", "manifest.json")
@@ -304,10 +304,12 @@ def write_reference_workspace(
 
     members_by_group: dict[tuple[str, ...], list[dict[str, Any]]] = {}
     for record in system_population.to_dict(orient="records"):
+        preview = preview_media_for_post(record)
         member = {
             "account": _clean(record.get("account")),
             "post_id": _clean(record.get("post_id")),
-            "url": _clean(record.get("url")),
+            "url": _clean(record.get("url") or preview.get("post_url")),
+            "thumbnail_url": _clean(preview.get("thumbnail_url")),
             "created_at": _clean(record.get("created_at")),
             "views": _clean(record.get("views")),
             "account_views_pct": _clean(record.get("account_views_pct")),
