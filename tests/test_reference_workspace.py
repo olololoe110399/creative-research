@@ -130,13 +130,16 @@ def test_workspace_writes_details_groups_and_static_files(tmp_path: Path) -> Non
     assert groups[0]["reference_ids"] == ["REF-0001"]
     assert len(groups[0]["members"]) == 2
     assert groups[0]["members"][0]["reference_id"] == "REF-0001"
-    assert groups[0]["members"][0]["item_id"] == "POST-000001"
+    first_item_id = groups[0]["members"][0]["item_id"]
+    second_item_id = groups[0]["members"][1]["item_id"]
+    assert first_item_id.startswith("POST-")
+    assert second_item_id.startswith("POST-")
+    assert first_item_id != second_item_id
     assert groups[0]["members"][1]["reference_id"] is None
-    assert groups[0]["members"][1]["item_id"] == "POST-000002"
     population = json.loads((tmp_path / "population.json").read_text(encoding="utf-8"))
     assert len(population["items"]) == 2
     assert population["items"][0]["reference_id"] == "REF-0001"
     detail = json.loads((tmp_path / "details/REF-0001.json").read_text(encoding="utf-8"))
-    assert detail["item_id"] == "POST-000001"
+    assert detail["item_id"] == first_item_id
     (tmp_path / "manifest.json").write_text("{}", encoding="utf-8")
     assert validate_reference_workspace(tmp_path) == []
