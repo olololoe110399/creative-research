@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import shutil
 from importlib import resources
@@ -12,7 +13,7 @@ from creative_research.reference_pack import DEFAULT_GROUP_DIMENSIONS, group_ref
 from creative_research.reference_media import export_media_for_post, preview_media_for_post
 
 STATIC_FILES = ("index.html", "app.js", "style.css", "favicon.svg")
-REQUIRED_DATA_FILES = ("workspace.json", "system.json", "candidate_groups.json", "manifest.json")
+REQUIRED_DATA_FILES = ("workspace.json", "population.json", "system.json", "candidate_groups.json", "manifest.json")
 
 
 def _clean(value: Any) -> Any:
@@ -233,6 +234,87 @@ def build_reference_detail(
     }
 
 
+def population_item_id(account: Any, post_id: Any) -> str:
+    raw = f"{account}\0{post_id}".encode("utf-8")
+    return "POST-" + hashlib.sha1(raw).hexdigest()[:12].upper()
+
+
+def build_population_item(
+    record: dict[str, Any],
+    *,
+    item_id: str,
+    include_remote_preview: bool,
+) -> dict[str, Any]:
+    """Normalize one full-population post for lightweight inspect/select."""
+    analysis = _parse_json(record.get("analysis_json"))
+    hook = analysis.get("hook") if isinstance(analysis.get("hook"), dict) else {}
+    product = analysis.get("product") if isinstance(analysis.get("product"), dict) else {}
+    cta = analysis.get("cta") if isinstance(analysis.get("cta"), dict) else {}
+    visual = analysis.get("visual_style") if isinstance(analysis.get("visual_style"), dict) else {}
+    preview = preview_media_for_post(record) if include_remote_preview else {}
+    return {
+        "item_id": item_id,
+        "reference_id": None,
+        "group_id": None,
+        "source": {
+            "platform": "tiktok",
+            "account": _clean(record.get("account")),
+            "post_id": _clean(record.get("post_id")),
+            "url": _clean(record.get("url") or preview.get("post_url")),
+            "created_at": _clean(record.get("created_at")),
+        },
+        "performance": {
+            key: _clean(record.get(key))
+            for key in (
+                "views", "likes", "comments", "shares", "saves",
+                "save_rate", "share_rate", "account_views_pct", "global_views_pct",
+            )
+        },
+        "creative": {
+            "language": _clean(record.get("primary_language_code")),
+            "audience": _clean(record.get("audience_segment")),
+            "niche": _clean(record.get("niche")),
+            "topic": _clean(record.get("topic")),
+            "angle": _clean(record.get("content_angle")),
+            "value_type": _clean(record.get("value_type")),
+            "content_format": _clean(record.get("content_format")),
+            "slide_count": _clean(record.get("slide_count")),
+            "hook": {
+                "text": _clean(hook.get("text") or record.get("hook_text")),
+                "position": _clean(hook.get("slide_index") or record.get("hook_position")),
+                "technique": _clean(hook.get("technique") or record.get("hook_technique")),
+                "psychological_trigger": _clean(hook.get("psychological_trigger") or record.get("hook_psychological_trigger")),
+                "replicable_formula": _clean(hook.get("replicable_formula") or record.get("hook_replicable_formula")),
+            },
+        },
+        "sequence": _sequence(analysis),
+        "product": {
+            "visible": bool(product.get("has_visible_product", record.get("has_product", False))),
+            "name": _clean(product.get("visible_product_name") or record.get("product_name")),
+            "family": _clean(product.get("product_family") or record.get("product_family")),
+            "placement_style": _clean(product.get("placement_style") or record.get("product_placement_style")),
+            "first_position": _clean(product.get("first_appearance_slide") or record.get("product_position")),
+        },
+        "cta": {
+            "visible": bool(cta.get("has_visible_cta", record.get("has_cta", False))),
+            "type": _clean(cta.get("cta_type") or record.get("cta_type")),
+            "text": _clean(cta.get("text") or record.get("cta_text")),
+            "position": _clean(cta.get("slide_index") or record.get("cta_position")),
+        },
+        "visual": {
+            "dominant_type": _clean(visual.get("dominant_visual_type") or record.get("dominant_visual_type")),
+            "aesthetic": _clean(visual.get("aesthetic") or record.get("visual_aesthetic")),
+            "pinterest_like": _clean(visual.get("pinterest_like_aesthetic") or record.get("pinterest_like_aesthetic")),
+            "text_overlay_style": _clean(visual.get("text_overlay_style") or record.get("text_overlay_style")),
+        },
+        "blueprint": _blueprint(record, analysis),
+        "preview": {
+            "thumbnail_url": _clean(preview.get("thumbnail_url")),
+        },
+        "rank_position": _clean(record.get("_rank_position")),
+    }
+
+
 def sync_reference_workspace(out_dir: Path) -> list[str]:
     out_dir.mkdir(parents=True, exist_ok=True)
     static_root = resources.files("creative_research").joinpath("reference_workspace_static")
@@ -280,6 +362,20 @@ def write_reference_workspace(
 
     groups = group_references(system_population)
 
+    population_records = system_population.to_dict(orient="records")
+    population_items = [
+        build_population_item(
+            record,
+            item_id=population_item_id(record.get("account"), record.get("post_id")),
+            include_remote_preview=media_mode in {"remote", "hybrid"},
+        )
+        for record in population_records
+    ]
+    item_lookup = {
+        (str(item["source"]["account"]), str(item["source"]["post_id"])): item
+        for item in population_items
+    }
+
     def group_key(record: dict[str, Any]) -> tuple[str, ...]:
         parts: list[str] = []
         for dimension in DEFAULT_GROUP_DIMENSIONS:
@@ -302,34 +398,60 @@ def write_reference_workspace(
         for row in references.to_dict(orient="records")
     }
 
+    group_rows = groups.where(pd.notna(groups), None).to_dict(orient="records")
+    group_id_by_key = {
+        tuple(str(row.get(dimension, "<missing>")) for dimension in DEFAULT_GROUP_DIMENSIONS): str(row["group_id"])
+        for row in group_rows
+    }
+
     members_by_group: dict[tuple[str, ...], list[dict[str, Any]]] = {}
-    for record in system_population.to_dict(orient="records"):
-        preview = preview_media_for_post(record)
-        member = {
-            "account": _clean(record.get("account")),
-            "post_id": _clean(record.get("post_id")),
-            "url": _clean(record.get("url") or preview.get("post_url")),
-            "thumbnail_url": _clean(preview.get("thumbnail_url")),
-            "created_at": _clean(record.get("created_at")),
-            "views": _clean(record.get("views")),
-            "account_views_pct": _clean(record.get("account_views_pct")),
-            "global_views_pct": _clean(record.get("global_views_pct")),
-            "save_rate": _clean(record.get("save_rate")),
-            "share_rate": _clean(record.get("share_rate")),
-            "hook_text": _clean(record.get("hook_text")),
-            "topic": _clean(record.get("topic")),
-            "primary_language_code": _clean(record.get("primary_language_code")),
-            "slide_count": _clean(record.get("slide_count")),
-            "rank_position": _clean(record.get("_rank_position")),
-        }
+    for record in population_records:
         lookup_key = (str(record.get("account")), str(record.get("post_id")))
-        member["reference_id"] = selected_lookup.get(lookup_key)
-        members_by_group.setdefault(group_key(record), []).append(member)
+        item = item_lookup[lookup_key]
+        key = group_key(record)
+        group_id = group_id_by_key.get(key)
+        item["group_id"] = group_id
+        reference_id = selected_lookup.get(lookup_key)
+        item["reference_id"] = reference_id
+        member = {
+            "item_id": item["item_id"],
+            "reference_id": reference_id,
+            "account": item["source"]["account"],
+            "post_id": item["source"]["post_id"],
+            "url": item["source"]["url"],
+            "thumbnail_url": item["preview"]["thumbnail_url"],
+            "created_at": item["source"]["created_at"],
+            "views": item["performance"]["views"],
+            "account_views_pct": item["performance"]["account_views_pct"],
+            "global_views_pct": item["performance"]["global_views_pct"],
+            "save_rate": item["performance"]["save_rate"],
+            "share_rate": item["performance"]["share_rate"],
+            "hook_text": item["creative"]["hook"]["text"],
+            "topic": item["creative"]["topic"],
+            "primary_language_code": item["creative"]["language"],
+            "slide_count": item["creative"]["slide_count"],
+            "rank_position": item["rank_position"],
+        }
+        members_by_group.setdefault(key, []).append(member)
 
     for members in members_by_group.values():
         members.sort(key=lambda item: item.get("rank_position") or 10**9)
 
-    group_rows = groups.where(pd.notna(groups), None).to_dict(orient="records")
+    reference_item_ids: dict[str, str] = {}
+    for row in references.to_dict(orient="records"):
+        lookup_key = (str(row.get("source_account")), str(row.get("source_post_id")))
+        item = item_lookup.get(lookup_key)
+        if item:
+            reference_item_ids[str(row["reference_id"])] = str(item["item_id"])
+
+    for detail in details:
+        item_id = reference_item_ids.get(str(detail["reference_id"]))
+        detail["item_id"] = item_id
+        (details_dir / f"{detail['reference_id']}.json").write_text(
+            json.dumps(detail, ensure_ascii=False, indent=2, default=str),
+            encoding="utf-8",
+        )
+
     for row in group_rows:
         key = tuple(str(row.get(dimension, "<missing>")) for dimension in DEFAULT_GROUP_DIMENSIONS)
         members = members_by_group.get(key, [])
@@ -337,6 +459,19 @@ def write_reference_workspace(
         row["selected_references"] = len(ids)
         row["reference_ids"] = ids
         row["members"] = members
+
+    (out_dir / "population.json").write_text(
+        json.dumps(
+            {"items": population_items},
+            ensure_ascii=False,
+            indent=2,
+            default=str,
+        ),
+        encoding="utf-8",
+    )
+    with (out_dir / "population.jsonl").open("w", encoding="utf-8") as handle:
+        for item in population_items:
+            handle.write(json.dumps(item, ensure_ascii=False, default=str) + "\n")
 
     (out_dir / "candidate_groups.json").write_text(
         json.dumps(group_rows, ensure_ascii=False, indent=2, default=str),
@@ -358,6 +493,7 @@ def write_reference_workspace(
     static_files = sync_reference_workspace(out_dir)
     return {
         "details": len(details),
+        "population_items": len(population_items),
         "groups": len(group_rows),
         "system_posts": int(system_map.get("dataset", {}).get("posts", 0)),
         "static_files": static_files,

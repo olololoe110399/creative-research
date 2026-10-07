@@ -43,7 +43,7 @@ def analysis_json() -> str:
 
 def ref_row() -> dict[str, object]:
     return {
-        "reference_schema_version": "creative-reference-pack-v2", "reference_id": "REF-0001", "selection_strategy": "system", "selection_reason": "account_coverage", "rank_mode": "relative", "rank_position": 1, "rank_score": 0.97, "source_platform": "tiktok", "source_account": "creator", "source_post_id": "123", "source_url": "https://example.test/123", "created_at": "2026-01-01T00:00:00Z", "views": 10000, "save_rate": 0.04, "share_rate": 0.01, "account_views_pct": 0.97, "global_views_pct": 0.90, "primary_language_code": "en", "audience_segment": "student", "niche": "study", "topic": "active recall", "content_angle": "education", "value_type": "how_to", "hook_text": "5 study mistakes", "hook_technique": "list_or_number", "content_format": "listicle", "slide_count": 3, "product_family": "single_product", "product_placement_style": "late_reveal", "product_position": 3, "cta_type": "try_product", "cta_position": 3, "dominant_visual_type": "notes_or_document", "visual_aesthetic": "study aesthetic", "creative_formula": "list hook -> value -> product CTA",
+        "reference_schema_version": "creative-reference-pack-v3", "reference_id": "REF-0001", "selection_strategy": "system", "selection_reason": "account_coverage", "rank_mode": "relative", "rank_position": 1, "rank_score": 0.97, "source_platform": "tiktok", "source_account": "creator", "source_post_id": "123", "source_url": "https://example.test/123", "created_at": "2026-01-01T00:00:00Z", "views": 10000, "save_rate": 0.04, "share_rate": 0.01, "account_views_pct": 0.97, "global_views_pct": 0.90, "primary_language_code": "en", "audience_segment": "student", "niche": "study", "topic": "active recall", "content_angle": "education", "value_type": "how_to", "hook_text": "5 study mistakes", "hook_technique": "list_or_number", "content_format": "listicle", "slide_count": 3, "product_family": "single_product", "product_placement_style": "late_reveal", "product_position": 3, "cta_type": "try_product", "cta_position": 3, "dominant_visual_type": "notes_or_document", "visual_aesthetic": "study aesthetic", "creative_formula": "list hook -> value -> product CTA",
     }
 
 
@@ -85,6 +85,7 @@ def test_workspace_writes_details_groups_and_static_files(tmp_path: Path) -> Non
                 "content_angle": "education",
                 "content_format": "listicle",
                 "product_placement_style": "late_reveal",
+                "analysis_json": analysis_json(),
             },
             {
                 "account": "other",
@@ -119,6 +120,8 @@ def test_workspace_writes_details_groups_and_static_files(tmp_path: Path) -> Non
     assert report["details"] == 1
     assert (tmp_path / "details/REF-0001.json").is_file()
     assert (tmp_path / "workspace.json").is_file()
+    assert (tmp_path / "population.json").is_file()
+    assert (tmp_path / "population.jsonl").is_file()
     assert (tmp_path / "candidate_groups.json").is_file()
     assert (tmp_path / "system.json").is_file()
     groups = json.loads((tmp_path / "candidate_groups.json").read_text(encoding="utf-8"))
@@ -127,6 +130,16 @@ def test_workspace_writes_details_groups_and_static_files(tmp_path: Path) -> Non
     assert groups[0]["reference_ids"] == ["REF-0001"]
     assert len(groups[0]["members"]) == 2
     assert groups[0]["members"][0]["reference_id"] == "REF-0001"
+    first_item_id = groups[0]["members"][0]["item_id"]
+    second_item_id = groups[0]["members"][1]["item_id"]
+    assert first_item_id.startswith("POST-")
+    assert second_item_id.startswith("POST-")
+    assert first_item_id != second_item_id
     assert groups[0]["members"][1]["reference_id"] is None
+    population = json.loads((tmp_path / "population.json").read_text(encoding="utf-8"))
+    assert len(population["items"]) == 2
+    assert population["items"][0]["reference_id"] == "REF-0001"
+    detail = json.loads((tmp_path / "details/REF-0001.json").read_text(encoding="utf-8"))
+    assert detail["item_id"] == first_item_id
     (tmp_path / "manifest.json").write_text("{}", encoding="utf-8")
     assert validate_reference_workspace(tmp_path) == []

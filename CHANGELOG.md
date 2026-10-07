@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.9.0 - 2026-10-07
+
+- Upgrade the handoff contract to `creative-reference-pack-v3`.
+- Give every post in the reference population a stable `POST-xxxxxx` item ID and lightweight normalized Vision detail.
+- Keep `REF-xxxx` as Suggested examples only; users can now inspect and select any full-population post from a Structure group.
+- Add `population.json` for UI browsing and `population.jsonl` for downstream Creative Bank import.
+- Add actual thumbnails to full-population Group Detail and large media cards for Suggested examples.
+- Add group search/account filters, per-row selection, Select suggested, and Clear group selection.
+- Add a persistent selection bar and Selected-page coverage audit for group/account/language concentration.
+- Export `selected.json` using full-population POST IDs so selection is no longer limited to the suggested sample.
+
+
 ## 0.8.2 - 2026-10-07
 
 - Add visual previews to Group Detail.
