@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from creative_research.reference_media import export_media_for_post, select_media_keys
+from creative_research.reference_media import export_media_for_post, preview_media_for_post, select_media_keys
 
 
 def _write_json(path: Path, value: dict) -> None:
@@ -111,3 +111,32 @@ def test_media_key_selector_can_limit_payload() -> None:
         {"account": "c", "post_id": "3", "global_views_pct": 0.5, "views": 300},
     ]
     assert select_media_keys(records, limit=1) == {("b", "2")}
+
+
+def test_preview_media_returns_only_lightweight_remote_fields(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    monkeypatch.setenv("CREATIVE_RESEARCH_PROJECT_ROOT", str(tmp_path))
+    source = tmp_path / "data/02_media/tiktok/creator/321"
+    source.mkdir(parents=True)
+    _write_json(
+        source / "meta.json",
+        {"url": "https://www.tiktok.com/@creator/photo/321"},
+    )
+    _write_json(
+        source / "raw.json",
+        {
+            "slideshowImageLinks": [
+                {"tiktokLink": "https://cdn.example/slide-1.jpeg"},
+                {"tiktokLink": "https://cdn.example/slide-2.jpeg"},
+            ]
+        },
+    )
+    preview = preview_media_for_post(
+        {"account": "creator", "post_id": "321", "content_type": "slideshow"}
+    )
+    assert preview == {
+        "post_url": "https://www.tiktok.com/@creator/photo/321",
+        "thumbnail_url": "https://cdn.example/slide-1.jpeg",
+    }

@@ -47,17 +47,18 @@ function structuresView(){
 
 function groupDetail(g){
   const members=g.members||[],refs=g.reference_ids||[];
+  const refRows=refs.map(id=>pack.references.find(r=>r.reference_id===id)).filter(Boolean);
   return `<div class="drawer-bg" id="group-drawer-bg"><aside class="drawer group-drawer"><button id="group-close">Close</button>
   <h2>${esc(g.group_id)}</h2>
   <p><b>Full population: n=${num(g.posts)}</b> across ${num(g.accounts)} accounts. Representative references available for pixel-level inspection: <b>${num(refs.length)}</b>.</p>
   <div class="badges">${badge(g.hook_technique)}${badge(g.content_angle)}${badge(g.content_format)}${badge(g.product_placement_style)}</div>
   <div class="stats"><span><b>${pct(g.top25_rate)}</b>top25</span><span><b>${pct(g.global_p95_rate)}</b>P95 breakout</span><span><b>${num(g.median_views)}</b>median views</span><span><b>${pct(g.median_save_rate)}</b>save</span></div>
   <h3>Representative executions</h3>
-  <p>${refs.length?'These are the sampled executions with full media/Vision detail.':'No representative execution from this group is in the current sample.'}</p>
-  <div class="actions">${refs.map(id=>`<button data-open-ref="${esc(id)}">${esc(id)}</button>`).join('')}</div>
+  <p>${refs.length?'Quick visual scan of the sampled executions with full media/Vision detail.':'No representative execution from this group is in the current sample.'}</p>
+  <div class="group-ref-grid">${refRows.map(r=>`<button class="group-ref-card" data-open-ref="${esc(r.reference_id)}"><div class="group-ref-media">${media(r)}</div><span><b>${esc(r.reference_id)}</b><small>${esc(r.source?.account||'')} · ${num(r.performance?.views)} views</small></span></button>`).join('')}</div>
   <h3>All ${num(members.length)} posts in this group</h3>
-  <div class="table"><table><thead><tr><th>Rank</th><th>Account</th><th>Post</th><th>Views</th><th>Account pct</th><th>Global pct</th><th>Save</th><th>Hook</th><th>Ref</th><th>Original</th></tr></thead><tbody>
-  ${members.map(m=>`<tr><td>#${num(m.rank_position)}</td><td>${esc(m.account||'')}</td><td>${esc(m.post_id||'')}</td><td>${num(m.views)}</td><td>${pct(m.account_views_pct)}</td><td>${pct(m.global_views_pct)}</td><td>${pct(m.save_rate)}</td><td class="wrap-cell">${esc(m.hook_text||m.topic||'')}</td><td>${m.reference_id?`<button data-open-ref="${esc(m.reference_id)}">${esc(m.reference_id)}</button>`:'--'}</td><td>${m.url?`<a href="${esc(m.url)}" target="_blank" rel="noopener">Open</a>`:'--'}</td></tr>`).join('')}
+  <div class="table"><table><thead><tr><th>Preview</th><th>Rank</th><th>Account</th><th>Post</th><th>Views</th><th>Account pct</th><th>Global pct</th><th>Save</th><th>Hook</th><th>Ref</th><th>Original</th></tr></thead><tbody>
+  ${members.map(m=>`<tr><td>${m.thumbnail_url?`<img class="member-thumb" loading="lazy" src="${esc(m.thumbnail_url)}" alt="">`:'<div class="member-thumb empty-thumb">—</div>'}</td><td>#${num(m.rank_position)}</td><td>${esc(m.account||'')}</td><td>${esc(m.post_id||'')}</td><td>${num(m.views)}</td><td>${pct(m.account_views_pct)}</td><td>${pct(m.global_views_pct)}</td><td>${pct(m.save_rate)}</td><td class="wrap-cell">${esc(m.hook_text||m.topic||'')}</td><td>${m.reference_id?`<button data-open-ref="${esc(m.reference_id)}">${esc(m.reference_id)}</button>`:'--'}</td><td>${m.url?`<a href="${esc(m.url)}" target="_blank" rel="noopener">Open</a>`:'--'}</td></tr>`).join('')}
   </tbody></table></div></aside></div>`
 }
 

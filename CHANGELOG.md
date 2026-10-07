@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.8.2 - 2026-10-07
+
+- Add visual previews to Group Detail.
+- Show representative references as large visual cards with their actual media.
+- Show a lightweight thumbnail for every full-population group member when archived remote media is available.
+- Keep full-population previews lightweight: only post URL + thumbnail URL are exported, not every slide/media asset.
+
+
 ## 0.8.1 - 2026-10-07
 
 - Fix Structures interaction so clicking a group opens its full population membership instead of silently filtering only the representative reference sample.
