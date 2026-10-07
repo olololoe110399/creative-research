@@ -91,6 +91,8 @@ def main() -> None:
     manifest["workspace"] = workspace
     manifest["workspace_entrypoint"] = "index.html"
     manifest["details_dir"] = "details"
+    manifest["population"] = "population.jsonl"
+    manifest["population_ui"] = "population.json"
     manifest["system_map"] = "system.json"
     manifest["candidate_groups"] = "candidate_groups.json"
     (out_dir / "manifest.json").write_text(
