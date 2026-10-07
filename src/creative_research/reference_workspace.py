@@ -482,6 +482,7 @@ def write_reference_workspace(
     static_files = sync_reference_workspace(out_dir)
     return {
         "details": len(details),
+        "population_items": len(population_items),
         "groups": len(group_rows),
         "system_posts": int(system_map.get("dataset", {}).get("posts", 0)),
         "static_files": static_files,
