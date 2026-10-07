@@ -57,17 +57,19 @@ function structuresView(){
 function groupDetail(g){
   const members=g.members||[],refs=g.reference_ids||[];
   const refRows=refs.map(id=>pack.references.find(r=>r.reference_id===id)).filter(Boolean);
+  const selectedInGroup=members.filter(m=>selected.has(m.item_id)).length;
   return `<div class="drawer-bg" id="group-drawer-bg"><aside class="drawer group-drawer"><button id="group-close">Close</button>
   <h2>${esc(g.group_id)}</h2>
-  <p><b>Full population: n=${num(g.posts)}</b> across ${num(g.accounts)} accounts. Representative references available for pixel-level inspection: <b>${num(refs.length)}</b>.</p>
+  <p><b>Full population: n=${num(g.posts)}</b> across ${num(g.accounts)} accounts. Suggested examples: <b>${num(refs.length)}</b>. You selected: <b>${num(selectedInGroup)}</b>.</p>
   <div class="badges">${badge(g.hook_technique)}${badge(g.content_angle)}${badge(g.content_format)}${badge(g.product_placement_style)}</div>
   <div class="stats"><span><b>${pct(g.top25_rate)}</b>top25</span><span><b>${pct(g.global_p95_rate)}</b>P95 breakout</span><span><b>${num(g.median_views)}</b>median views</span><span><b>${pct(g.median_save_rate)}</b>save</span></div>
-  <h3>Representative executions</h3>
-  <p>${refs.length?'Quick visual scan of the sampled executions with full media/Vision detail.':'No representative execution from this group is in the current sample.'}</p>
-  <div class="group-ref-grid">${refRows.map(r=>`<button class="group-ref-card" data-open-ref="${esc(r.reference_id)}"><div class="group-ref-media">${media(r)}</div><span><b>${esc(r.reference_id)}</b><small>${esc(r.source?.account||'')} · ${num(r.performance?.views)} views</small></span></button>`).join('')}</div>
+  <h3>Suggested examples</h3>
+  <p>${refs.length?'Quick visual scan of the system-suggested examples. You can select any post below, not only these.':'No suggested example from this group is in the current sample.'}</p>
+  <div class="group-ref-grid">${refRows.map(r=>`<article class="group-ref-card"><button class="group-ref-open" data-open-item="${esc(itemKeyFromReference(r))}"><div class="group-ref-media">${media(r)}</div><span><b>${esc(r.reference_id)}</b><small>${esc(r.source?.account||'')} · ${num(r.performance?.views)} views</small></span></button><label><input type="checkbox" data-select-item="${esc(itemKeyFromReference(r))}" ${selected.has(itemKeyFromReference(r))?'checked':''}> Select</label></article>`).join('')}</div>
+  <div class="group-toolbar"><button data-select-suggested="${esc(g.group_id)}">Select suggested</button><button data-clear-group="${esc(g.group_id)}">Clear group selection</button></div>
   <h3>All ${num(members.length)} posts in this group</h3>
-  <div class="table"><table><thead><tr><th>Preview</th><th>Rank</th><th>Account</th><th>Post</th><th>Views</th><th>Account pct</th><th>Global pct</th><th>Save</th><th>Hook</th><th>Ref</th><th>Original</th></tr></thead><tbody>
-  ${members.map(m=>`<tr><td>${m.thumbnail_url?`<img class="member-thumb" loading="lazy" src="${esc(m.thumbnail_url)}" alt="">`:'<div class="member-thumb empty-thumb">—</div>'}</td><td>#${num(m.rank_position)}</td><td>${esc(m.account||'')}</td><td>${esc(m.post_id||'')}</td><td>${num(m.views)}</td><td>${pct(m.account_views_pct)}</td><td>${pct(m.global_views_pct)}</td><td>${pct(m.save_rate)}</td><td class="wrap-cell">${esc(m.hook_text||m.topic||'')}</td><td>${m.reference_id?`<button data-open-ref="${esc(m.reference_id)}">${esc(m.reference_id)}</button>`:'--'}</td><td>${m.url?`<a href="${esc(m.url)}" target="_blank" rel="noopener">Open</a>`:'--'}</td></tr>`).join('')}
+  <div class="table"><table><thead><tr><th>Select</th><th>Preview</th><th>Rank</th><th>Account</th><th>Views</th><th>Account pct</th><th>Global pct</th><th>Save</th><th>Hook</th><th>Inspect</th><th>Original</th></tr></thead><tbody>
+  ${members.map(m=>`<tr class="${selected.has(m.item_id)?'selected-row':''}"><td><input type="checkbox" data-select-item="${esc(m.item_id)}" ${selected.has(m.item_id)?'checked':''}></td><td><button class="thumb-button" data-open-item="${esc(m.item_id)}">${m.thumbnail_url?`<img class="member-thumb" loading="lazy" src="${esc(m.thumbnail_url)}" alt="">`:'<div class="member-thumb empty-thumb">—</div>'}</button></td><td>#${num(m.rank_position)}</td><td>${esc(m.account||'')}</td><td>${num(m.views)}</td><td>${pct(m.account_views_pct)}</td><td>${pct(m.global_views_pct)}</td><td>${pct(m.save_rate)}</td><td class="wrap-cell">${esc(m.hook_text||m.topic||'')}</td><td><button data-open-item="${esc(m.item_id)}">${m.reference_id?esc(m.reference_id):'Inspect'}</button></td><td>${m.url?`<a href="${esc(m.url)}" target="_blank" rel="noopener">Open</a>`:'--'}</td></tr>`).join('')}
   </tbody></table></div></aside></div>`
 }
 
