@@ -244,6 +244,19 @@ def _copy_local_assets(
     return assets
 
 
+def preview_media_for_post(record: dict[str, Any]) -> dict[str, str]:
+    """Return lightweight remote preview media for full-population browsing."""
+    media = _remote_media(record)
+    result: dict[str, str] = {}
+    post_url = media.get("post_url")
+    thumbnail_url = media.get("thumbnail_url")
+    if isinstance(post_url, str) and post_url:
+        result["post_url"] = post_url
+    if isinstance(thumbnail_url, str) and thumbnail_url:
+        result["thumbnail_url"] = thumbnail_url
+    return result
+
+
 def export_media_for_post(
     record: dict[str, Any],
     post_key: str,
