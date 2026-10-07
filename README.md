@@ -229,9 +229,9 @@ The generated UI is ordered around the actual research decision:
 
 1. **System** — full dataset size, account coverage, content mix, selection bias, creative dimensions.
 2. **Accounts** — account roles, posting cadence, performance context, and how many references each account contributes.
-3. **Structures** — full-population groups with thumbnails, search/filter, inspect, and selection for every post.
+3. **Structures** — full-population groups with thumbnails, search/account/language filters, sorting, inspect/compare, and selection for every post.
 4. **Suggested** — representative examples the system recommends inspecting first; these are not the only selectable posts.
-5. **Compare** — compare 2–4 Suggested examples with full media and surface exact shared structure.
+5. **Compare** — compare 2–4 posts from Suggested, Structures, or Selected and surface exact shared structure.
 6. **Selected** — review human-curated posts, see concentration warnings, and export the final selection.
 
 The UI explicitly shows account coverage and largest-account share so sampling bias is visible rather than hidden.
