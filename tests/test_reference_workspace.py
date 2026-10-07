@@ -85,6 +85,7 @@ def test_workspace_writes_details_groups_and_static_files(tmp_path: Path) -> Non
                 "content_angle": "education",
                 "content_format": "listicle",
                 "product_placement_style": "late_reveal",
+                "analysis_json": analysis_json(),
             },
             {
                 "account": "other",
@@ -119,6 +120,8 @@ def test_workspace_writes_details_groups_and_static_files(tmp_path: Path) -> Non
     assert report["details"] == 1
     assert (tmp_path / "details/REF-0001.json").is_file()
     assert (tmp_path / "workspace.json").is_file()
+    assert (tmp_path / "population.json").is_file()
+    assert (tmp_path / "population.jsonl").is_file()
     assert (tmp_path / "candidate_groups.json").is_file()
     assert (tmp_path / "system.json").is_file()
     groups = json.loads((tmp_path / "candidate_groups.json").read_text(encoding="utf-8"))
@@ -127,6 +130,13 @@ def test_workspace_writes_details_groups_and_static_files(tmp_path: Path) -> Non
     assert groups[0]["reference_ids"] == ["REF-0001"]
     assert len(groups[0]["members"]) == 2
     assert groups[0]["members"][0]["reference_id"] == "REF-0001"
+    assert groups[0]["members"][0]["item_id"] == "POST-000001"
     assert groups[0]["members"][1]["reference_id"] is None
+    assert groups[0]["members"][1]["item_id"] == "POST-000002"
+    population = json.loads((tmp_path / "population.json").read_text(encoding="utf-8"))
+    assert len(population["items"]) == 2
+    assert population["items"][0]["reference_id"] == "REF-0001"
+    detail = json.loads((tmp_path / "details/REF-0001.json").read_text(encoding="utf-8"))
+    assert detail["item_id"] == "POST-000001"
     (tmp_path / "manifest.json").write_text("{}", encoding="utf-8")
     assert validate_reference_workspace(tmp_path) == []
