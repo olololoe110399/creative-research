@@ -436,6 +436,10 @@ def write_reference_workspace(
     for detail in details:
         item_id = reference_item_ids.get(str(detail["reference_id"]))
         detail["item_id"] = item_id
+        (details_dir / f"{detail['reference_id']}.json").write_text(
+            json.dumps(detail, ensure_ascii=False, indent=2, default=str),
+            encoding="utf-8",
+        )
 
     for row in group_rows:
         key = tuple(str(row.get(dimension, "<missing>")) for dimension in DEFAULT_GROUP_DIMENSIONS)
