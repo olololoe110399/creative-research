@@ -184,7 +184,7 @@ It:
 3. rewards structural novelty across hook, angle, format, product placement, audience, language, and visual type;
 4. penalizes repeated sampling from accounts already represented.
 
-This produces a **representative inspection sample**, not independent validation. Multiple accounts operated by one person are still one operator system.
+This produces **Suggested examples**, not a whitelist and not independent validation. Any post in a Structure group can still be inspected and selected. Multiple accounts operated by one person are still one operator system.
 
 Other modes:
 
@@ -206,8 +206,10 @@ data/07_exports/study-system/
 ├── favicon.svg
 │
 ├── system.json                 # full-master/operator map
-├── candidate_groups.json       # structures from full reference population
-├── workspace.json              # representative detailed refs
+├── candidate_groups.json       # structures + full member lists
+├── population.json             # all POST items for the browser
+├── population.jsonl            # all POST items for downstream import
+├── workspace.json              # Suggested REF examples with full media
 ├── manifest.json
 │
 ├── references.parquet
@@ -227,16 +229,16 @@ The generated UI is ordered around the actual research decision:
 
 1. **System** — full dataset size, account coverage, content mix, selection bias, creative dimensions.
 2. **Accounts** — account roles, posting cadence, performance context, and how many references each account contributes.
-3. **Structures** — descriptive hook × angle × format × product-placement groups across the full reference population.
-4. **References** — representative actual executions with media and slide-level Vision detail.
-5. **Compare** — compare 2–4 executions and surface exact shared structure.
-6. **Selected** — curate only the references worth sending downstream.
+3. **Structures** — full-population groups with thumbnails, search/filter, inspect, and selection for every post.
+4. **Suggested** — representative examples the system recommends inspecting first; these are not the only selectable posts.
+5. **Compare** — compare 2–4 Suggested examples with full media and surface exact shared structure.
+6. **Selected** — review human-curated posts, see concentration warnings, and export the final selection.
 
 The UI explicitly shows account coverage and largest-account share so sampling bias is visible rather than hidden.
 
 ## Reference detail contract
 
-Each selected reference contains:
+Each POST item selected for downstream work contains:
 
 ```text
 source/provenance
@@ -274,13 +276,12 @@ After understanding the system and inspecting references, use **Selected → Exp
 Then downstream:
 
 ```bash
-uv run creative-bank references import \
+uv run creative-bank import-references study-001 \
   ../creative-research/data/07_exports/study-system \
-  --project study-001 \
   --selection ~/Downloads/selected.json
 ```
 
-Only the human-curated reference IDs proceed to family/brief/experiment work.
+Only the human-curated POST IDs proceed downstream. Suggested REF IDs remain provenance for posts that happened to be in the system sample.
 
 ## Media modes
 
