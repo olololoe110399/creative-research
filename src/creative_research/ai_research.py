@@ -723,6 +723,10 @@ def _validate_family_review(
         raise ResearchValidationError("family_identity_ref_outside_membership")
     if not outliers.issubset(checked):
         raise ResearchValidationError("family_outlier_not_inspected")
+    if checked != expected_refs:
+        if answer.proposed_review == "approve":
+            raise ResearchValidationError("family_approval_requires_all_members")
+        raise ResearchValidationError("family_review_requires_all_included_members")
     if assessment.visual_media_inspected is not False:
         raise ResearchValidationError("family_media_not_inspected_by_ai")
     if answer.experiments:
