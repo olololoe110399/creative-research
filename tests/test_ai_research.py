@@ -31,6 +31,18 @@ def corpus_fixture(root: Path) -> Path:
             "creative": {"hook_text": hook, "topic": "study", "content_angle": "teaching"},
             "performance": {"views_percentile_account": percentile},
             "family": {"family_id": fam},
+            "sequence": [
+                {
+                    "position": 1, "role": "hook",
+                    "primary_text": hook, "visual_type": "study_desk_photo",
+                    "visual_description": "A study desk with lesson scheduling notes",
+                },
+                {
+                    "position": 2, "role": "body",
+                    "primary_text": "Tips for different students",
+                    "visual_type": "study_note",
+                },
+            ],
         }
         for uid, account, fam, views, percentile, date, hook in (
             ("P1", "A", "F1", 1000, .9, "2025-01-01", "10 tips"),
@@ -50,6 +62,18 @@ def corpus_fixture(root: Path) -> Path:
             "cross_account": True, "accounts_count": 2,
             "family_origin_post_uid": origins[0],
             "core_topic": "Study tips", "core_angle": "teaching",
+            "core_creative_formula": "Categorized student advice followed by a study tool",
+            "core_sequence_roles_json": '["hook", "body"]',
+            "members": [
+                {
+                    "post_uid": post_uid,
+                    "family_member_index": index + 1,
+                    "match_score_to_origin": 1.0 if index == 0 else 0.82,
+                    "match_anchor_gate": "origin" if index == 0 else "strong_match",
+                    "match_reason_json": '{"strongest_signals":["shared core formula"]}',
+                }
+                for index, post_uid in enumerate(origins)
+            ],
             "propagation": [{
                 "operator_id": operator, "family_id": uid,
                 "family_origin_post_uid": origins[0],
@@ -67,6 +91,7 @@ def corpus_fixture(root: Path) -> Path:
     families.append({
         "operator_id": operator, "family_id": "F3", "member_count": 1,
         "family_origin_post_uid": "P5", "cross_account": False,
+        "members": [{"post_uid": "P5", "family_member_index": 1}],
         "propagation": [],
     })
     strategy = {
@@ -171,7 +196,53 @@ def valid_answer(*, mode: str = "investigate") -> dict:
             "success_metric": "Receiver views relative to its account median.",
             "stop_or_recheck": "Reconsider after 5 executions, including losses.",
             "evidence_refs": ["post:P2", "family:F1"],
+            "threshold_origin": "proposed_experiment",
         }] if mode == "draft_playbook" else [],
+    }
+
+
+def valid_family_answer(
+    *,
+    decision: str = "hold",
+    reason: str = "Hook and structure overlap, but raw media still needs checking.",
+) -> dict:
+    return {
+        "summary": (
+            "Two posts present categorized study advice with a matching"
+            " educational hook and story sequence."
+        ),
+        "proposed_review": decision,
+        "review_rationale": reason,
+        "family_assessment": {
+            "core_concept": "Categorized study advice for student groups",
+            "checked_member_post_refs": ["post:P1", "post:P2"],
+            "identity_support_post_refs": ["post:P1", "post:P2"],
+            "outlier_post_refs": [],
+            "identity_rationale": (
+                "Both posts share audience grouping and a two-step hook/body"
+                " sequence; the different hook words may be adaptations."
+            ),
+            "visual_media_inspected": False,
+        },
+        "findings": [
+            {
+                "interpretation": "observed",
+                "statement": "The first post presents a study hook and categorized body.",
+                "evidence_refs": ["post:P1", "family:F1"],
+            },
+            {
+                "interpretation": "observed",
+                "statement": "The second post shares the educational premise and sequence.",
+                "evidence_refs": ["post:P2", "family:F1"],
+            },
+        ],
+        "alternative_explanations": [
+            "Broad study tips can look similar without a shared core execution."
+        ],
+        "missing_evidence": [
+            "A human must inspect the original slides or video before approval."
+        ],
+        "experiments": [],
     }
 
 
