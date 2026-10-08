@@ -156,8 +156,11 @@ def test_six_member_identity_packet_never_uses_views_as_membership_evidence(
     assert packet["selected_flows"] == []
     serialized = json.dumps(packet)
     assert "182500" not in serialized
-    assert '"views"' not in serialized
-    assert '"performance"' not in serialized
+    assert "views" in packet["family_identity"]["decision_must_ignore"]
+    for entry in packet["source_registry"]:
+        assert "views" not in entry["data"]
+        assert "performance" not in entry["data"]
+        assert "views_percentile_account" not in json.dumps(entry["data"])
     refs = {
         item["evidence_ref"] for item in packet["source_registry"]
     }
