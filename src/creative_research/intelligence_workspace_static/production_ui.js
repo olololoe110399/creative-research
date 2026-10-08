@@ -69,7 +69,8 @@ function productionCalendar(k){
       '<small>'+esc(slot.recipe_id)+' · Variant '+esc(slot.variant)+
       ' · hook: '+esc(slot.hook_to_publish_draft_vi||'draft pending')+'</small></td>'+
       '<td>'+esc(label(slot.test_dimension))+'</td>'+
-      '<td>'+esc(slot.planned_local_time||'')+'<small>'+esc(slot.timezone||'')+'</small></td>'+
+      '<td>'+esc((opSlot(slot)||{}).scheduled_at||slot.planned_local_time||'')+
+      '<small>'+esc(slot.timezone||'')+'</small></td>'+
       '<td>'+opLabel(opSlot(slot))+
       '<button class="production-recipe-link" data-edit-operating="slot" data-operating-key="'+
       esc(slot.slot_id)+'">Manage →</button></td>'+
@@ -218,7 +219,8 @@ function openProductionRecipe(id){
     return '<article class="production-slide">'+
       '<div class="row"><b>Slide/scene '+num(slide.slide_number)+' · '+esc(label(slide.role))+'</b>'+
       badge(slide.asset_id,'warn')+'</div>'+
-      '<h3>New Vietnamese overlay draft</h3><p>'+esc(slide.new_draft_text_vi)+'</p>'+
+      '<h3>Your original overlay / starting draft</h3><p>'+
+        esc(((live||{}).slides||{})[String(slide.slide_number)]||slide.new_draft_text_vi)+'</p>'+
       '<h3>Original visual direction</h3><p>'+esc(slide.production_visual_brief)+'</p>'+
       '<p class="production-visual-query"><b>Search query:</b> '+esc(slide.visual_search_query)+'</p>'+
       '<div class="production-search-links">'+
