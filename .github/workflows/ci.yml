@@ -53,6 +53,10 @@ jobs:
               "creative_research/reference_workspace_static/app.js",
               "creative_research/reference_workspace_static/style.css",
               "creative_research/reference_workspace_static/favicon.svg",
+              "creative_research/intelligence_workspace_static/index.html",
+              "creative_research/intelligence_workspace_static/app.js",
+              "creative_research/intelligence_workspace_static/style.css",
+              "creative_research/intelligence_workspace_static/favicon.svg",
           }
           with zipfile.ZipFile(wheel) as archive:
               names = set(archive.namelist())
