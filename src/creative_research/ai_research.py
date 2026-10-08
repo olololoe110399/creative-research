@@ -460,6 +460,7 @@ class LabCorpus:
             excerpt = _select(item, (
                 "knowledge_type", "knowledge_status", "title", "statement",
                 "counter_evidence", "review_decision",
+                "review_source_type", "review_source_id",
             ))
             if item.get("knowledge_status") in {"approved", "promoted"}:
                 excerpt["actionable_guidance"] = _compact(
@@ -682,15 +683,16 @@ class AIResearchService:
                 blocked_source_refs=blocked,
             )
             if answer.proposed_review == "approve" and source_type == "playbook_sources":
-                # A model cannot recommend bundle approval before the separate
-                # constituent human-review source decisions have been completed.
-                reviewed = {
-                    item["data"].get("knowledge_status")
+                # A bundle suggestion cannot imply approval of any unreviewed
+                # constituent. The actual human review is still always separate.
+                approved_ids = {
+                    item["data"].get("review_source_id")
                     for item in plan["packet"]["source_registry"]
                     if item["kind"] == "knowledge"
-                    and item["data"].get("knowledge_status") != "review_candidate"
+                    and item["data"].get("review_source_type") == "hypothesis"
+                    and item["data"].get("knowledge_status") == "approved"
                 }
-                if "approved" not in reviewed or "hold" in reviewed or "rejected" in reviewed:
+                if not set(source_id.split("|")).issubset(approved_ids):
                     raise ResearchValidationError("bundle_needs_constituent_human_review")
             report = {
                 **meta,
