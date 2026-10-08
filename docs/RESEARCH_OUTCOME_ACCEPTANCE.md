@@ -1,83 +1,114 @@
-# Research Outcome Acceptance (v1)
+# Research Outcome Acceptance — Research Intelligence v3
 
-> **Creative Research turns public creator/operator activity into visual, evidence-backed operating intelligence and actionable playbooks.**
+## North Star
 
-The research engine and the final research product have **separate** acceptance gates. Passing data/analytics CI does **not** mean an operator's strategy is proven, a playbook is approved, or a nontechnical user can understand the Lab.
+**Creative Research turns public operator evidence into understandable
+observations, bounded strategic hypotheses, explicit unknowns and testable
+first-party experiments in roughly 5–10 minutes.**
 
-## Rebuild and validate existing evidence
+The researcher is not expected to know the studied operator's private
+directives. Neither a human approval of an inference nor AI confidence proves
+internal test→scale intent. Human actions are reserved for (1) declaring
+the account grouping before scraping and (2) deciding what to try on the
+researcher's own accounts.
 
-After building the canonical master and verified operator registry, run from the repository root:
+## Setup once, before spending on scraping
+
+    uv run creative-research operator-setup \
+      --accounts-file config/target_accounts.txt \
+      --operator-id OP-001 --name "Research operator" \
+      --confirm-same-operator
+
+    uv run creative-research scrape config/target_accounts.txt \
+      --operators config/operators.toml --preflight
+
+A paid scrape fails before invoking Apify if the requested account group
+has not been confirmed, mixes operators or includes unregistered accounts.
+A user-declared grouping is not external proof of legal ownership.
+
+## Refresh research without collecting data again
+
+For an already-built warehouse, rebuild Lab v3 only:
 
     uv run creative-research intelligence-build \
       --operators config/operators.toml \
-      --from-stage knowledge
+      --from-stage workspace --force
 
-Add --reviews config/knowledge_reviews.toml if a manually reviewed registry exists. The new knowledge schema triggers a one-time rebuild of older outputs and the workspace schema triggers a Lab refresh; stages after knowledge are rebuilt as dependencies change. To explicitly recompute downstream artifacts, use --from-stage knowledge --force. This does not scrape TikTok, rerun Vision, or modify existing analytical family assignments.
-
-Then run:
-
+    uv run creative-research quality-audit
     uv run creative-research outcome-audit
-    uv run creative-research lab --open --read-only
+    uv run creative-research ai-research-audit --strict
+    uv run creative-research lab --open
 
-The intelligence build now automatically writes data/07_exports/operator-intelligence/outcome_acceptance_report.json, after the existing quality audit.
+This does not rescrape, run Vision or change historical family assignments.
+Quality reports remain distinct: integrity vs research product vs optional
+AI evidence-packet readiness.
 
-**Strict mode:** outcome-audit --strict exits 2 for conditional research readiness, and 1 for broken evidence contracts. Neither mode can certify playback or a user session.
+## Machine checks
 
-## Machine acceptance contracts
+The outcome audit must prove:
 
-- Research Brief counts reconcile with materialized families/posts.
-- Account role denominators count **unique originated/imported families**, not raw propagation events. An origin family reused by five receivers counts once for the originator, but all five receiving executions stay inspectable.
-- Every displayed flow joins to a materialized family, original and receiving post, account, and source URL.
-- Account/operator role hypotheses expose concrete flow evidence rather than only account-summary links.
-- Held/rejected findings cannot appear as usable playbook guidance.
-- Algorithmic confidence/automatic promotion are not confused with human approval.
-- The measure step is a recommended validation protocol, **not an inference about the operator's internal workflow**.
+- Brief posts/family/reuse counts reconcile with canonical JSON outputs.
+- Origin/import account roles use unique family counts, not raw edge counts.
+- Every displayed flow traces to an existing family, original/receiving post
+  and account, with an original URL.
+- Inferred claims link to actual materialized strategy hypotheses.
+- Every repeated creative family receives automated consistency diagnostics;
+  unresolved multilingual semantics are labelled uncertain rather than
+  falsely promoted to fact.
+- Research Intelligence includes **Observed**, **Inferred**, and **Unknown**.
+- Each suggested experiment has a unique ID, explanatory evidence/method
+  basis, and the explicit flag "experiment_not_proven".
+- No review approval of operator-internal intent is required for v3 readiness.
 
-Older Lab exports must be regenerated after upgrading; the workspace contract is version 2.
+In v3, absence of a human-approved knowledge catalog playbook is **not**
+a reason to fail or block the display of suggested experiments. Legacy v2
+reviewed knowledge remains available separately for historical consumers.
 
-## Audit statuses
+## Audit status
 
 | Status | Meaning |
 |---|---|
-| fail | Missing/broken lineage, counts, trust state, or decision mapping. |
-| conditional_pass | Research contracts pass, but human-reviewed knowledge or catalog playbook is incomplete. |
-| ready_for_usability_test | Research contracts pass, all three core claim-steps (explore/select/distribute) have human-approved sources, and the operator-specific catalog playbook is human-approved. Optional adaptation may remain unverified and must stay provisional; real user testing is still outstanding. |
+| fail | Counts, lineage, operator scope, classification, or experiment attribution are broken. |
+| ready_for_usability_test | V3 machine contracts pass. No human truth approval required; real usability and semantic quality are not yet certified. |
+| conditional_pass | Legacy v2 behavior when no new v3 Research Intelligence is materialized. Regenerate workspace. |
 
-quality_report.json checks the engine's integrity. outcome_acceptance_report.json checks evidence-to-decision presentation. They do not replace each other.
+Every run still warns that real browser media playback, Gemini accuracy,
+and nontechnical research comprehension are not tested by CI.
 
-## Human review: required workflow
+## Real operator 5–10 minute test
 
-In Insight Review, for each important operating-model hypothesis:
+Give the Lab to someone who has not built the pipeline. Without developer
+help, they should be able to:
 
-1. Read the claim and sample denominator; do not treat confidence as review.
-2. Inspect supporting/counter patterns and plausible alternative explanations.
-3. Click family → original post → receiving post → original TikTok / archived media.
-4. Actively inspect losing adaptations, missing posts and counterexamples.
-5. Record Approve, Hold or Reject with a substantive note. Approve requires an explicit evidence-inspected confirmation; arbitrary source IDs are rejected by the Lab server.
+1. Identify which accounts belong to the user-declared operator.
+2. Explain 2 observed counts, 2 bounded inferences and 1 explicitly unknown
+   question, **without being asked to Approve hidden operator intent**.
+3. Open a cross-account creative family and inspect actual source media,
+   structural similarity, chronology and counterexamples.
+4. See machine-flagged family uncertainty, particularly multilingual
+   candidate matches; not be asked to certify translations they cannot know.
+5. Choose at least 2 testable actions from Operator Playbook and add them to
+   My Experiments, including metrics and stop/recheck rules.
+6. Change experiment progress and log a real result as their own outcome,
+   with no automatic claim that the operator's method is proven.
 
-Review decisions stay in the local, ignored review registry. A hold/reject hides the step's proposed guidance without destroying historical evidence.
+Record time, tasks completed, error cases, media load failures and confusing
+language. A green CI run cannot substitute for this final product test.
 
-## Final 5–10 minute nontechnical acceptance
+## Security/trust
 
-Ask a user who has never built the pipeline to open the Lab, without coaching, and:
+The default Lab's historic POST /api/review is retired (HTTP 410).
+Legacy compatibility requires an explicit opt-in flag. The normal
+human-controlled write is POST /api/experiments, guarded by same-origin,
+loopback-only, valid candidate IDs, operator scoping and a private local
+storage path. It does not edit canonical evidence, strategy hypotheses
+or the knowledge bank.
 
-1. Explain the research model and the limits of its claims.
-2. Identify origin/receiver-leaning accounts using the correct unique-family denominators.
-3. Trace a cross-account family into original and receiving posts; compare preserved and changed execution.
-4. Find a counterexample that weakens a tempting narrative.
-5. Distinguish reviewed from unreviewed claims.
-6. Turn the Operator Playbook into three testable actions with evidence, safeguards and recheck conditions.
+AI Investigate/Challenge remains optional, source-limited, paid only
+after explicit click and subject to validated evidence references.
+No Gemini call can independently verify legal operator ownership or
+the intent behind public publishing behavior.
 
-Record elapsed time, task completion, where the user needed help and whether archived media actually loaded. **Do not call the product north star complete until this test passes.**
-
-## Known boundaries
-
-- Verified operator-account ownership remains a manual assumption.
-- Vision family candidates are not proof of identical intent; sample and review positives and false merges.
-- Chronology alone does not prove testing, scaling or causation.
-- The provisional Playbook is a research draft for *your experiments*, not an assertion about the operator's documented procedures.
-- A research draft is not silently inserted into the knowledge catalog. If there is no trusted playbook, the UI explicitly reports that absence.
-- An exported JSON URL for local media does not prove the actual file exists or plays in a different browser/environment.
-- The automated audit cannot validate the semantics of every family or human comprehension.
-
-**Never approve weak adaptation evidence just to pass an audit.** Core operating-model review is separate from optional adaptation validation. Unsupported adaptation remains provisional, even when the model is ready for real usability testing.
+See [RESEARCH_INTELLIGENCE_V3.md](RESEARCH_INTELLIGENCE_V3.md) for full
+product design and [AI_RESEARCH_COPILOT.md](AI_RESEARCH_COPILOT.md) for
+optional AI research details.
