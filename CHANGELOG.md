@@ -13,7 +13,7 @@
 - Preserve every post through singleton families and retain per-member similarity evidence, origin post, representative post, cohesion, lifecycle, cross-account coverage, and relative-performance summaries.
 - Add `analyze-propagation` to derive family account entries, cross-account propagation events, origin/sequence account edges, creative-dimension changes, and descriptive account-role evidence.
 - Keep propagation chronology explicitly non-causal and defer testing/scaling/conversion strategy labels to later inference.
-
+- Add `analyze-timeline` for monthly/weekly operator/account strategy windows and deterministic adjacent-window change points.\n- Add `discover-patterns` for evidence-backed recurring observations across creative performance, cadence, propagation mutation, family reuse, account flow, and timeline shifts.\n- Add `pattern_evidence_links.parquet` so every emitted pattern can trace back to supporting/counter posts, families, and accounts.\n
 ## 0.9.1 - 2026-10-07
 
 - Rename machine-selected account/group counts to **Suggested** so they are not confused with human Selected posts.
