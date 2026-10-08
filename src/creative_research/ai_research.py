@@ -25,7 +25,7 @@ REVIEW_TYPES = frozenset({"hypothesis", "family", "playbook_sources"})
 MAX_INPUT_CHARS = 42_000
 MAX_OUTPUT_TOKENS = 2_400
 MAX_SOURCE_ITEMS = 55
-MAX_FLOW_PAIRS = 12
+MAX_FLOW_PAIRS = 8
 REPORT_NAME = re.compile(r"^[a-f0-9]{32}$")
 
 MODEL_INSTRUCTIONS = """You are a skeptical operator-research assistant.
@@ -242,6 +242,16 @@ class LabCorpus:
                 for row in self.lab.get("research_brief", {}).get("key_findings", [])
             ]
             strategies = [row for row in strategies if row]
+            # Favor distinct operating-model mechanisms rather than many
+            # near-duplicate account role or temporal hypotheses.
+            seen_types: set[str] = set()
+            diverse = []
+            for row in strategies:
+                htype = str(row.get("hypothesis_type") or "")
+                if htype not in seen_types:
+                    seen_types.add(htype)
+                    diverse.append(row)
+            strategies = diverse[:4]
         else:
             if source_type not in REVIEW_TYPES:
                 raise ResearchValidationError("invalid_review_source_type")
@@ -252,7 +262,7 @@ class LabCorpus:
         post_ids: set[str] = set()
         source_types: list[str] = []
 
-        for strategy in strategies[:9]:
+        for strategy in strategies[:4]:
             strategy_id = strategy["hypothesis_id"]
             source_types.append(_text(strategy.get("hypothesis_type")))
             registry.put("hypothesis", strategy_id, _select(strategy, (
@@ -260,7 +270,7 @@ class LabCorpus:
                 "scope_type", "scope_id", "account_id", "evidence_summary",
                 "counter_evidence", "alternative_explanations", "sample_size_total",
             )))
-            for relation in strategy.get("pattern_links", [])[:6]:
+            for relation in strategy.get("pattern_links", [])[:3]:
                 pattern_id = relation.get("pattern_id")
                 pattern = self.pattern_index.get(str(pattern_id))
                 if pattern:
@@ -268,12 +278,16 @@ class LabCorpus:
                         "title", "observation", "sample_size", "support_rate",
                         "effect_size", "counter_evidence", "evidence_strength",
                     )))
-                    for link in pattern.get("evidence_links", [])[:10]:
+                    for link in pattern.get("evidence_links", [])[:20]:
                         if link.get("family_id") in self.family_index:
                             family_ids.add(link["family_id"])
+                        if link.get("post_uid") in self.post_index:
+                            post_ids.add(link["post_uid"])
             for link in strategy.get("evidence_links", [])[:140]:
                 if link.get("family_id") in self.family_index:
                     family_ids.add(link["family_id"])
+                if link.get("post_uid") in self.post_index:
+                    post_ids.add(link["post_uid"])
             for account in strategy.get("flow_evidence", {}).get("accounts", [])[:12]:
                 for key in ("origin_families", "imported_families"):
                     for row in account.get(key, [])[:30]:
@@ -321,7 +335,7 @@ class LabCorpus:
             if f.get("target_outperformed_origin") is None
         ]
         picked: list[dict[str, Any]] = []
-        for group, cap in ((negative, 6), (positive[::-1], 4), (other, 2)):
+        for group, cap in ((negative, 4), (positive[::-1], 2), (other, 2)):
             picked.extend(group[:cap])
         if len(picked) < MAX_FLOW_PAIRS:
             for flow in flows:
@@ -353,7 +367,7 @@ class LabCorpus:
             ]
             for family in sorted(singletons, key=lambda f: f["family_id"])[:2]:
                 family_ids.add(family["family_id"])
-        for family_id in sorted(family_ids)[:17]:
+        for family_id in sorted(family_ids)[:12]:
             family = self.family_index[family_id]
             registry.put("family", family_id, _select(family, (
                 "member_count", "accounts_count", "cross_account", "core_topic",
@@ -383,7 +397,7 @@ class LabCorpus:
             }
             for flow in picked[:MAX_FLOW_PAIRS]
         ]
-        for post_id in sorted(post_ids):
+        for post_id in sorted(post_ids)[:26]:
             post = self.post_index.get(post_id)
             if not post:
                 continue
@@ -415,10 +429,15 @@ class LabCorpus:
             )
             if not matches:
                 continue
-            registry.put("knowledge", item.get("knowledge_id"), _select(item, (
+            excerpt = _select(item, (
                 "knowledge_type", "knowledge_status", "title", "statement",
-                "counter_evidence", "review_decision", "actionable_guidance",
-            )))
+                "counter_evidence", "review_decision",
+            ))
+            if item.get("knowledge_status") in {"approved", "promoted"}:
+                excerpt["actionable_guidance"] = _compact(
+                    item.get("actionable_guidance")
+                )
+            registry.put("knowledge", item.get("knowledge_id"), excerpt)
 
         # A single operator is the scope, and full-population metrics are
         # deterministic read-only counts, not estimates from this sample.
@@ -448,8 +467,11 @@ class LabCorpus:
                 ),
             },
         }
-        if not registry.items:
-            raise ResearchValidationError("no_source_evidence")
+        if not any(
+            ref.startswith(("post:", "family:"))
+            for ref in registry.items
+        ):
+            raise ResearchValidationError("insufficient_direct_evidence")
         return packet
 
 
@@ -478,6 +500,11 @@ def validate_answer(
         raise ResearchValidationError("empty_evidence_ref")
     if len(answer.findings) == 0:
         raise ResearchValidationError("missing_findings")
+    if not any(
+        ref.startswith(("post:", "family:", "pattern:"))
+        for ref in cited
+    ):
+        raise ResearchValidationError("no_independent_evidence_citation")
     if mode in {"draft_playbook", "stress_test"}:
         if answer.proposed_review != "not_applicable":
             raise ResearchValidationError("playbook_cannot_propose_approval")
