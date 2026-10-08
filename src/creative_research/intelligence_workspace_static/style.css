@@ -181,3 +181,39 @@ a{color:var(--brand)}
 button:focus-visible,summary:focus-visible{outline:3px solid #8ab4ff;outline-offset:2px}
 @media(max-width:900px){.playbook-grid{grid-template-columns:1fr}}
 @media(max-width:600px){.playbook-intro,.playbook-step{padding:16px}.flow-posts{flex-direction:column}.playbook-intro .row{align-items:start;flex-direction:column}}
+
+
+
+/* AI Research Copilot: distinguish machine proposals from reviewed knowledge. */
+.ai-controls{padding:16px;border:1px solid var(--line2);background:#f8faff;
+  border-radius:14px;margin:18px 0}
+.ai-controls .row{align-items:flex-start}
+.ai-controls small{display:block;color:var(--muted);margin-top:4px;line-height:1.4}
+.ai-control-row{display:flex;gap:8px;flex-wrap:wrap;margin-top:13px}
+.ai-action{border:1px solid #9ab7f0;background:#eef4ff;color:#164a90;
+  padding:10px 14px;border-radius:10px;font-weight:750;cursor:pointer}
+.ai-action:hover{background:#ddeaff}
+.ai-action:disabled{opacity:.45;cursor:not-allowed}
+.ai-status-note{margin-top:10px!important}
+.ai-history-link{background:transparent;border:1px solid var(--line2);
+  border-radius:9px;padding:8px;color:#37588a;cursor:pointer}
+.ai-history-item{display:flex;flex-direction:column;align-items:start;text-align:left;
+  gap:3px;width:100%;border:1px solid var(--line);background:var(--panel);
+  border-radius:11px;padding:13px;margin:9px 0}
+.ai-history-item:hover{border-color:#8ca9d9;background:#f8faff}
+.ai-history-item span{color:var(--muted);font-size:12px}
+.ai-finding{border:1px solid var(--line);border-radius:12px;padding:14px;margin:10px 0;background:#fff}
+.ai-finding p{line-height:1.6;margin:10px 0}
+.ai-finding h4{margin:0}
+.ai-source-links{display:flex;gap:5px;flex-wrap:wrap}
+.ai-source-links .link-button{width:auto;font-size:12px;padding:7px 9px}
+.ai-missing-ref{font-size:12px;color:var(--red)}
+.ai-review-draft{background:#202a3b;border:0;border-radius:10px;
+  color:white;padding:12px;font-weight:750;cursor:pointer;margin-top:12px}
+.ai-review-draft:hover{background:#34517a}
+.drawer code{word-break:break-all;font-size:11px}
+@media(max-width:600px){
+ .ai-control-row{flex-direction:column}
+ .ai-control-row .ai-action{width:100%;text-align:center}
+ .ai-controls .row{display:flex;flex-wrap:wrap}
+}
