@@ -27,7 +27,7 @@ from creative_research.knowledge_reviews import (
 )
 from creative_research.validation import read_table
 
-KNOWLEDGE_SCHEMA_VERSION = "operator-knowledge-v1"
+KNOWLEDGE_SCHEMA_VERSION = "operator-knowledge-v2"
 PROMOTION_METHOD = "deterministic-knowledge-promotion-v1"
 
 KNOWLEDGE_PREFIX = {
