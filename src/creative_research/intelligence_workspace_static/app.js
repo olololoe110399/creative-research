@@ -32,7 +32,8 @@ function initMaps(){
 
 function setHeader(){
   const brief=data.lab.research_brief||{}, op=brief.operator||{}, stats=brief.stats||{};
-  $('#project-name').textContent=(op.name||op.operator_id||'Research project')+(op.verified?' · verified operator':'');
+  $('#project-name').textContent=(op.name||op.operator_id||'Research project')+
+    (op.verified?' · account group confirmed':'')+' · Research v3';
   $('#research-meta').textContent=(stats.posts||0)+' posts · '+(stats.accounts||0)+' accounts · '+(stats.propagation_events||0)+' observed reuse events';
   const inferred=(data.lab.research_intelligence||{}).counts?.inferred||0;
   const indicator=$('#research-count');
@@ -68,7 +69,7 @@ function briefView(){
     '<section class="hero"><div><div class="eyebrow">'+esc(hero.eyebrow||'Operating model')+'</div><h2>'+esc(hero.title||'Research model is forming')+'</h2><p>'+esc(hero.summary||'')+'</p></div><div class="hero-side"><div class="confidence-ring" style="--score:'+score+'%"><span>'+num(hero.confidence_score)+'</span></div>'+(hero.hypothesis_id?'<button class="hero-link" data-strategy="'+esc(hero.hypothesis_id)+'">See why we believe this</button>':'')+'</div></section>'+
     '<div class="metric-grid">'+
       metricCard('Posts analyzed',num(s.posts),'canonical evidence')+
-      metricCard('Verified accounts',num(s.accounts),'same operator')+
+      metricCard('Declared accounts',num(s.accounts),'researcher-confirmed grouping')+
       metricCard('Creative concepts',num(s.families),'family candidates')+
       metricCard('Repeated concepts',num(s.repeated_families),pct(s.repeated_family_rate)+' of concepts')+
       metricCard('Cross-account repeats',num(s.cross_account_repeated_families),pct(s.cross_account_share_of_repeated)+' of repeats')+
