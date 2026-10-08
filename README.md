@@ -48,6 +48,8 @@ download-videos
 vision-videos
 build-master
 build-warehouse
+analyze-performance
+analyze-cadence
 
 rank-posts
 extract-references
@@ -75,6 +77,7 @@ data/
 ├── 04_vision/slides/
 ├── 04_vision/videos/
 ├── 05_master/                # creative_master + operator-aware canonical tables
+├── 06_analytics/             # deterministic performance + cadence analytics
 └── 07_exports/               # generated system/reference workspaces
 ```
 
@@ -180,6 +183,62 @@ data/05_master/
 `creative_sequence` normalizes existing slideshow `slides[]` and video `timeline[]` analysis so the old Vision work becomes reusable data instead of being rerun. Stable `POST-...` identifiers use the same identity scheme as the Reference Workspace.
 
 By default the command fails if an observed account is not present in the verified operator registry. Use `--allow-unmapped` only for intentionally exploratory datasets.
+
+### 9. Build historical performance baselines
+
+This stage uses the metrics already stored on the researched posts. It does not scrape again and does not require realtime snapshots.
+
+```bash
+uv run creative-research analyze-performance \
+  data/05_master/posts.parquet \
+  --out data/06_analytics
+```
+
+It writes:
+
+```text
+data/06_analytics/
+├── post_performance.parquet
+├── account_performance_baselines.parquet
+├── operator_performance_baselines.parquet
+└── performance_report.json
+```
+
+For each post, the analytics layer calculates account-relative, operator-relative, and global percentiles for views/likes/comments/shares/saves, plus ratios against account/operator medians. This lets a 100k-view post be interpreted differently on a small account versus a large account.
+
+The values describe the historical dataset you collected. They are not realtime growth curves.
+
+### 10. Build posting cadence
+
+```bash
+uv run creative-research analyze-cadence \
+  data/05_master/posts.parquet \
+  --out data/06_analytics \
+  --timezone UTC
+```
+
+Choose the analysis timezone that makes sense for the operator when interpreting posting hour/day. The original timestamp remains preserved in UTC.
+
+This writes:
+
+```text
+data/06_analytics/
+├── posting_cadence.parquet
+├── account_activity_daily.parquet
+├── operator_activity_daily.parquet
+├── account_cadence_summary.parquet
+├── operator_cadence_summary.parquet
+└── cadence_report.json
+```
+
+Cadence is calculated at both levels:
+
+- **account** — gaps between posts on the same account, posts/day, common posting hours;
+- **operator** — gaps across all verified accounts, neighboring accounts in the posting sequence, and account-switch behavior.
+
+That operator-level chronology is what later stages can use to test hypotheses such as whether one account appears to test ideas before another account reuses them.
+
+Performance and cadence should be joined by stable `post_uid` when studying relationships such as “high-relative-performance posts tend to be followed by longer or shorter posting gaps.” Such relationships are observations/correlations, not proof of causation.
 
 ## System-first reference workflow
 
@@ -370,10 +429,11 @@ raw evidence
 -> Vision interpretation
 -> creative_master
 -> operator-aware canonical warehouse
+-> relative performance + account/operator cadence
 -> system/reference workspace
 ```
 
-The operator warehouse is intentionally built before strategy inference. Future stages can derive cadence, relative performance, creative families, cross-account propagation, strategy periods, patterns, rules, lessons, templates, and playbooks from these canonical tables. Those future knowledge assets must retain evidence lineage instead of being unsupported LLM summaries.
+The operator warehouse is intentionally built before strategy inference. Relative performance and historical cadence are now deterministic analytics layers. Future stages can derive creative families, cross-account propagation, strategy periods, patterns, rules, lessons, templates, and playbooks from these canonical tables. Those future knowledge assets must retain evidence lineage instead of being unsupported LLM summaries.
 
 Brief/variant production and first-party experiment outcomes remain downstream concerns.
 

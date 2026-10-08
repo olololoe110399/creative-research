@@ -18,6 +18,8 @@ def test_canonical_commands_exist() -> None:
         "vision-videos",
         "build-master",
         "build-warehouse",
+        "analyze-performance",
+        "analyze-cadence",
         "rank-posts",
         "extract-references",
         "query",

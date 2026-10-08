@@ -23,6 +23,8 @@ COMMANDS = {
     "vision-videos": "creative_research.stages.vision_videos",
     "build-master": "creative_research.stages.build_master",
     "build-warehouse": "creative_research.stages.build_warehouse",
+    "analyze-performance": "creative_research.stages.analyze_performance",
+    "analyze-cadence": "creative_research.stages.analyze_cadence",
     "rank-posts": "creative_research.stages.rank_posts",
     "extract-references": "creative_research.stages.extract_references",
     "query": "creative_research.stages.query",
@@ -48,6 +50,8 @@ Canonical evidence pipeline:
   vision-videos      Gemini analysis for full videos
   build-master       Merge slideshow + video Vision datasets
   build-warehouse    Backfill operator-aware canonical tables from creative_master
+  analyze-performance Build account/operator relative performance baselines
+  analyze-cadence     Build account/operator historical posting cadence
   rank-posts         Rank master posts for reference selection
   extract-references Build whole-system map + representative reference workspace
   query              Filter normalized creative tables without ad-hoc Pandas
@@ -72,6 +76,8 @@ Examples:
   uv run creative-research vision-slides data/03_manifests/slides/full_manifest.csv --out data/04_vision/slides
   uv run creative-research build-master --slides data/04_vision/slides/creative_study_v2.parquet --videos data/04_vision/videos/creative_video_study.parquet
   uv run creative-research build-warehouse --operators config/operators.toml
+  uv run creative-research analyze-performance
+  uv run creative-research analyze-cadence --timezone UTC
   uv run creative-research rank-posts data/05_master/creative_master.parquet --content-type slideshow --top 50
   uv run creative-research extract-references data/05_master/creative_master.parquet --out data/07_exports/study-reference-pack --top 30 --strategy system --media remote
   uv run creative-research references --dir data/07_exports/study-reference-pack --open
@@ -80,6 +86,8 @@ Detailed stage help:
   uv run creative-research vision-slides --help
   uv run creative-research vision-videos --help
   uv run creative-research build-warehouse --help
+  uv run creative-research analyze-performance --help
+  uv run creative-research analyze-cadence --help
   uv run creative-research extract-references --help
   uv run creative-research references --help
 """
@@ -280,10 +288,17 @@ def status_rows(root: Path) -> list[dict[str, object]]:
             "lines",
         ),
         ("creative master", root / "data/05_master/creative_master.jsonl", "lines"),
+        ("post performance", root / "data/06_analytics/post_performance.parquet", "file"),
+        ("posting cadence", root / "data/06_analytics/posting_cadence.parquet", "file"),
     ]
     rows: list[dict[str, object]] = []
     for label, path, kind in candidates:
-        count = _count_lines(path) if kind == "lines" else _count_media_posts(path)
+        if kind == "lines":
+            count = _count_lines(path)
+        elif kind == "media":
+            count = _count_media_posts(path)
+        else:
+            count = 1 if path.is_file() else None
         rows.append(
             {
                 "label": label,

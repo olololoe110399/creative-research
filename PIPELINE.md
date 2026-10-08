@@ -10,66 +10,50 @@ data/00_raw/apify/<run>/
 select-accounts
   |
   v
-data/01_selected/targets/
-  |
-  v
 prepare-media
   |
-  v
-data/02_media/tiktok/                 <- local creative source of truth
-  |
-  +----------------------+----------------------+
-                         |                      |
-                         v                      v
-                 manifest-slides       download-videos
-                         |                      |
-                         v                      v
-              data/03_manifests/slides  data/03_video_media
-                         |                      |
-                         v                      v
-                   vision-slides          vision-videos
-                         |                      |
-                         v                      v
-                data/04_vision/slides   data/04_vision/videos
-                         \                      /
-                          \                    /
-                           +------ build-master
-                                      |
-                                      v
-                              data/05_master/
-                              creative_master.parquet
-                                      |
-                                      v
-                                   validate
-                                      |
-                    +-----------------+-----------------+
-                    |                                   |
-                    v                                   v
-             build-warehouse                    extract-references
-                    |                                   |
-                    v                                   |
-       operators/accounts/posts                         |
-       creative_analysis/sequence                       |
-                         --strategy system (default)
-                                      |
-                   +------------------+------------------+
-                   |                                     |
-                   v                                     v
-             full system map                       representative refs
-              system.json                           details/REF-*.json
-                   |                                     |
-                   +------------------+------------------+
-                                      |
-                                      v
-                            Reference/System Workspace
-                       System -> Accounts -> Structures
-                       -> References -> Compare -> Selected
-                                      |
-                                      v
-                                selected.json
-                                      |
-                                      v
-                                creative-bank
+  +---------------------------+
+  |                           |
+  v                           v
+manifest-slides          download-videos
+  |                           |
+  v                           v
+vision-slides             vision-videos
+  |                           |
+  +------------+--------------+
+               |
+               v
+          build-master
+               |
+               v
+        creative_master
+               |
+               v
+         build-warehouse
+               |
+       +-------+--------+
+       |                |
+       v                v
+ canonical tables   extract-references
+       |                |
+       |                v
+       |        Reference Workspace
+       |
+       +------------------------------+
+       |                              |
+       v                              v
+analyze-performance             analyze-cadence
+       |                              |
+       v                              v
+relative performance        account/operator chronology
+       |                              |
+       +---------------+--------------+
+                       |
+                       v
+          future evidence intelligence
+      families -> propagation -> patterns
+      -> strategies -> rules -> lessons
+      -> templates -> playbooks
 ```
 
 ## Sources of truth
@@ -79,14 +63,19 @@ data/02_media/tiktok/                 <- local creative source of truth
 3. Vision output: interpretation layer, not raw truth.
 4. `creative_master`: normalized, validated compatibility evidence interface.
 5. Operator warehouse tables: canonical operator/account/post/analysis/sequence interfaces derived offline from the existing master and Vision evidence.
-6. Reference Workspace: a generated decision surface over the evidence, not a new truth source.
+6. Performance analytics: deterministic relative baselines over the observed historical metrics.
+7. Cadence analytics: deterministic account/operator posting chronology over stored timestamps.
+8. Reference Workspace: a generated decision surface over the evidence, not a new truth source.
 
 ## Invariants
 
 - Raw scrape runs are immutable.
 - Performance metrics are not shown to Gemini during creative interpretation.
 - Every derived stage is reproducible from the stage immediately above it.
-- Building the operator warehouse never scrapes TikTok or calls Vision.
+- Building the operator warehouse or analytics never scrapes TikTok or calls Vision.
+- Performance analytics describe the collected historical snapshot; no realtime history is fabricated.
+- Cadence preserves UTC timestamps and derives local-time views only from an explicit analysis timezone.
+- Performance/cadence relationships are observations, not causal claims.
 - `creative_master` has one row per unique `account+post_id`.
 - Stable canonical post IDs are deterministic and shared with the Reference Workspace.
 - By default every observed account must map to a manually maintained operator registry entry.
