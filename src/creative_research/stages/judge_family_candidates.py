@@ -13,8 +13,10 @@ The stage is deliberately narrow:
 The output is an auditable semantic edge layer that family-v2 preview/production
 can consume later.
 """
-from __future__ import annotations
-
+# Do not enable postponed annotations in this stage.
+# The CLI dispatches stages through runpy with run_name="__main__"; postponed
+# Literal annotations can then be resolved against the wrong __main__ module
+# when google-genai asks Pydantic for response_schema JSON.
 import argparse
 import hashlib
 import json
