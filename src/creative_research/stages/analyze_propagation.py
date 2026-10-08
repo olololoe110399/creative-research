@@ -598,7 +598,7 @@ def _descriptive_profile(
     originator_signal: float,
     receiver_signal: float,
 ) -> str:
-    if family_count < 3 or cross_account_observations < 2:
+    if family_count < 2 or cross_account_observations < 2:
         return "insufficient_evidence"
     delta = originator_signal - receiver_signal
     if delta >= 0.25:
