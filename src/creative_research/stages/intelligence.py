@@ -413,11 +413,15 @@ def main() -> None:
             is_loopback = args.host.lower() == "localhost"
         if not is_loopback:
             raise SystemExit("AI model calls require --host localhost / loopback.")
-    ai_service = AIResearchService(
-        root,
-        enabled=args.ai_enabled,
-        model=args.ai_model,
-        max_calls=args.ai_max_calls,
+    ai_service = (
+        AIResearchService(
+            root,
+            enabled=True,
+            model=args.ai_model,
+            max_calls=args.ai_max_calls,
+        )
+        if args.ai_enabled
+        else None
     )
     missing = validate_intelligence_workspace(root)
     if missing:
@@ -463,21 +467,13 @@ def main() -> None:
     url = f"http://{browser_host}:{actual_port}/"
     print(f"Operator Intelligence Lab: {root}")
     print(f"Serving:                   {url}")
-    print(
-        "Legacy review writes:      "
-        + (
-            f"opt-in enabled → {reviews_path}"
-            if args.enable_legacy_review_actions and not args.read_only
-            else "disabled (not required for Research Intelligence)"
+    if args.enable_legacy_review_actions and not args.read_only:
+        print(f"Legacy compatibility API: enabled → {reviews_path}")
+    if args.ai_enabled:
+        print(
+            f"Optional AI investigation: {args.ai_model} "
+            f"(at most {args.ai_max_calls} calls; only when you click)"
         )
-    )
-    print(
-        "AI Research Copilot:      "
-        + (
-            f"enabled ({args.ai_model}, {args.ai_max_calls} max calls)"
-            if args.ai_enabled else "disabled (enable with --ai-enabled)"
-        )
-    )
     print("Press Ctrl+C to stop.")
     if args.open_browser:
         webbrowser.open(url)
