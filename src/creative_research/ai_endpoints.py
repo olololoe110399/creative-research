@@ -9,7 +9,7 @@ import json
 import ipaddress
 from http.server import BaseHTTPRequestHandler
 from typing import Any
-from urllib.parse import urlparse
+from urllib.parse import parse_qs, urlparse
 
 from creative_research.ai_research import AIResearchService, ResearchValidationError
 
@@ -60,22 +60,41 @@ def handle_ai_get(
     service: AIResearchService | None,
     path: str,
 ) -> bool:
-    if (path == "/api/ai/status" or path.startswith("/api/ai/report/")) and not loopback_host(handler):
+    parsed = urlparse(path)
+    pathname = parsed.path
+    if (pathname in {"/api/ai/status", "/api/ai/history"}
+            or pathname.startswith("/api/ai/report/")) and not loopback_host(handler):
         respond(handler, 403, {"error": "loopback_host_required"})
         return True
-    if path == "/api/ai/status":
+    if pathname == "/api/ai/status":
         respond(
             handler, 200,
             service.status() if service is not None
             else {"enabled": False, "configured": False, "reason": "ai_disabled"},
         )
         return True
-    if path.startswith("/api/ai/report/"):
-        if service is None or not service.enabled:
+    if pathname == "/api/ai/history":
+        if service is None:
+            respond(handler, 403, {"error": "ai_research_disabled"})
+            return True
+        params = parse_qs(parsed.query, keep_blank_values=False)
+        kind = params.get("source_type", [""])[0]
+        source_id = params.get("source_id", [""])[0]
+        if not all(isinstance(v, str) and 0 < len(v) <= 256
+                   for v in (kind, source_id)):
+            respond(handler, 400, {"error": "invalid_research_source"})
+            return True
+        try:
+            respond(handler, 200, {"reports": service.history(kind, source_id)})
+        except ResearchValidationError as exc:
+            respond(handler, 404, {"error": str(exc)})
+        return True
+    if pathname.startswith("/api/ai/report/"):
+        if service is None:
             respond(handler, 403, {"error": "ai_research_disabled"})
             return True
         try:
-            report_id = path.removeprefix("/api/ai/report/")
+            report_id = pathname.removeprefix("/api/ai/report/")
             respond(handler, 200, service.load(report_id))
         except ResearchValidationError as exc:
             respond(handler, 404, {"error": str(exc)})
