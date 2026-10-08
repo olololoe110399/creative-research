@@ -6,11 +6,25 @@ writes trust decisions. The research service uses only materialized Lab JSON.
 from __future__ import annotations
 
 import json
+import ipaddress
 from http.server import BaseHTTPRequestHandler
 from typing import Any
 from urllib.parse import urlparse
 
 from creative_research.ai_research import AIResearchService, ResearchValidationError
+
+
+def loopback_host(handler: BaseHTTPRequestHandler) -> bool:
+    """Block DNS-rebinding hosts even when Origin and Host happen to match."""
+    name = urlparse("http://" + handler.headers.get("Host", "")).hostname
+    if not name:
+        return False
+    if name.lower() == "localhost":
+        return True
+    try:
+        return ipaddress.ip_address(name).is_loopback
+    except ValueError:
+        return False
 
 
 def same_origin_json_request(handler: BaseHTTPRequestHandler) -> bool:
@@ -46,6 +60,9 @@ def handle_ai_get(
     service: AIResearchService | None,
     path: str,
 ) -> bool:
+    if (path == "/api/ai/status" or path.startswith("/api/ai/report/")) and not loopback_host(handler):
+        respond(handler, 403, {"error": "loopback_host_required"})
+        return True
     if path == "/api/ai/status":
         respond(
             handler, 200,
@@ -77,6 +94,9 @@ def handle_ai_post(
         return False
     if service is None:
         respond(handler, 403, {"error": "ai_research_disabled"})
+        return True
+    if not loopback_host(handler):
+        respond(handler, 403, {"error": "loopback_host_required"})
         return True
     if not same_origin_json_request(handler):
         respond(handler, 403, {"error": "same_origin_json_required"})
