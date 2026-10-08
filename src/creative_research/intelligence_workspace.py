@@ -8,7 +8,10 @@ from typing import Any
 
 import pandas as pd
 
-WORKSPACE_SCHEMA_VERSION = "operator-intelligence-workspace-v1"
+from creative_research.reference_media import preview_media_for_post
+from creative_research.stages.review_knowledge import build_review_queue
+
+WORKSPACE_SCHEMA_VERSION = "operator-intelligence-lab-v1"
 STATIC_FILES = ("index.html", "app.js", "style.css", "favicon.svg")
 REQUIRED_DATA_FILES = (
     "workspace.json",
@@ -20,6 +23,7 @@ REQUIRED_DATA_FILES = (
     "strategies.json",
     "knowledge.json",
     "evidence.json",
+    "lab.json",
 )
 
 
@@ -307,6 +311,347 @@ def _sequence_lookup(
     return result
 
 
+def _as_float(value: Any) -> float | None:
+    try:
+        if value is None or pd.isna(value):
+            return None
+    except (TypeError, ValueError):
+        pass
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _as_int(value: Any) -> int:
+    number = _as_float(value)
+    return int(number) if number is not None else 0
+
+
+def _account_network_payload(
+    accounts: pd.DataFrame | None,
+    role_evidence: pd.DataFrame | None,
+    propagation: pd.DataFrame | None,
+    strategies: pd.DataFrame | None,
+) -> dict[str, Any]:
+    role_by_id = _index_rows(role_evidence, "account_id")
+    strategy_by_account = _group_rows(strategies, "account_id")
+    nodes: list[dict[str, Any]] = []
+    for account in _records(accounts):
+        account_id = str(account.get("account_id") or "")
+        role = role_by_id.get(account_id, {})
+        origin = _as_float(role.get("originator_signal")) or 0.0
+        receiver = _as_float(role.get("receiver_signal")) or 0.0
+        amplifier = _as_float(role.get("amplifier_signal"))
+        profile = str(role.get("descriptive_profile") or "")
+        if origin >= 0.65 and origin - receiver >= 0.25:
+            role_label = "origin_leaning"
+        elif receiver >= 0.65 and receiver - origin >= 0.20:
+            role_label = "receiver_leaning"
+        elif profile:
+            role_label = profile
+        else:
+            role_label = "mixed_or_insufficient"
+        nodes.append(
+            {
+                "account_id": account_id,
+                "account": account.get("account"),
+                "posts": _as_int(account.get("observed_posts")),
+                "role_label": role_label,
+                "originator_signal": origin,
+                "receiver_signal": receiver,
+                "amplifier_signal": amplifier,
+                "flow_observations": _as_int(
+                    role.get("cross_account_flow_observations")
+                ),
+                "evidence_strength": role.get("evidence_strength"),
+                "strategy_hypotheses": strategy_by_account.get(account_id, []),
+            }
+        )
+
+    edge_map: dict[tuple[str, str], dict[str, Any]] = {}
+    for row in _records(propagation):
+        origin_id = str(row.get("origin_account_id") or "")
+        target_id = str(row.get("target_account_id") or "")
+        if not origin_id or not target_id:
+            continue
+        key = (origin_id, target_id)
+        edge = edge_map.setdefault(
+            key,
+            {
+                "origin_account_id": origin_id,
+                "origin_account": row.get("origin_account"),
+                "target_account_id": target_id,
+                "target_account": row.get("target_account"),
+                "events": 0,
+                "families": set(),
+                "delays": [],
+            },
+        )
+        edge["events"] += 1
+        if row.get("family_id"):
+            edge["families"].add(str(row["family_id"]))
+        delay = _as_float(row.get("delay_from_family_origin_days"))
+        if delay is not None:
+            edge["delays"].append(delay)
+
+    edges: list[dict[str, Any]] = []
+    for edge in edge_map.values():
+        delays = edge.pop("delays")
+        families_set = edge.pop("families")
+        edges.append(
+            {
+                **edge,
+                "families": len(families_set),
+                "family_ids": sorted(families_set),
+                "median_delay_days": (
+                    float(pd.Series(delays).median()) if delays else None
+                ),
+            }
+        )
+    edges.sort(
+        key=lambda row: (
+            -_as_int(row.get("events")),
+            str(row.get("origin_account") or ""),
+            str(row.get("target_account") or ""),
+        )
+    )
+    return {"nodes": nodes, "edges": edges}
+
+
+def _lab_payload(
+    operators: pd.DataFrame | None,
+    accounts: pd.DataFrame | None,
+    posts: pd.DataFrame | None,
+    families: pd.DataFrame | None,
+    role_evidence: pd.DataFrame | None,
+    propagation: pd.DataFrame | None,
+    strategies: pd.DataFrame | None,
+    knowledge: pd.DataFrame | None,
+    knowledge_evidence_links: pd.DataFrame | None,
+) -> dict[str, Any]:
+    operator_rows = _records(operators)
+    operator = operator_rows[0] if operator_rows else {}
+    family_rows = _records(families)
+    repeated = [
+        row for row in family_rows if _as_int(row.get("member_count")) > 1
+    ]
+    cross_repeated = [
+        row for row in repeated if bool(row.get("cross_account"))
+    ]
+    total_families = len(family_rows)
+    repeated_count = len(repeated)
+    cross_count = len(cross_repeated)
+    repeated_rate = (
+        repeated_count / total_families if total_families else None
+    )
+    cross_share = (
+        cross_count / repeated_count if repeated_count else None
+    )
+
+    strategy_rows = _records(strategies)
+    strategy_by_type: dict[str, list[dict[str, Any]]] = {}
+    for row in strategy_rows:
+        strategy_by_type.setdefault(
+            str(row.get("hypothesis_type") or ""), []
+        ).append(row)
+
+    key_order = [
+        "selective_cross_account_reuse_model",
+        "operator_explore_propagate_model",
+        "account_origin_exploration",
+        "account_reuse_receiver",
+        "preserve_core_vary_execution",
+    ]
+    key_findings: list[dict[str, Any]] = []
+    for hypothesis_type in key_order:
+        rows = sorted(
+            strategy_by_type.get(hypothesis_type, []),
+            key=lambda row: -(
+                _as_float(row.get("confidence_score")) or 0.0
+            ),
+        )
+        for row in rows:
+            key_findings.append(
+                {
+                    "hypothesis_id": row.get("hypothesis_id"),
+                    "hypothesis_type": hypothesis_type,
+                    "scope_type": row.get("scope_type"),
+                    "scope_id": row.get("scope_id"),
+                    "account_id": row.get("account_id"),
+                    "title": row.get("title"),
+                    "claim": row.get("claim"),
+                    "confidence_score": _as_float(
+                        row.get("confidence_score")
+                    ),
+                    "confidence_band": row.get("confidence_band"),
+                    "promotion_readiness": row.get(
+                        "promotion_readiness"
+                    ),
+                }
+            )
+
+    guardrails = [
+        {
+            "title": "Observed reuse is not causation",
+            "detail": (
+                "A later appearance in another account is chronological evidence, "
+                "not proof that one account caused another to publish."
+            ),
+        },
+        {
+            "title": "Origin / receiver is not internal intent",
+            "detail": (
+                "Account roles are evidence-backed hypotheses from cross-account "
+                "family flow, not proof of a formal testing workflow."
+            ),
+        },
+    ]
+    if not strategy_by_type.get("account_reuse_amplification"):
+        guardrails.append(
+            {
+                "title": "No scaling account is proven",
+                "detail": (
+                    "Receiving a reused family is not enough to call an account "
+                    "a scaling or amplification surface."
+                ),
+            }
+        )
+
+    top_families = sorted(
+        repeated,
+        key=lambda row: (
+            -_as_int(row.get("member_count")),
+            -_as_int(row.get("accounts_count")),
+            str(row.get("family_id") or ""),
+        ),
+    )[:12]
+    family_highlights = [
+        {
+            "family_id": row.get("family_id"),
+            "title": (
+                row.get("core_hook_text")
+                or row.get("core_angle")
+                or "Repeated creative concept"
+            ),
+            "core_angle": row.get("core_angle"),
+            "member_count": _as_int(row.get("member_count")),
+            "accounts_count": _as_int(row.get("accounts_count")),
+            "cross_account": bool(row.get("cross_account")),
+            "origin_account": row.get("origin_account"),
+            "languages_count": _as_int(row.get("languages_count")),
+            "median_views_percentile_account": _as_float(
+                row.get("median_views_percentile_account")
+            ),
+        }
+        for row in top_families
+    ]
+
+    review_queue, review_meta = build_review_queue(
+        knowledge if knowledge is not None else pd.DataFrame(),
+        knowledge_evidence_links,
+    )
+    review_rows = _records(review_queue)
+    tier_counts = (
+        {
+            str(int(key)): int(value)
+            for key, value in review_queue["priority_tier"]
+            .value_counts()
+            .sort_index()
+            .items()
+        }
+        if not review_queue.empty
+        else {}
+    )
+
+    hero_strategy = next(
+        (
+            item
+            for item in key_findings
+            if item["hypothesis_type"]
+            == "selective_cross_account_reuse_model"
+        ),
+        key_findings[0] if key_findings else None,
+    )
+    hero = {
+        "eyebrow": "Operating model",
+        "title": (
+            hero_strategy.get("title")
+            if hero_strategy
+            else "Research model is still forming"
+        ),
+        "summary": (
+            hero_strategy.get("claim")
+            if hero_strategy
+            else (
+                "The evidence base is ready, but no high-value operating-model "
+                "hypothesis has been emitted yet."
+            )
+        ),
+        "confidence_score": (
+            hero_strategy.get("confidence_score")
+            if hero_strategy
+            else None
+        ),
+        "confidence_band": (
+            hero_strategy.get("confidence_band")
+            if hero_strategy
+            else None
+        ),
+        "hypothesis_id": (
+            hero_strategy.get("hypothesis_id")
+            if hero_strategy
+            else None
+        ),
+    }
+
+    return {
+        "research_brief": {
+            "operator": {
+                "operator_id": operator.get("operator_id"),
+                "name": (
+                    operator.get("name")
+                    or operator.get("operator_id")
+                    or "Operator"
+                ),
+                "verified": bool(operator.get("verified")),
+            },
+            "hero": hero,
+            "stats": {
+                "accounts": int(len(accounts)) if accounts is not None else 0,
+                "posts": int(len(posts)) if posts is not None else 0,
+                "families": total_families,
+                "repeated_families": repeated_count,
+                "cross_account_repeated_families": cross_count,
+                "repeated_family_rate": repeated_rate,
+                "cross_account_share_of_repeated": cross_share,
+                "propagation_events": (
+                    int(len(propagation))
+                    if propagation is not None
+                    else 0
+                ),
+            },
+            "key_findings": key_findings,
+            "guardrails": guardrails,
+        },
+        "account_network": _account_network_payload(
+            accounts,
+            role_evidence,
+            propagation,
+            strategies,
+        ),
+        "family_highlights": family_highlights,
+        "review": {
+            "pending_sources": int(len(review_queue)),
+            "tier_counts": tier_counts,
+            "unresolved_review_targets": review_meta.get(
+                "unresolved_review_targets", 0
+            ),
+            "items": review_rows,
+        },
+    }
+
+
 def _evidence_payload(
     posts: pd.DataFrame | None,
     analysis: pd.DataFrame | None,
@@ -322,9 +667,11 @@ def _evidence_payload(
     for post in _records(posts):
         post_uid = str(post.get("post_uid") or "")
         creative = analysis_by_post.get(post_uid, {})
+        preview = preview_media_for_post(post)
         rows.append(
             {
                 **post,
+                "preview": preview,
                 "creative": {
                     key: creative.get(key)
                     for key in (
@@ -432,6 +779,17 @@ def build_workspace_payloads(
             family_members,
             creative_sequence,
         ),
+        "lab.json": _lab_payload(
+            operators,
+            accounts,
+            posts,
+            families,
+            role_evidence,
+            propagation,
+            strategies,
+            knowledge,
+            knowledge_evidence_links,
+        ),
     }
 
 
@@ -472,18 +830,15 @@ def write_intelligence_workspace(
         "generated_at": datetime.now(UTC).isoformat(),
         "sources": sources,
         "views": [
-            "overview",
-            "accounts",
-            "timeline",
+            "brief",
+            "network",
             "families",
-            "patterns",
-            "strategies",
-            "knowledge",
-            "evidence",
+            "review",
+            "advanced",
         ],
         "counts": payloads["overview.json"]["counts"],
         "notes": [
-            "This workspace is a generated research surface, not a new source of truth.",
+            "This lab is a generated research surface, not a new source of truth.",
             "It does not rerun scraping, Vision, analytics, strategy inference, or knowledge promotion.",
             "Knowledge statuses remain visible so review_candidate/rejected/hold items are not confused with active guidance.",
         ],
