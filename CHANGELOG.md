@@ -16,6 +16,8 @@
 - Add `analyze-timeline` for monthly/weekly operator/account strategy windows and deterministic adjacent-window change points.
 - Add `discover-patterns` for evidence-backed recurring observations across creative performance, cadence, propagation mutation, family reuse, account flow, and timeline shifts.
 - Add `pattern_evidence_links.parquet` so every emitted pattern can trace back to supporting/counter posts, families, and accounts.
+- Add `infer-strategies` to promote deterministic patterns into reviewable account/operator strategy hypotheses with confidence, counter evidence, alternative explanations, and promotion readiness.
+- Add `strategy_pattern_links.parquet` and inherited `strategy_evidence_links.parquet` so every hypothesis can trace through patterns to supporting/counter post, family, and account evidence.
 
 ## 0.9.1 - 2026-10-07
 
