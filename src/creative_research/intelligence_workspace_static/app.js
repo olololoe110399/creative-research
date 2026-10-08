@@ -55,7 +55,7 @@ function briefView(){
     return '<article class="finding-card" data-strategy="'+esc(f.hypothesis_id)+'"><div class="row"><span class="eyebrow">'+esc(label(f.hypothesis_type))+'</span>'+confidenceBadge(f.confidence_band,f.confidence_score)+'</div><h3>'+esc(f.title||label(f.hypothesis_type))+'</h3><p>'+esc(f.claim||'')+'</p></article>';
   }).join('');
   const canSay=(b.key_findings||[]).slice(0,5).map(function(f){
-    return '<div class="claim-item"><span class="claim-icon yes">✓</span><div><b>'+esc(f.title||label(f.hypothesis_type))+'</b><span>'+esc(f.claim||'')+'</span></div></div>';
+    return '<div class="claim-item"><span class="claim-icon info">?</span><div><b>'+esc(f.title||label(f.hypothesis_type))+'</b><span>'+esc(f.claim||'')+'</span></div></div>';
   }).join('');
   const cannot=(b.guardrails||[]).map(function(g){
     return '<div class="claim-item"><span class="claim-icon no">!</span><div><b>'+esc(g.title||'Guardrail')+'</b><span>'+esc(g.detail||'')+'</span></div></div>';
@@ -76,7 +76,7 @@ function briefView(){
       metricCard('Reuse events',num(s.propagation_events),'observed chronology')+
     '</div>'+
     '<section class="section"><div class="section-head"><div><h2>Most useful findings</h2><p>High-leverage interpretations before lower-level analytics.</p></div></div><div class="grid">'+(findings||'<div class="empty-state">No operating-model findings yet.</div>')+'</div></section>'+
-    '<section class="section claims"><div class="claim-box"><h3>What the evidence supports</h3><div class="claim-list">'+(canSay||'<p>No reviewed findings yet.</p>')+'</div></div><div class="claim-box"><h3>What we should not claim</h3><div class="claim-list">'+cannot+'</div></div></section>'+
+    '<section class="section claims"><div class="claim-box"><h3>What the evidence suggests (hypotheses)</h3><p>Not automatically human-approved. Open supporting and counter evidence before acting.</p><div class="claim-list">'+(canSay||'<p>No reviewed findings yet.</p>')+'</div></div><div class="claim-box"><h3>What we should not claim</h3><div class="claim-list">'+cannot+'</div></div></section>'+
     '<section class="section"><div class="section-head"><div><h2>Creative ideas worth inspecting</h2><p>The strongest repeated families, visualized as executions rather than rows.</p></div><button class="hero-link" data-go="families" style="background:#fff;color:#17191d;border-color:#d3d8e0">Open library</button></div><div class="grid">'+topFamilies+'</div></section>'+
     '<section class="section"><div class="section-head"><div><h2>Account roles at a glance</h2><p>Observed origin/receiver asymmetry, not internal org-chart labels.</p></div><button class="hero-link" data-go="network" style="background:#fff;color:#17191d;border-color:#d3d8e0">Open network</button></div><div class="grid">'+accounts+'</div></section>';
 }
@@ -211,6 +211,7 @@ function openAccount(id){
     '<div class="badges">'+badge(label(a.role_label),roleClass(a.role_label)==='origin'?'info':roleClass(a.role_label)==='receiver'?'violet':'')+badge(a.evidence_strength||'descriptive')+'</div>'+
     '<h3>Observed role evidence</h3><dl><dt>Cross-account observations</dt><dd>'+num(a.flow_observations)+'</dd><dt>Origin signal</dt><dd>'+pct(a.originator_signal)+'</dd><dt>Receiver signal</dt><dd>'+pct(a.receiver_signal)+'</dd><dt>Amplifier signal</dt><dd>'+pct(a.amplifier_signal)+'</dd></dl>'+
     '<h3>Interpretation</h3><p>'+esc(roleClass(a.role_label)==='origin'?'This account repeatedly appears as the first observed account for reused families. Treat this as origin/exploration evidence, not proof that the operator deliberately uses it as a testing account.':roleClass(a.role_label)==='receiver'?'This account repeatedly receives families first observed elsewhere. Receiving behavior is not enough to call it a scaling account.':'Current cross-account flow is mixed or the sample is not asymmetric enough for a strong role claim.')+'</p>'+
+    '<h3>Traceable role denominator</h3>'+(!a.lineage_matches_summary?'<p class="method-note">Warning: role summary and direct family lineage do not agree; do not trust this role until resolved.</p>':'')+roleEvidenceHtml(a.role_lineage)+
     '<h3>Strategy hypotheses</h3><div class="link-list">'+(strats||'<p>No account-level strategy hypothesis.</p>')+'</div>');
 }
 
@@ -237,14 +238,14 @@ function openPattern(id){
 function openStrategy(id){
   const s=data.strategyById.get(String(id)); if(!s)return;
   const patterns=(s.pattern_links||[]).map(function(l){return patternButton(l.pattern_id,(l.relation||'support')+' · '+l.pattern_id);}).join('');
-  const posts=(s.evidence_links||[]).slice(0,120).map(function(l){return postButton(l.post_uid,(l.relation||'evidence')+' · '+(l.post_uid||''));}).join('');
-  drawer(s.title||id,'<div class="badges">'+confidenceBadge(s.confidence_band,s.confidence_score)+badge(label(s.hypothesis_type))+badge(s.promotion_readiness)+'</div><h3>Claim</h3><p>'+esc(s.claim||'')+'</p><h3>Why</h3><pre>'+esc(json(s.evidence_summary||{}))+'</pre><h3>Possible alternatives</h3><ul>'+(s.alternative_explanations||[]).map(function(x){return '<li>'+esc(x)+'</li>';}).join('')+'</ul><h3>Counter evidence</h3><pre>'+esc(json(s.counter_evidence||{}))+'</pre><h3>Supporting patterns</h3><div class="link-list">'+patterns+'</div><h3>Evidence posts</h3><div class="link-list">'+posts+'</div>');
+  const posts=(s.evidence_links||[]).slice(0,120).map(function(l){return postButton(l.post_uid,(l.relation||'evidence')+' · '+(l.post_uid||''))+familyButton(l.family_id,l.family_id);}).join('');
+  drawer(s.title||id,'<div class="badges">'+confidenceBadge(s.confidence_band,s.confidence_score)+badge(label(s.hypothesis_type))+badge(s.promotion_readiness)+'</div><h3>Claim</h3><p>'+esc(s.claim||'')+'</p><h3>Why</h3><pre>'+esc(json(s.evidence_summary||{}))+'</pre><h3>Possible alternatives</h3><ul>'+(s.alternative_explanations||[]).map(function(x){return '<li>'+esc(x)+'</li>';}).join('')+'</ul><h3>Counter evidence</h3><pre>'+esc(json(s.counter_evidence||{}))+'</pre><h3>Supporting / counter patterns</h3><div class="link-list">'+patterns+'</div>'+strategyFlowHtml(s)+'<h3>Evidence posts and families</h3><div class="link-list">'+posts+'</div>');
 }
 
 function openKnowledge(id){
   const k=data.knowledgeById.get(String(id)); if(!k)return;
   const sources=(k.source_links||[]).map(function(l){return data.strategyById.has(String(l.source_id))?strategyButton(l.source_id,'Strategy source · '+l.source_id):'<div>'+esc(l.source_type)+': '+esc(l.source_id)+'</div>';}).join('');
-  drawer(k.title||id,'<div class="badges">'+badge(k.knowledge_type)+badge(k.knowledge_status,k.knowledge_status==='approved'||k.knowledge_status==='promoted'?'good':k.knowledge_status==='review_candidate'?'warn':'bad')+confidenceBadge(k.confidence_band,k.confidence_score)+'</div><p>'+esc(k.statement||'')+'</p><h3>Practical guidance</h3><p>'+esc(k.actionable_guidance||'')+'</p><h3>Exceptions / caveats</h3><ul>'+(k.exceptions||[]).map(function(x){return '<li>'+esc(x)+'</li>';}).join('')+'</ul><h3>Source</h3><div class="link-list">'+sources+'</div>');
+  drawer(k.title||id,'<div class="badges">'+badge(k.knowledge_type)+badge(k.knowledge_status,k.knowledge_status==='approved'||k.knowledge_status==='promoted'?'good':k.knowledge_status==='review_candidate'?'warn':'bad')+confidenceBadge(k.confidence_band,k.confidence_score)+'</div><p>'+esc(k.statement||'')+'</p><h3>Practical guidance</h3><p>'+esc(k.actionable_guidance||'')+'</p><h3>Exceptions / caveats</h3><ul>'+(k.exceptions||[]).map(function(x){return '<li>'+esc(x)+'</li>';}).join('')+'</ul><h3>Counter evidence</h3><pre>'+esc(json(k.counter_evidence||{}))+'</pre><h3>Source</h3><div class="link-list">'+sources+'</div>');
 }
 
 function openPost(id){
@@ -316,7 +317,7 @@ function wire(){
 
 function render(){
   document.querySelectorAll('.primary-nav button').forEach(function(b){b.classList.toggle('active',b.dataset.tab===tab);});
-  const views={brief:briefView,network:networkView,families:familiesView,review:reviewView,advanced:advancedView};
+  const views={brief:briefView,network:networkView,families:familiesView,review:reviewView,playbook:playbookView,advanced:advancedView};
   $('#main').innerHTML=views[tab]();
   wire();
 }
