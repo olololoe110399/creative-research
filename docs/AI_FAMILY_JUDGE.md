@@ -50,7 +50,7 @@ input:  $0.30 / 1M tokens
 output: $2.50 / 1M tokens
 ```
 
-Gemini 3.5 Flash-Lite is GA and GenerateContent remains supported. Pricing can change; override the estimates with:
+Gemini 3.5 Flash-Lite is GA and GenerateContent remains supported. The judge explicitly uses `thinking_level=minimal` for this classification task. Pricing can change; override the estimates with:
 
 ```bash
 --input-usd-per-million <rate>
@@ -73,7 +73,7 @@ max selected pairs              1,000
 max API call attempts           1,100
 max estimated input/pair        1,800 tokens
 max estimated aggregate input   900,000 tokens
-max output/pair                   320 tokens
+max output/pair                   768 tokens
 ```
 
 The aggregate input estimate controls how many eligible pairs are selected. Retry attempts are separately protected by the hard API-call cap.
@@ -211,3 +211,16 @@ This keeps AI as an auditable adjudication layer rather than an unrestricted fam
 Permanent client/configuration errors such as HTTP 400/401/403/404 fail immediately.
 
 Only transient classes such as 408/409/429 and 5xx responses are retried. This prevents retired/invalid model IDs from consuming retry attempts or sleeping between identical failures.
+
+
+## Structured-output budget
+
+The response schema includes relationship, concept, evidence, counter-evidence, and confidence. A 320-token output cap was too small in real use and could truncate valid JSON.
+
+The default is now 768 output tokens per pair, while the prompt constrains:
+- reason to one sentence;
+- preserved/changed dimensions to at most three items each;
+- evidence to at most three items;
+- counter-evidence to at most two items.
+
+This keeps structured responses complete without allowing unconstrained prose.

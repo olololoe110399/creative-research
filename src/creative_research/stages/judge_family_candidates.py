@@ -45,7 +45,7 @@ DEFAULT_MAX_AI_PAIRS = 1000
 DEFAULT_MAX_API_CALLS = 1100
 DEFAULT_MAX_INPUT_TOKENS_PER_PAIR = 1800
 DEFAULT_MAX_ESTIMATED_INPUT_TOKENS = 900_000
-DEFAULT_MAX_OUTPUT_TOKENS = 320
+DEFAULT_MAX_OUTPUT_TOKENS = 768
 
 MODEL_PRICING_USD_PER_MILLION: dict[str, tuple[float, float]] = {
     "gemini-3.5-flash-lite": (0.30, 2.50),
@@ -309,7 +309,14 @@ Relationship labels:
 - uncertain: evidence is insufficient
 
 Be strict about thematic_only versus same_core_concept.
-Keep reason/evidence concise and evidence-backed.
+Keep the JSON compact:
+- reason: one sentence, maximum 180 characters;
+- preserved_dimensions: at most 3 short items;
+- changed_dimensions: at most 3 short items;
+- evidence: at most 3 short items;
+- counter_evidence: at most 2 short items;
+- core_concept: one short phrase.
+Do not add prose outside the JSON.
 
 CREATIVE EVIDENCE:
 {evidence_json}
@@ -534,8 +541,10 @@ def _generation_config(types: Any, max_output_tokens: int) -> Any:
     base = {
         "response_mime_type": "application/json",
         "response_schema": FamilyPairJudgment,
-        "temperature": 0.0,
         "max_output_tokens": max_output_tokens,
+        "thinking_config": types.ThinkingConfig(
+            thinking_level="minimal",
+        ),
     }
     try:
         return types.GenerateContentConfig(
@@ -668,7 +677,8 @@ def build_plan(
         "pricing_note": (
             "Static model pricing is a convenience estimate verified against Google "
             "Gemini Developer API standard pricing on 2026-10-08 for "
-            "gemini-3.5-flash-lite; override with CLI price flags when needed."
+            "gemini-3.5-flash-lite. The judge explicitly uses thinking_level=minimal; "
+            "override price flags when needed."
         ),
     }
     return selected, report, evidence_lookup
