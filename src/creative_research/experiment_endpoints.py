@@ -6,7 +6,7 @@ from http.server import BaseHTTPRequestHandler
 from typing import Any
 from urllib.parse import urlparse
 
-from creative_research.ai_endpoints import (
+from creative_research.http_local import (
     loopback_host, respond, same_origin_json_request,
 )
 from creative_research.experiment_plan import ExperimentPlanError, ExperimentPlanStore
