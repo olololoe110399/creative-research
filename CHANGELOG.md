@@ -39,6 +39,8 @@
 - Add `strategy_pattern_links.parquet` and inherited `strategy_evidence_links.parquet` so every hypothesis can trace through patterns to supporting/counter post, family, and account evidence.
 - Add `promote-knowledge` to build typed strategies, rules, lessons, templates, and playbooks with explicit promotion/review status, scope, validity, confidence, exceptions, and lineage.
 - Add Parquet + JSONL knowledge catalog/source/evidence-link exports plus an optional local `knowledge_reviews.toml` approval/reject/hold registry.
+- Add `review-knowledge` human-review workflow: generate a prioritized source-level queue/packet/decisions CSV, collapse duplicate strategy+lesson rows to one source decision, and apply approve/reject/hold decisions into the local review registry without hand-editing TOML.
+- Add explicit `review_source_type` / `review_source_id` provenance to knowledge items so hypothesis, family-template, and playbook-bundle review targets are unambiguous.
 - Promote creative-family structure templates only from repeated/cohesive families and keep singleton families out of the reusable template bank.
 - Add `build-intelligence-workspace` + `intelligence` for a static Overview → Accounts → Timeline → Families → Patterns → Strategies → Knowledge → Evidence research workspace.
 - Add browser drill-down from knowledge/strategy/pattern/family layers to canonical post evidence while keeping trust status and counter evidence visible.
