@@ -277,9 +277,11 @@ def build_operator_activity_daily(cadence: pd.DataFrame) -> pd.DataFrame:
         group = group.sort_values("published_at_local", kind="mergesort")
         first = group["published_at_local"].iloc[0]
         last = group["published_at_local"].iloc[-1]
-        accounts = group["account"].astype("string")
+        accounts = group["account"].astype(str).tolist()
         transitions = max(0, len(group) - 1)
-        switches = int(accounts.ne(accounts.shift()).sum() - (1 if len(group) else 0))
+        switches = sum(
+            1 for previous, current in zip(accounts, accounts[1:]) if previous != current
+        )
         rows.append(
             {
                 "analytics_schema_version": ANALYTICS_SCHEMA_VERSION,
