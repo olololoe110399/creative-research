@@ -591,28 +591,27 @@ def plan_pipeline(
     force: bool = False,
 ) -> tuple[StagePlan, ...]:
     plans: list[StagePlan] = []
-    upstream_will_run = False
-    upstream_outputs: set[Path] = set()
+    planned_outputs: set[Path] = set()
     for spec in specs:
         action, reason = stage_freshness(spec)
         missing_inputs = {
             path for path in spec.inputs if not path.exists()
         }
+        dependency_will_change = any(
+            path in planned_outputs for path in spec.inputs
+        )
         if (
             action == "blocked"
             and missing_inputs
-            and missing_inputs.issubset(upstream_outputs)
-            and upstream_will_run
+            and missing_inputs.issubset(planned_outputs)
         ):
-            action, reason = "run", "inputs will be produced by upstream rebuild"
+            action, reason = "run", "inputs will be produced by planned dependencies"
         if force and action != "blocked":
             action, reason = "run", "forced by --force"
-        elif upstream_will_run and action != "blocked":
-            action, reason = "run", "upstream stage will be rebuilt"
+        elif dependency_will_change and action != "blocked":
+            action, reason = "run", "an input dependency will be rebuilt"
         if action == "run":
-            upstream_will_run = True
-        if action in {"run", "skip"}:
-            upstream_outputs.update(spec.outputs)
+            planned_outputs.update(spec.outputs)
         plans.append(
             StagePlan(
                 name=spec.name,
