@@ -178,7 +178,8 @@ def test_calibration_surfaces_cross_language_structural_variant() -> None:
     assert bool(pair["cross_language"]) is True
     assert pair["structure_score"] > 0.95
     assert pair["combined_score"] > 0.80
-    assert report["all_operator_pairs"] == 3
+    assert report["theoretical_operator_pairs"] == 3
+    assert report["candidate_pairs_generated"] >= 1
     assert report["retained_cross_language_pairs"] >= 1
 
 
@@ -196,3 +197,25 @@ def test_calibration_separates_unrelated_structure() -> None:
         | pairs["right_post_uid"].eq("P3")
     ]
     assert p3_pairs.empty
+
+
+def test_calibration_blocker_recovers_existing_family_pairs() -> None:
+    members = pd.DataFrame(
+        [
+            {"post_uid": "P1", "family_id": "F1"},
+            {"post_uid": "P2", "family_id": "F1"},
+            {"post_uid": "P3", "family_id": "F2"},
+        ]
+    )
+    _, report = calibrate_family_pairs(
+        _posts(),
+        _analysis(),
+        _sequence(),
+        members,
+        min_structure=0.40,
+        min_combined=0.50,
+        max_pairs=100,
+    )
+    assert report["existing_family_pairs"] == 1
+    assert report["existing_family_pairs_recovered"] == 1
+    assert report["existing_family_pair_recall"] == 1.0
