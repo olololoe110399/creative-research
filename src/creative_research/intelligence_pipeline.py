@@ -173,6 +173,7 @@ def build_stage_specs(config: PipelineConfig) -> tuple[StageSpec, ...]:
             "strategies.json",
             "knowledge.json",
             "evidence.json",
+            "lab.json",
             "index.html",
             "app.js",
             "style.css",
