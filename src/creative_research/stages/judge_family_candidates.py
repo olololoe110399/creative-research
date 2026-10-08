@@ -41,7 +41,7 @@ DEFAULT_CROSS_LANGUAGE_MIN_COMBINED = 0.68
 DEFAULT_CROSS_LANGUAGE_MIN_STRUCTURE = 0.90
 DEFAULT_MAX_AI_PAIRS = 1000
 DEFAULT_MAX_API_CALLS = 1100
-DEFAULT_MAX_INPUT_TOKENS_PER_PAIR = 1100
+DEFAULT_MAX_INPUT_TOKENS_PER_PAIR = 1800
 DEFAULT_MAX_ESTIMATED_INPUT_TOKENS = 900_000
 DEFAULT_MAX_OUTPUT_TOKENS = 320
 
@@ -151,7 +151,7 @@ def _clip(value: Any, limit: int = 260) -> Any:
     return rendered[: max(0, limit - 1)].rstrip() + "…"
 
 
-def _sequence_lookup(sequence: pd.DataFrame | None) -> dict[str, list[dict[str, Any]]]:
+def _sequence_lookup(sequence: pd.DataFrame | None) -> dict[str, dict[str, Any]]:
     if sequence is None or sequence.empty or "post_uid" not in sequence.columns:
         return {}
     work = sequence.copy()
@@ -163,23 +163,45 @@ def _sequence_lookup(sequence: pd.DataFrame | None) -> dict[str, list[dict[str, 
             na_position="last",
         )
 
-    result: dict[str, list[dict[str, Any]]] = {}
+    result: dict[str, dict[str, Any]] = {}
     for post_uid, group in work.groupby("post_uid", sort=False, dropna=True):
-        items: list[dict[str, Any]] = []
-        for row in group.to_dict(orient="records")[:12]:
-            items.append(
-                {
-                    "position": _clean(row.get("position")),
-                    "role": _clip(row.get("role"), 80),
-                    "visual_type": _clip(row.get("visual_type"), 80),
-                    "primary_text": _clip(row.get("primary_text"), 180),
-                    "spoken_summary": _clip(row.get("spoken_summary"), 180),
-                    "overlay_text": _clip(row.get("overlay_text"), 180),
-                    "visual_description": _clip(row.get("visual_description"), 220),
-                    "product_visible": bool(row.get("product_visible", False)),
-                }
+        rows = group.to_dict(orient="records")[:12]
+        roles = [
+            _clip(row.get("role"), 60)
+            for row in rows
+            if _clean(row.get("role")) is not None
+        ]
+        visual_types = [
+            _clip(row.get("visual_type"), 60)
+            for row in rows
+            if _clean(row.get("visual_type")) is not None
+        ]
+        key_text = [
+            _clip(
+                row.get("primary_text")
+                or row.get("overlay_text")
+                or row.get("spoken_summary"),
+                140,
             )
-        result[str(post_uid)] = items
+            for row in rows[:5]
+            if _clean(
+                row.get("primary_text")
+                or row.get("overlay_text")
+                or row.get("spoken_summary")
+            )
+            is not None
+        ]
+        visual_descriptions = [
+            _clip(row.get("visual_description"), 140)
+            for row in rows[:4]
+            if _clean(row.get("visual_description")) is not None
+        ]
+        result[str(post_uid)] = {
+            "roles": roles,
+            "visual_types": visual_types,
+            "key_text": key_text,
+            "visual_descriptions": visual_descriptions,
+        }
     return result
 
 
@@ -199,7 +221,7 @@ def build_evidence_lookup(
             for field in TEXT_FIELDS
             if _clean(row.get(field)) is not None
         }
-        evidence["sequence"] = sequences.get(post_uid, [])
+        evidence["sequence"] = sequences.get(post_uid, {})
         result[post_uid] = evidence
     return result
 
