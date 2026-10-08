@@ -32,6 +32,31 @@ data/06_analytics/family_calibration/
 
 No scrape, Vision, LLM, family mutation, or downstream rebuild occurs.
 
+## Candidate blocking
+
+The diagnostic no longer runs expensive text similarity across every theoretical within-operator pair.
+
+It first generates candidates using language-independent structural blocks such as:
+
+- content angle + value type;
+- content angle + hook technique;
+- content angle + format;
+- value type + hook technique;
+- content angle + ordered sequence roles;
+- exact ordered sequence-role signature.
+
+Existing production-family pairs are always force-included as positive controls, and the report records blocker recall. This makes it possible to verify that acceleration is not silently dropping already-known variants.
+
+The report distinguishes:
+
+- `theoretical_operator_pairs`;
+- `candidate_pairs_generated`;
+- structure-screened candidates;
+- semantic-scored candidates;
+- semantic upper-bound pruned candidates.
+
+Threshold counts are therefore over the blocked candidate set, not every theoretical pair.
+
 ## Two similarity views
 
 ### Structure score
@@ -104,7 +129,9 @@ This makes threshold calibration a reviewable research task instead of a blind p
 
 The JSON report includes:
 
-- all within-operator pair count;
+- theoretical within-operator pair count;
+- blocked candidate-pair count;
+- existing-family blocker recall;
 - number screened by structure score;
 - number receiving semantic-text scoring;
 - candidate counts at multiple score thresholds;
