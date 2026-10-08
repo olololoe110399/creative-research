@@ -6,6 +6,9 @@
 - Add `build-warehouse` to backfill operator/account/post/creative-analysis/sequence tables from the existing `creative_master` without scraping or rerunning Vision.
 - Reuse the Reference Workspace stable `POST-...` identity scheme for canonical post IDs.
 - Keep `creative_master` and the existing Reference Workspace backward compatible.
+- Add `analyze-performance` for account/operator/global historical performance percentiles and baselines.
+- Add `analyze-cadence` for account-level and cross-account operator posting chronology, daily activity, and cadence summaries.
+- Add `data/06_analytics/` as the deterministic analytics layer between canonical evidence and future strategy inference.
 
 ## 0.9.1 - 2026-10-07
 
