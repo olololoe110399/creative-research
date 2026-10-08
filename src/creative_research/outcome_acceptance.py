@@ -69,7 +69,21 @@ def audit_outcome(
     if not family_rows or not posts:
         issue("empty_research", "No canonical posts or families available for research validation.")
 
+    blocked_sources = {
+        str(row.get("review_source_id"))
+        for row in knowledge_rows
+        if row.get("review_source_type") == "hypothesis"
+        and row.get("knowledge_status") in {"hold", "rejected"}
+    }
     hero_id = (brief.get("hero") or {}).get("hypothesis_id")
+    if str(hero_id) in blocked_sources:
+        issue("blocked_featured_claim", "The Research Brief hero uses held/rejected evidence.")
+    for finding in brief.get("key_findings", []):
+        if str(finding.get("hypothesis_id")) in blocked_sources:
+            issue(
+                "blocked_featured_claim",
+                f"Featured hypothesis {finding.get('hypothesis_id')} is held/rejected.",
+            )
     if hero_id and str(hero_id) not in strategy_by_id:
         issue("untraceable_hero", f"Research Brief source {hero_id} was not materialized.")
     checked["hero"] = int(bool(hero_id))
@@ -166,11 +180,41 @@ def audit_outcome(
             account_id = str(entry.get("account_id") or "")
             if account_id not in node_by_id:
                 issue("hypothesis_unknown_account", f"{strategy['hypothesis_id']}: {account_id}.")
+            else:
+                actual = node_by_id[account_id].get("role_lineage") or {}
+                for direction in ("origin_families", "imported_families"):
+                    expected_ids = {
+                        str(group.get("family_id"))
+                        for group in actual.get(direction, [])
+                    }
+                    linked_ids = {
+                        str(group.get("family_id"))
+                        for group in entry.get(direction, [])
+                    }
+                    if linked_ids != expected_ids:
+                        issue(
+                            "hypothesis_flow_mismatch",
+                            f"{strategy['hypothesis_id']}: {account_id} {direction} differs from account lineage.",
+                        )
             if entry.get("total_family_observations", 0) < 1:
                 issue(
                     "hypothesis_missing_direct_flows",
                     f"{strategy['hypothesis_id']}: {account_id} has no concrete flow.",
                 )
+
+    core_models = {
+        "selective_cross_account_reuse_model",
+        "operator_explore_propagate_model",
+    }
+    if not any(
+        row.get("hypothesis_type") in core_models
+        for row in strategy_by_id.values()
+    ):
+        issue(
+            "operating_model_not_established",
+            "No high-level operator operating model has been emitted.",
+            fatal=False,
+        )
 
     playbook = lab.get("playbook")
     if not isinstance(playbook, dict):
