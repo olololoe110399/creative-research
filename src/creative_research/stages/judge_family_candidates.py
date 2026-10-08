@@ -1024,12 +1024,20 @@ def verify_translation_judgments(
 
             if verification is None:
                 failures += 1
-                records[record_index]["translation_verifier_source"] = (
-                    "failed"
+                failed = dict(row)
+                failed["primary_decision"] = row.get("decision")
+                failed["primary_relationship"] = row.get("relationship")
+                failed["primary_confidence"] = row.get("confidence")
+                failed["primary_reason"] = row.get("reason")
+                failed["decision"] = "uncertain"
+                failed["relationship"] = "uncertain"
+                failed["reason"] = (
+                    "Translation verifier failed; defer to deterministic "
+                    "family evidence."
                 )
-                records[record_index]["translation_verifier_error"] = (
-                    last_error
-                )
+                failed["translation_verifier_source"] = "failed"
+                failed["translation_verifier_error"] = last_error
+                records[record_index] = failed
                 continue
 
             _append_jsonl(
@@ -1079,6 +1087,24 @@ def verify_translation_judgments(
         )
         if source == "api" and sleep_between:
             time.sleep(sleep_between)
+
+    for record_index in candidates:
+        row = records[record_index]
+        if row.get("translation_verifier_source") is not None:
+            continue
+        deferred = dict(row)
+        deferred["primary_decision"] = row.get("decision")
+        deferred["primary_relationship"] = row.get("relationship")
+        deferred["primary_confidence"] = row.get("confidence")
+        deferred["primary_reason"] = row.get("reason")
+        deferred["decision"] = "uncertain"
+        deferred["relationship"] = "uncertain"
+        deferred["reason"] = (
+            "Translation verifier was not reached before its call cap; "
+            "defer to deterministic family evidence."
+        )
+        deferred["translation_verifier_source"] = "not_reached"
+        records[record_index] = deferred
 
     verified = pd.DataFrame(records)
     final_counts = (
