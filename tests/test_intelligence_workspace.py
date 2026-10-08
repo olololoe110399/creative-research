@@ -426,14 +426,10 @@ def test_write_workspace_copies_static_and_required_data(tmp_path: Path) -> None
     workspace = json.loads((tmp_path / "workspace.json").read_text(encoding="utf-8"))
     assert workspace["workspace_schema_version"] == "operator-intelligence-lab-v3"
     assert workspace["views"] == [
-        "brief",
-        "network",
-        "families",
-        "intelligence",
-        "production",
-        "playbook",
-        "experiments",
-        "advanced",
+        "production", "assets", "results", "evidence",
+    ]
+    assert workspace["evidence_modes"] == [
+        "brief", "families", "network", "intelligence", "advanced",
     ]
     assert (tmp_path / "lab.json").is_file()
     assert (tmp_path / "production.json").is_file()
