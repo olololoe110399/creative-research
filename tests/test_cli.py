@@ -21,6 +21,7 @@ def test_canonical_commands_exist() -> None:
         "analyze-performance",
         "analyze-cadence",
         "build-families",
+        "calibrate-families",
         "analyze-propagation",
         "analyze-timeline",
         "discover-patterns",
