@@ -238,6 +238,15 @@ def _trust_for_source(knowledge_rows: list[dict[str, Any]]) -> str:
     return "hypothesis_only"
 
 
+def hypothesis_trust_status(
+    knowledge: list[dict[str, Any]],
+    hypothesis_id: str,
+    operator_id: str,
+) -> str:
+    """Scope-aware trust state used by Research Brief and Playbook alike."""
+    return _trust_for_source(_knowledge_for_source(knowledge, hypothesis_id, operator_id))
+
+
 def build_provisional_playbook(
     strategies: list[dict[str, Any]],
     knowledge: list[dict[str, Any]],
