@@ -90,6 +90,10 @@ def _pairs() -> pd.DataFrame:
                 "production_family_score": 0.50,
                 "cross_language": True,
                 "same_current_family": False,
+                "left_hook_text": "Study schedules for different students",
+                "right_hook_text": "Horarios de estudio para diferentes estudiantes",
+                "left_topic": "study schedules for student types",
+                "right_topic": "study schedules for student types",
             },
             {
                 "left_post_uid": "P1",
@@ -100,6 +104,10 @@ def _pairs() -> pd.DataFrame:
                 "production_family_score": 0.45,
                 "cross_language": False,
                 "same_current_family": False,
+                "left_hook_text": "Study schedules for different students",
+                "right_hook_text": "Best times to study",
+                "left_topic": "study schedules for student types",
+                "right_topic": "best times to study",
             },
             {
                 "left_post_uid": "P1",
@@ -110,6 +118,10 @@ def _pairs() -> pd.DataFrame:
                 "production_family_score": 0.55,
                 "cross_language": False,
                 "same_current_family": False,
+                "left_hook_text": "Study schedules for different students",
+                "right_hook_text": "Study schedules after school",
+                "left_topic": "study schedules for student types",
+                "right_topic": "after school study schedule",
             },
             {
                 "left_post_uid": "P2",
@@ -120,6 +132,10 @@ def _pairs() -> pd.DataFrame:
                 "production_family_score": 0.51,
                 "cross_language": True,
                 "same_current_family": False,
+                "left_hook_text": "Horarios de estudio para diferentes estudiantes",
+                "right_hook_text": "Study schedules after school",
+                "left_topic": "study schedules for student types",
+                "right_topic": "after school study schedule",
             },
         ]
     )
@@ -162,3 +178,35 @@ def test_current_family_pair_is_always_preserved_as_strong() -> None:
         "same_current_family": True,
     }
     assert classify_pair(row) == "strong_current_family"
+
+
+def test_same_language_taxonomy_match_without_hook_coherence_is_rejected() -> None:
+    row = {
+        "combined_score": 0.82,
+        "structure_score": 0.98,
+        "semantic_text_score": 0.40,
+        "production_family_score": 0.50,
+        "cross_language": False,
+        "same_current_family": False,
+        "left_hook_text": "Academic failure is my biggest fear",
+        "right_hook_text": "Secret tips: listening to Chinese music while studying",
+        "left_topic": "effective study methods and exam preparation",
+        "right_topic": "secret study tips and learning techniques",
+    }
+    assert classify_pair(row) is None
+
+
+def test_same_language_rewrite_with_hook_coherence_is_retained() -> None:
+    row = {
+        "combined_score": 0.83,
+        "structure_score": 0.96,
+        "semantic_text_score": 0.44,
+        "production_family_score": 0.52,
+        "cross_language": False,
+        "same_current_family": False,
+        "left_hook_text": "Study schedules for different students",
+        "right_hook_text": "Study schedule for different student types",
+        "left_topic": "study schedules for student types",
+        "right_topic": "study schedules for student types",
+    }
+    assert classify_pair(row) == "strong_same_language"
