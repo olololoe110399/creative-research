@@ -95,7 +95,10 @@ def review_source_in_queue(
         isinstance(item, dict)
         and item.get("review_source_type") == source_type
         and item.get("review_source_id") == source_id
-        for item in lab.get("review", {}).get("items", [])
+        for item in (
+            lab.get("review", {}).get("items", [])
+            + lab.get("review", {}).get("reviewed_items", [])
+        )
     )
 
 
