@@ -394,7 +394,7 @@ data/06_analytics/family_ai/
 
 Each judgment is structured as `same_core_concept`, `different_core_concept`, or `uncertain`, plus relationship type, preserved/changed dimensions, evidence, counter-evidence, confidence, and concise reason.
 
-`preview-families-v2` automatically consumes `family_ai_judgments.parquet` when present. High-confidence AI exact-reuse/translation/paraphrase/hook-variant judgments become strong core-family edges. AI execution variants are retained as semantic/template evidence but defer to deterministic family gates. High-confidence different-core/thematic-only judgments reject edges; uncertain or low-confidence results fall back to deterministic gates.
+`preview-families-v2` automatically consumes `family_ai_judgments.parquet` when present. High-confidence AI exact-reuse/paraphrase/hook-variant judgments become strong core-family edges. Translation judgments require the isolated verifier: only `direct_translation` may seed a strong AI family edge, while `localized_paraphrase` or unverified translations defer to deterministic gates. AI execution variants are retained as semantic/template evidence but also defer to deterministic family gates. High-confidence different-core/template/thematic-only judgments reject edges; uncertain or low-confidence results fall back to deterministic gates.
 
 AI therefore acts as an auditable semantic adjudicator between candidate retrieval and family assignment, not as an unrestricted family generator.
 
