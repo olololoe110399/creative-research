@@ -37,6 +37,7 @@ COMMANDS = {
     "review-knowledge": "creative_research.stages.review_knowledge",
     "build-intelligence-workspace": "creative_research.stages.build_intelligence_workspace",
     "intelligence": "creative_research.stages.intelligence",
+    "lab": "creative_research.stages.intelligence",
     "intelligence-build": "creative_research.stages.intelligence_build",
     "quality-audit": "creative_research.stages.quality_audit",
     "rank-posts": "creative_research.stages.rank_posts",
@@ -77,7 +78,8 @@ Canonical evidence pipeline:
   promote-knowledge   Build strategies/rules/lessons/templates/playbooks bank
   review-knowledge    Build/apply a prioritized human review queue
   build-intelligence-workspace Build static operator intelligence workspace
-  intelligence       Serve a generated operator intelligence workspace
+  intelligence       Serve the generated Operator Intelligence Lab
+  lab                Friendly alias for the Operator Intelligence Lab
   intelligence-build Build/reuse the full deterministic intelligence pipeline
   quality-audit      Audit coverage, freshness, integrity, lineage, and trust status
   rank-posts         Rank master posts for reference selection
@@ -117,7 +119,7 @@ Examples:
   uv run creative-research promote-knowledge
   uv run creative-research review-knowledge queue
   uv run creative-research build-intelligence-workspace
-  uv run creative-research intelligence --open
+  uv run creative-research lab --open
   uv run creative-research intelligence-build --operators config/operators.toml
   uv run creative-research quality-audit
   uv run creative-research rank-posts data/05_master/creative_master.parquet --content-type slideshow --top 50
@@ -142,6 +144,7 @@ Detailed stage help:
   uv run creative-research review-knowledge --help
   uv run creative-research build-intelligence-workspace --help
   uv run creative-research intelligence --help
+  uv run creative-research lab --help
   uv run creative-research intelligence-build --help
   uv run creative-research quality-audit --help
   uv run creative-research extract-references --help
