@@ -655,12 +655,114 @@ def _payload_hash(packet: dict[str, Any], model: str) -> str:
     return hashlib.sha256(data.encode("utf-8")).hexdigest()
 
 
+# These checks validate decision semantics that a generic JSON schema cannot
+# enforce.  They intentionally fail CLOSED and never silently edit the model.
+_FAMILY_OFF_TARGET = re.compile(
+    r"\b(?:view counts?|views|performance|underperform(?:ance|ed|ing)?|"
+    r"outperform(?:ed|ing)?|engagement|conversions?|algorithm fluctuations?|"
+    r"causality|causal|causation|scaling|scaled|scale|test.to.scale|"
+    r"testing.workflow|internal.intent|publishing.intent)\b",
+    flags=re.IGNORECASE,
+)
+_NUMERIC_CUTOFF = re.compile(
+    r"(?:[<>]=?|(?:above|below|at least|under|over|exceeds?|"
+    r"greater than|less than|more than|fewer than)\s+(?:the\s+)?)"
+    r"\s*\d+(?:\.\d+)?|"
+    r"\b(?:after|within|for)\s+\d+(?:\.\d+)?\s*"
+    r"(?:hours?|hrs?|days?|posts?|executions?|samples?)\b",
+    flags=re.IGNORECASE,
+)
+_TEMPORAL_METRIC = re.compile(
+    r"\b(?:view\s+velocity|views?\s+per\s+(?:hour|day)|"
+    r"hourly\s+views?|daily\s+views?|"
+    r"(?:24|48|72)\s*(?:h|hours?)\s+(?:views?|performance)|"
+    r"views?\s+(?:within|after|at)\s+\d+\s*(?:h|hours?|days?))\b",
+    flags=re.IGNORECASE,
+)
+
+
+def _validate_experiment_metrics(answer: AIResearchAnswer) -> None:
+    for experiment in answer.experiments:
+        description = " ".join(
+            (experiment.action, experiment.success_metric, experiment.stop_or_recheck)
+        )
+        if _NUMERIC_CUTOFF.search(
+            experiment.success_metric + " " + experiment.stop_or_recheck
+        ) and experiment.threshold_origin != "proposed_experiment":
+            raise ResearchValidationError("invented_threshold_without_proposed_label")
+        if _TEMPORAL_METRIC.search(description) and (
+            experiment.measurement_plan != "new_tracking_required"
+        ):
+            raise ResearchValidationError("unavailable_velocity_requires_new_tracking")
+
+
+def _validate_family_review(
+    answer: AIResearchAnswer, packet: dict[str, Any]
+) -> None:
+    family = packet.get("family_identity") or {}
+    expected_refs = set(family.get("member_post_refs") or [])
+    assessment = answer.family_assessment
+    if assessment is None:
+        raise ResearchValidationError("missing_family_identity_assessment")
+    if not expected_refs:
+        raise ResearchValidationError("no_family_members_in_packet")
+    checked = set(assessment.checked_member_post_refs)
+    support = set(assessment.identity_support_post_refs)
+    outliers = set(assessment.outlier_post_refs)
+    if any(
+        len(group) != len(unique) for group, unique in (
+            (assessment.checked_member_post_refs, checked),
+            (assessment.identity_support_post_refs, support),
+            (assessment.outlier_post_refs, outliers),
+        )
+    ):
+        raise ResearchValidationError("duplicate_family_member_refs")
+    if not checked.issubset(expected_refs) or not support.issubset(checked):
+        raise ResearchValidationError("family_identity_ref_outside_membership")
+    if not outliers.issubset(checked):
+        raise ResearchValidationError("family_outlier_not_inspected")
+    if assessment.visual_media_inspected is not False:
+        raise ResearchValidationError("family_media_not_inspected_by_ai")
+    if answer.experiments:
+        raise ResearchValidationError("family_review_cannot_generate_experiments")
+
+    decisive_text = " ".join(
+        [answer.summary, answer.review_rationale, assessment.identity_rationale]
+        + [item.statement for item in answer.findings]
+    )
+    if _FAMILY_OFF_TARGET.search(decisive_text):
+        raise ResearchValidationError("family_identity_misframed_as_strategy_or_performance")
+
+    if answer.proposed_review == "approve":
+        if family.get("member_sample_truncated") or checked != expected_refs:
+            raise ResearchValidationError("family_approval_requires_all_members")
+        if len(support) < 2 or outliers:
+            raise ResearchValidationError("family_approval_needs_identity_consistency")
+        cited_identity = {
+            ref for finding in answer.findings
+            if finding.interpretation == "observed"
+            for ref in finding.evidence_refs if ref in support
+        }
+        if len(cited_identity) < 2:
+            raise ResearchValidationError("family_approval_requires_direct_post_evidence")
+    elif answer.proposed_review == "reject":
+        has_counter = any(
+            f.interpretation == "counterexample"
+            and outliers.intersection(f.evidence_refs)
+            for f in answer.findings
+        )
+        if not outliers or not has_counter:
+            raise ResearchValidationError("family_reject_requires_specific_outlier")
+
+
 def validate_answer(
     answer: AIResearchAnswer,
     *,
     allowed_refs: set[str],
     mode: str,
     blocked_source_refs: set[str] | None = None,
+    source_type: str | None = None,
+    evidence_packet: dict[str, Any] | None = None,
 ) -> None:
     cited = [ref for f in answer.findings for ref in f.evidence_refs]
     cited.extend(ref for f in answer.experiments for ref in f.evidence_refs)
@@ -702,6 +804,13 @@ def validate_answer(
     if blocked_source_refs and answer.experiments:
         if any(blocked_source_refs.intersection(e.evidence_refs) for e in answer.experiments):
             raise ResearchValidationError("blocked_knowledge_used_as_guidance")
+    _validate_experiment_metrics(answer)
+    if source_type == "family":
+        if evidence_packet is None:
+            raise ResearchValidationError("missing_family_identity_packet")
+        _validate_family_review(answer, evidence_packet)
+    elif answer.family_assessment is not None:
+        raise ResearchValidationError("family_assessment_on_wrong_review_target")
 
 
 class AIResearchService:
