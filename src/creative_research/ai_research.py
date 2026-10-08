@@ -731,6 +731,8 @@ def _validate_family_review(
     decisive_text = " ".join(
         [answer.summary, answer.review_rationale, assessment.identity_rationale]
         + [item.statement for item in answer.findings]
+        + answer.alternative_explanations
+        + answer.missing_evidence
     )
     if _FAMILY_OFF_TARGET.search(decisive_text):
         raise ResearchValidationError("family_identity_misframed_as_strategy_or_performance")
