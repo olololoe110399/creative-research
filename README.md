@@ -56,6 +56,8 @@ analyze-timeline
 discover-patterns
 infer-strategies
 promote-knowledge
+build-intelligence-workspace
+intelligence
 
 rank-posts
 extract-references
@@ -85,7 +87,7 @@ data/
 ├── 05_master/                # creative_master + operator-aware canonical tables
 ├── 06_analytics/             # deterministic evidence + intelligence analytics
 ├── 07_knowledge/             # strategies/rules/lessons/templates/playbooks
-└── 07_exports/               # generated system/reference workspaces
+└── 07_exports/               # reference + operator intelligence workspaces
 ```
 
 ## Canonical evidence pipeline
@@ -510,6 +512,68 @@ Creative-family templates require repeated executions and sufficient cohesion; s
 
 `knowledge_source_links` maps knowledge items to hypotheses/families. `knowledge_evidence_links` carries lineage further down to pattern/post/family/account evidence, so downstream systems can trace any strategy/rule/template/playbook back toward the source evidence.
 
+### 17. Build the Operator Intelligence Workspace
+
+Build a static research UI from the warehouse/analytics/knowledge outputs already generated:
+
+```bash
+uv run creative-research build-intelligence-workspace \
+  --out data/07_exports/operator-intelligence
+
+uv run creative-research intelligence \
+  --dir data/07_exports/operator-intelligence \
+  --open
+```
+
+This stage does **not** rerun scraping, Vision, analytics, strategy inference, or knowledge promotion. It only materializes existing tables into browser-friendly JSON and copies a packaged static UI.
+
+Generated workspace:
+
+```text
+data/07_exports/operator-intelligence/
+├── index.html
+├── app.js
+├── style.css
+├── favicon.svg
+├── workspace.json
+├── overview.json
+├── accounts.json
+├── timeline.json
+├── families.json
+├── patterns.json
+├── strategies.json
+├── knowledge.json
+└── evidence.json
+```
+
+The workspace is ordered around the reverse-engineering question:
+
+1. **Overview** — complete operator counts, active knowledge, trust/status audit.
+2. **Accounts** — performance baseline, cadence, originator/receiver/amplifier evidence.
+3. **Timeline** — historical strategy windows and material change points.
+4. **Families** — repeated concepts, members, lifecycle, cross-account propagation.
+5. **Patterns** — recurring observations with effect/sample/counter evidence.
+6. **Strategies** — hypotheses with confidence, alternative explanations, pattern links.
+7. **Knowledge** — strategies/rules/lessons/templates/playbooks with explicit trust status.
+8. **Evidence** — canonical posts with creative analysis, relative performance, family membership, sequence, and original URLs.
+
+Drawers preserve drill-down lineage such as:
+
+```text
+Knowledge
+  -> Strategy hypothesis
+  -> Pattern
+  -> Family / Post
+  -> original source URL
+```
+
+The **Operator Intelligence Workspace** and **Reference Workspace** serve different purposes:
+
+- Operator Intelligence Workspace = understand how the operator works and what the system has learned.
+- Reference Workspace = inspect/compare/select specific creative executions for downstream Creative Bank handoff.
+
+Neither UI is a new source of truth; both are generated research surfaces over canonical evidence.
+
 ## System-first reference workflow
 
 The default workflow is deliberately **not "take the global top 30"**.
@@ -706,6 +770,7 @@ raw evidence
 -> evidence patterns
 -> strategy hypotheses + counter-evidence
 -> knowledge bank: strategies/rules/lessons/templates/playbooks
+-> operator intelligence workspace
 -> system/reference workspace
 ```
 
