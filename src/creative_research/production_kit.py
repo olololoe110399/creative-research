@@ -435,6 +435,78 @@ def _blueprints(
     ]
 
 
+def _tactical_observations(posts: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Corpus-wide descriptive contrasts with both strong and weak post refs.
+
+    These are not randomized comparisons and cannot prove a hook/placement
+    was the cause of performance. Exclude missing percentiles and tiny groups.
+    """
+    result: list[dict[str, Any]] = []
+    fields = [
+        ("hook_technique", "hook mechanism", "LES-HOOK"),
+        ("product_placement_style", "product placement", "LES-PLACEMENT"),
+        ("dominant_visual_type", "visual treatment", "LES-VISUAL"),
+        ("content_format", "content format", "LES-FORMAT-MIX"),
+    ]
+    for field, field_label, lesson_id in fields:
+        grouped: dict[str, list[dict[str, Any]]] = defaultdict(list)
+        for p in posts:
+            c = p.get("creative") or {}
+            category = _text(c.get(field))
+            if not category and field == "content_format":
+                category = _text(c.get("video_format"))
+            if category and _pct(p) is not None:
+                grouped[category].append(p)
+        eligible = [
+            (category, group)
+            for category, group in grouped.items() if len(group) >= 15
+        ]
+        if len(eligible) < 2:
+            continue
+        annotated = []
+        for category, group in eligible:
+            percentiles = [_pct(p) for p in group]
+            usable = [float(value) for value in percentiles if value is not None]
+            annotated.append({
+                "category": category,
+                "n": len(usable),
+                "median_account_percentile": _median(usable),
+                "source_high_low": sorted(
+                    group, key=lambda p: _pct(p) or 0
+                ),
+            })
+        annotated.sort(key=lambda x: (-x["n"],x["category"]))
+        first_two = annotated[:2]
+        examples: list[str] = []
+        for group in first_two:
+            for p in (group["source_high_low"][0], group["source_high_low"][-1]):
+                if p["post_uid"] not in examples:
+                    examples.append(p["post_uid"])
+        short = "; ".join(
+            f"{a['category']} ({a['n']} posts, median account percentile "
+            f"{a['median_account_percentile']})"
+            for a in first_two
+        )
+        result.append({
+            "id": lesson_id,
+            "kind": "observed_descriptive_contrast",
+            "statement": (
+                f"Two common {field_label} groups in the observed corpus: {short}."
+            ),
+            "source_post_uids": examples,
+            "sample_count": sum(group["n"] for group in first_two),
+            "action": (
+                f"Pilot the {field_label} variants independently while "
+                "holding the creative concept and account stable where possible."
+            ),
+            "qualification": (
+                "Groups were not randomized or matched on topic, time or audience. "
+                "Account-relative percentiles do not prove causal impact."
+            ),
+        })
+    return result
+
+
 def build_production_kit(
     *,
     evidence: dict[str, Any],
@@ -685,6 +757,7 @@ def build_production_kit(
             "qualification": "No controlled test or future-success guarantee.",
         },
     ]
+    lessons.extend(_tactical_observations(posts))
     return {
         "schema_version": SCHEMA_VERSION, "operator_id": operator_id,
         "source_post_count": len(posts),
@@ -719,6 +792,7 @@ def build_production_kit(
             "post_evidence_links": sum(len(r["observed_source_posts"]) for r in recipes),
             "slides_drafted": sum(len(r["slides"]) for r in recipes),
             "asset_candidates": len(assets),
+            "corpus_observations": len(lessons),
             "assets_with_verified_rights": 0,
             "ready_to_publish": 0,
             "sound_metadata_coverage": 0,
