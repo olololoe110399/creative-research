@@ -50,6 +50,7 @@ build-master
 build-warehouse
 analyze-performance
 analyze-cadence
+build-families
 
 rank-posts
 extract-references
@@ -239,6 +240,48 @@ Cadence is calculated at both levels:
 That operator-level chronology is what later stages can use to test hypotheses such as whether one account appears to test ideas before another account reuses them.
 
 Performance and cadence should be joined by stable `post_uid` when studying relationships such as “high-relative-performance posts tend to be followed by longer or shorter posting gaps.” Such relationships are observations/correlations, not proof of causation.
+
+### 11. Build creative families
+
+Creative families identify repeated executions that appear to share the same underlying creative concept.
+
+```bash
+uv run creative-research build-families \
+  --posts data/05_master/posts.parquet \
+  --analysis data/05_master/creative_analysis.parquet \
+  --sequence data/05_master/creative_sequence.parquet \
+  --performance data/06_analytics/post_performance.parquet \
+  --out data/06_analytics
+```
+
+This writes:
+
+```text
+data/06_analytics/
+├── creative_families.parquet
+├── creative_family_members.parquet
+└── creative_families_report.json
+```
+
+The family stage is deterministic and does not call an LLM. It compares evidence already extracted by Vision:
+
+- core topic / pain / desired outcome;
+- hook wording;
+- replicable hook formula;
+- creative formula;
+- ordered slide/video sequence roles;
+- angle, audience, hook technique, format, and product family.
+
+Posts are only grouped within the same verified operator. Unmapped accounts are isolated from each other instead of being treated as one operator.
+
+Every post remains represented. Posts without a sufficiently similar sibling become singleton families. Every non-origin family member stores:
+
+- similarity to the family origin;
+- similarity to its nearest family member;
+- the nearest supporting `post_uid`;
+- component-level matching evidence in `match_reason_json`.
+
+A family therefore means **deterministic candidate for a shared creative concept**, not “proven strategy.” The next stages can use family origin, chronology, cross-account reuse, and relative performance to study propagation and operator behavior.
 
 ## System-first reference workflow
 
@@ -430,10 +473,11 @@ raw evidence
 -> creative_master
 -> operator-aware canonical warehouse
 -> relative performance + account/operator cadence
+-> creative families
 -> system/reference workspace
 ```
 
-The operator warehouse is intentionally built before strategy inference. Relative performance and historical cadence are now deterministic analytics layers. Future stages can derive creative families, cross-account propagation, strategy periods, patterns, rules, lessons, templates, and playbooks from these canonical tables. Those future knowledge assets must retain evidence lineage instead of being unsupported LLM summaries.
+The operator warehouse is intentionally built before strategy inference. Relative performance, historical cadence, and deterministic creative-family candidates are now analytics layers. Future stages can derive cross-account propagation, strategy periods, patterns, rules, lessons, templates, and playbooks from these canonical tables. Those future knowledge assets must retain evidence lineage instead of being unsupported LLM summaries.
 
 Brief/variant production and first-party experiment outcomes remain downstream concerns.
 

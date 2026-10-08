@@ -25,6 +25,7 @@ COMMANDS = {
     "build-warehouse": "creative_research.stages.build_warehouse",
     "analyze-performance": "creative_research.stages.analyze_performance",
     "analyze-cadence": "creative_research.stages.analyze_cadence",
+    "build-families": "creative_research.stages.build_families",
     "rank-posts": "creative_research.stages.rank_posts",
     "extract-references": "creative_research.stages.extract_references",
     "query": "creative_research.stages.query",
@@ -52,6 +53,7 @@ Canonical evidence pipeline:
   build-warehouse    Backfill operator-aware canonical tables from creative_master
   analyze-performance Build account/operator relative performance baselines
   analyze-cadence     Build account/operator historical posting cadence
+  build-families      Group repeated creative concepts with auditable similarity evidence
   rank-posts         Rank master posts for reference selection
   extract-references Build whole-system map + representative reference workspace
   query              Filter normalized creative tables without ad-hoc Pandas
@@ -78,6 +80,7 @@ Examples:
   uv run creative-research build-warehouse --operators config/operators.toml
   uv run creative-research analyze-performance
   uv run creative-research analyze-cadence --timezone UTC
+  uv run creative-research build-families
   uv run creative-research rank-posts data/05_master/creative_master.parquet --content-type slideshow --top 50
   uv run creative-research extract-references data/05_master/creative_master.parquet --out data/07_exports/study-reference-pack --top 30 --strategy system --media remote
   uv run creative-research references --dir data/07_exports/study-reference-pack --open
@@ -88,6 +91,7 @@ Detailed stage help:
   uv run creative-research build-warehouse --help
   uv run creative-research analyze-performance --help
   uv run creative-research analyze-cadence --help
+  uv run creative-research build-families --help
   uv run creative-research extract-references --help
   uv run creative-research references --help
 """
@@ -290,6 +294,7 @@ def status_rows(root: Path) -> list[dict[str, object]]:
         ("creative master", root / "data/05_master/creative_master.jsonl", "lines"),
         ("post performance", root / "data/06_analytics/post_performance.parquet", "file"),
         ("posting cadence", root / "data/06_analytics/posting_cadence.parquet", "file"),
+        ("creative families", root / "data/06_analytics/creative_families.parquet", "file"),
     ]
     rows: list[dict[str, object]] = []
     for label, path, kind in candidates:
