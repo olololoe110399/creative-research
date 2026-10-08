@@ -74,9 +74,17 @@ relative performance        account/operator chronology
              +---------+---------+
                        |
                        v
+                infer-strategies
+                       |
+                       v
+        strategy hypotheses
+        + counter-evidence
+        + alternative explanations
+                       |
+                       v
           future knowledge promotion
-      strategy hypotheses -> rules
-      -> lessons -> templates -> playbooks
+      rules -> lessons -> templates
+      -> playbooks
 ```
 
 ## Sources of truth
@@ -92,7 +100,8 @@ relative performance        account/operator chronology
 9. Propagation analytics: observed family entries/movement across verified operator accounts plus descriptive account-role evidence.
 10. Strategy timeline: fixed historical operator/account windows with deterministic adjacent-window change points.
 11. Evidence patterns: recurring observations with sample/effect metrics and explicit post/family/account evidence links.
-12. Reference Workspace: a generated decision surface over the evidence, not a new truth source.
+12. Strategy hypotheses: deterministic pattern promotion with confidence, counter evidence, alternative explanations, and inherited evidence lineage.
+13. Reference Workspace: a generated decision surface over the evidence, not a new truth source.
 
 ## Invariants
 
@@ -110,6 +119,8 @@ relative performance        account/operator chronology
 - Account-role evidence remains descriptive until a later strategy inference stage.
 - Strategy change points identify measurable shifts; they do not name the business strategy.
 - Patterns always set `causal_claim=false` and remain observations until promoted later.
+- Strategy inference never turns a hypothesis into a fact; hypothesis rows also keep `causal_claim=false`.
+- Strategy hypotheses must preserve supporting/counter pattern links, alternative explanations, and inherited evidence lineage.
 - Pattern evidence must remain traceable to stable post/family/account IDs.
 - `creative_master` has one row per unique `account+post_id`.
 - Stable canonical post IDs are deterministic and shared with the Reference Workspace.
