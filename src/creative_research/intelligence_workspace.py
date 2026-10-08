@@ -20,8 +20,8 @@ from creative_research.reference_media import (
 )
 from creative_research.stages.review_knowledge import build_review_queue
 
-WORKSPACE_SCHEMA_VERSION = "operator-intelligence-lab-v1"
-STATIC_FILES = ("index.html", "app.js", "style.css", "favicon.svg")
+WORKSPACE_SCHEMA_VERSION = "operator-intelligence-lab-v2"
+STATIC_FILES = ("index.html", "app.js", "product_ui.js", "style.css", "favicon.svg")
 REQUIRED_DATA_FILES = (
     "workspace.json",
     "overview.json",
@@ -883,6 +883,7 @@ def write_intelligence_workspace(
             "network",
             "families",
             "review",
+            "playbook",
             "advanced",
         ],
         "counts": payloads["overview.json"]["counts"],
