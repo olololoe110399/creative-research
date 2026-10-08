@@ -286,3 +286,21 @@ def test_experiment_thresholds_are_labeled_and_new_velocity_data_required() -> N
         allowed_refs={"family:F1", "post:P1", "post:P2"},
         mode="draft_playbook",
     )
+
+
+
+def test_hold_family_still_must_account_for_every_supplied_member(
+    tmp_path: Path,
+) -> None:
+    workspace = six_member_family(tmp_path)
+    candidate = six_member_identity_answer()
+    candidate["proposed_review"] = "hold"
+    candidate["family_assessment"]["checked_member_post_refs"].pop()
+    candidate["family_assessment"]["identity_support_post_refs"].pop()
+    with pytest.raises(
+        ResearchValidationError,
+        match="family_review_requires_all_included_members",
+    ):
+        AIResearchService(
+            workspace, enabled=True, generator=lambda _: candidate,
+        ).run("investigate", "family", "FAM-39E15050D193")
