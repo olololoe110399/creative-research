@@ -9,7 +9,9 @@ human-approved knowledge.
 Build the Lab normally after checking out the feature branch:
 
     uv sync --all-groups
-    uv run creative-research intelligence-build --operators config/operators.toml
+    uv run creative-research intelligence-build \
+      --operators config/operators.toml \
+      --from-stage workspace --force
 
 Explicitly opt into Gemini model calls with your own API key:
 
