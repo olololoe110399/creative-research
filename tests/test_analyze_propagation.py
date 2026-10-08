@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 
 import pandas as pd
+import pytest
 
 from creative_research.stages.analyze_propagation import build_propagation_tables
 
@@ -249,7 +250,7 @@ def test_propagation_tracks_family_entries_delays_and_variant_changes() -> None:
     assert f1_b["delay_from_family_origin_days"] == 2.0
     assert f1_b["target_first_post_uid"] == "P2"
     assert f1_b["target_outperformed_origin"] == True  # noqa: E712
-    assert f1_b["target_vs_origin_views_percentile_delta"] == 0.22
+    assert f1_b["target_vs_origin_views_percentile_delta"] == pytest.approx(0.22)
 
     f1_c = events.loc[("F1", "C")]
     assert f1_c["preceding_account_id"] == "B"
