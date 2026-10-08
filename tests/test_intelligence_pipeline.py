@@ -57,7 +57,31 @@ def test_pipeline_plan_invalidates_downstream_when_upstream_runs(tmp_path: Path)
     )
     plans = plan_pipeline(specs)
     assert [plan.action for plan in plans] == ["run", "run"]
-    assert "upstream" in plans[1].reason
+    assert "dependenc" in plans[1].reason
+
+
+def test_pipeline_only_invalidates_actual_dependents(tmp_path: Path) -> None:
+    source_a = tmp_path / "a.in"
+    source_b = tmp_path / "b.in"
+    a_out = tmp_path / "a.out"
+    b_out = tmp_path / "b.out"
+    c_out = tmp_path / "c.out"
+    for path in (source_a, source_b, a_out, b_out, c_out):
+        _touch(path)
+
+    now = c_out.stat().st_mtime_ns
+    for path in (a_out, b_out, c_out):
+        os.utime(path, ns=(now, now))
+    os.utime(source_a, ns=(now + 10_000, now + 10_000))
+    os.utime(source_b, ns=(now - 10_000, now - 10_000))
+
+    specs = (
+        StageSpec("a", "a", (source_a,), (a_out,), ()),
+        StageSpec("b", "b", (source_b,), (b_out,), ()),
+        StageSpec("c", "c", (a_out,), (c_out,), ()),
+    )
+    plans = plan_pipeline(specs)
+    assert [plan.action for plan in plans] == ["run", "skip", "run"]
 
 
 def test_execute_pipeline_dry_run_never_calls_runner(tmp_path: Path) -> None:
