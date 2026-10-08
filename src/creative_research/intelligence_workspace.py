@@ -19,6 +19,7 @@ from creative_research.research_intelligence import build_research_intelligence
 from creative_research.production_kit import (
     build_production_kit,
     write_production_kit,
+    enrich_production_kit_from_raw,
     audit_production_kit,
 )
 from creative_research.reference_media import (
@@ -943,6 +944,7 @@ def write_intelligence_workspace(
     *,
     out_dir: Path,
     sources: dict[str, str],
+    raw_root: Path | None = None,
     **frames: pd.DataFrame | None,
 ) -> dict[str, Any]:
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -958,6 +960,10 @@ def write_intelligence_workspace(
         accounts=payloads["accounts.json"],
         lab=payloads["lab.json"],
     )
+    if raw_root is not None and raw_root.is_dir():
+        enrich_production_kit_from_raw(
+            kit, raw_root, evidence_posts=payloads["evidence.json"]["posts"]
+        )
     production_report = write_production_kit(kit, workspace=out_dir)
 
     manifest = {
