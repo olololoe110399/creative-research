@@ -246,12 +246,140 @@ class LabCorpus:
             return [self.strategy_index[identifier] for identifier in ids]
         raise ResearchValidationError("invalid_research_target")
 
+    def _family_identity_packet(self, mode: str, source_id: str) -> dict[str, Any]:
+        """Family review is membership/creative identity, never performance/scale.
+
+        Pull ALL member creative/sequence descriptions within the input cap.
+        The model never sees raw images/videos and may only SUGGEST a decision.
+        """
+        family = self.family_index[source_id]
+        members = sorted(
+            family.get("members", []),
+            key=lambda row: (
+                int(row.get("family_member_index") or 0),
+                str(row.get("post_uid") or ""),
+            ),
+        )
+        if not members:
+            raise ResearchValidationError("family_has_no_members")
+        member_count = int(family.get("member_count") or 0)
+        member_ids = [str(row.get("post_uid") or "") for row in members]
+        if (
+            member_count != len(members)
+            or any(not uid for uid in member_ids)
+            or len(set(member_ids)) != len(member_ids)
+        ):
+            raise ResearchValidationError("family_member_lineage_incomplete")
+        if any(
+            uid not in self.post_index
+            or (
+                self.post_index[uid].get("family")
+                and self.post_index[uid]["family"].get("family_id") != source_id
+            )
+            for uid in member_ids
+        ):
+            raise ResearchValidationError("family_member_post_missing")
+
+        included = members[:FAMILY_MEMBER_LIMIT]
+        registry = EvidenceRegistry()
+        registry.put("family", source_id, {
+            **_select(family, (
+                "core_topic", "core_angle", "core_hook_text",
+                "core_hook_formula", "core_creative_formula",
+                "member_count", "accounts_count", "family_confidence",
+                "anchor_cohesion_min", "anchor_cohesion_mean",
+                "nearest_match_mean", "family_model", "ai_assisted",
+                "ai_gate_count",
+            )),
+            "core_sequence_roles": _compact(
+                _json(family.get("core_sequence_roles_json"))
+            ),
+            "match_algorithm_is_hypothesis_not_human_verification": True,
+        })
+        for member in included:
+            uid = str(member["post_uid"])
+            post = self.post_index[uid]
+            sequence = sorted(
+                (row for row in post.get("sequence", []) if isinstance(row, dict)),
+                key=lambda row: (
+                    int(row.get("position") or 0),
+                    str(row.get("role") or ""),
+                ),
+            )
+            registry.put("post", uid, {
+                **_select(post, (
+                    "account", "account_id", "created_at", "content_type", "url"
+                )),
+                "creative": _select(post.get("creative") or {}, (
+                    "topic", "content_angle", "hook_text",
+                    "hook_technique", "hook_replicable_formula",
+                    "creative_formula", "product_family",
+                    "content_format", "narrative_structure", "cta_type",
+                )),
+                "slide_or_video_sequence": [
+                    _select(item, (
+                        "position", "role", "primary_text", "overlay_text",
+                        "visual_type", "visual_description", "product_visible",
+                    ))
+                    for item in sequence[:6]
+                ],
+                "family_match": _select(member, (
+                    "match_score_to_origin", "match_score_to_nearest_member",
+                    "nearest_member_post_uid", "match_anchor_gate",
+                    "match_nearest_gate", "is_family_origin",
+                )),
+                "family_match_reason": _compact(
+                    _json(member.get("match_reason_json"))
+                ),
+                "source_media_not_directly_inspected_by_ai": True,
+            })
+
+        return {
+            "request": {
+                "mode": mode,
+                "source_type": "family",
+                "source_id": source_id,
+                "operator_id": self.operator_id,
+                "review_question": REVIEW_QUESTIONS["family"],
+                "review_basis": "creative_family_identity",
+            },
+            "family_identity": {
+                "family_ref": f"family:{source_id}",
+                "member_count": member_count,
+                "member_post_refs": [f"post:{row['post_uid']}" for row in included],
+                "member_sample_truncated": member_count > len(included),
+                "human_visual_media_review_required": True,
+                "full_raw_images_or_video_seen_by_model": False,
+                "decision_must_ignore": [
+                    "views", "performance", "success of receiving executions",
+                    "cross-account scaling intent", "causal propagation",
+                ],
+            },
+            "source_registry": list(registry.items.values()),
+            # Deliberately no view counts, percentiles, or propagation rows.
+            # Observed membership is evaluated independently of distribution.
+            "selected_flows": [],
+            "sampling": {
+                "available_flow_pairs": 0,
+                "sampled_flow_pairs": 0,
+                "review_is_not_whole_corpus_audit": member_count > len(included),
+                "family_members_considered": len(included),
+                "total_family_members": member_count,
+                "counterexample_selection": (
+                    "every available member's identity/semantic structure"
+                ),
+            },
+        }
+
     def packet(
         self, mode: str, source_type: str, source_id: str
     ) -> dict[str, Any]:
         if mode not in RESEARCH_MODES:
             raise ResearchValidationError("invalid_research_mode")
         playbook_mode = mode in {"draft_playbook", "stress_test"}
+        if source_type == "family" and not playbook_mode:
+            self._strategy_sources(source_type, source_id)
+            return self._family_identity_packet(mode, source_id)
         if playbook_mode:
             if source_type != "operator" or source_id != self.operator_id:
                 raise ResearchValidationError("invalid_operator_scope")
