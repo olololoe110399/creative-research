@@ -145,6 +145,17 @@ requires same-origin loopback HTTP. A changed candidate snapshot is marked
 a silent reuse of changed research. --read-only Lab mode allows viewing but
 denies changes. No provider or Gemini token is needed to maintain this plan.
 
+## Optional AI: deliberately lazy
+
+Opening Research Intelligence does NOT load the Copilot JavaScript and does NOT
+request `/api/ai/status`. Each source has a small optional
+"Investigate further with AI" action. Only after an explicit click does the
+browser check whether local AI was enabled; only when enabled does it download
+the AI UI and show an evidence-plan preview. A separate confirmation is
+required to spend tokens. No mandatory AI or human truth certification exists.
+
+The old large Copilot card and Human Review queue are not part of v3.
+
 ## 6. Rebuild/migrate (no scraping or Vision required)
 
 After checking out the branch:
