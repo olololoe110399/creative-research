@@ -287,3 +287,59 @@ For `translation_adaptation`, language difference is never sufficient. The centr
 The Pydantic schema enforces decision/relationship consistency so a `template_variant` cannot validate as `same_core_concept`.
 
 Judge v2 uses new prompt/schema versions, so v1 cache/judgment rows are intentionally not mixed into the active v2 output.
+
+
+## Translation verifier
+
+Judge v2 materially reduced template-driven false positives, but real audit still found a narrow residual failure mode: some `translation_adaptation` labels were assigned to posts whose hooks/topics were different while their execution/app funnel was similar.
+
+A second-pass translation verifier now runs only for primary judgments labeled `translation_adaptation`.
+
+The verifier receives only:
+
+- left/right language;
+- left/right hook text;
+- left/right topic.
+
+It does **not** receive app/product, CTA, format, visuals, sequence, creator, or performance evidence.
+
+The verifier independently normalizes each central idea, then returns:
+
+```text
+central_idea_equivalence:
+  equivalent
+  different
+  uncertain
+
+translation_type:
+  direct_translation
+  localized_paraphrase
+  not_translation
+  uncertain
+```
+
+Final behavior:
+
+```text
+equivalent + confidence >= threshold
+→ keep same_core_concept / translation_adaptation
+
+different + confidence >= threshold
+→ different_core_concept / template_variant
+
+uncertain, low-confidence, failed, or not reached
+→ uncertain
+→ family preview falls back to deterministic evidence
+```
+
+This is intentionally fail-closed: an unavailable verifier can never leave an unverified translation as a strong AI family edge.
+
+Primary judge v2 cache remains valid. Re-running the same batch normally reuses primary cache hits and spends new API tokens only on translation verification.
+
+Additional cache:
+
+```text
+data/06_analytics/family_ai/family_ai_translation_verifier_cache.jsonl
+```
+
+The report records verifier candidates, API/cache counts, verifier token usage, verifier cost, and total new-run cost.
