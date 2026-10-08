@@ -264,3 +264,60 @@ def test_core_review_can_pass_without_approving_weak_adaptation() -> None:
     assert "adaptation_not_reviewed" in {
         issue["code"] for issue in report["warnings"]
     }
+
+
+
+def test_v3_research_is_ready_without_any_human_truth_approvals() -> None:
+    payloads = _payloads()
+    payloads["lab"]["research_intelligence"] = {
+        "operator_id": "OP1",
+        "no_human_truth_approval_required": True,
+        "observed": [{"id": "count", "statement": "Two posts, one repeated family"}],
+        "inferred": [{
+            "id": "S1", "claim": "Observed explore / propagate asymmetry",
+            "interpretation_not_internal_fact": True,
+        }],
+        "unknown": [{"id": "intent", "statement": "Internal test/scale remains unknown"}],
+        "family_quality": {
+            "counts": {"repeated_families_checked": 1, "semantic_uncertain": 0},
+            "human_review_required": False,
+        },
+        "experiment_candidates": [{
+            "key": "explore", "title": "Pilot a concept",
+            "related_hypothesis_id": "S1",
+            "experiment_not_proven": True,
+        }],
+    }
+    report = audit_outcome(**payloads)
+    assert report["status"] == "ready_for_usability_test"
+    assert report["failures"] == []
+    assert report["counts"]["research_observed"] == 1
+    assert "human_review_pending" not in {
+        row["code"] for row in report["warnings"]
+    }
+    assert "no_trusted_catalog_playbook" not in {
+        row["code"] for row in report["warnings"]
+    }
+
+
+def test_v3_research_audit_detects_untraceable_inference_or_fake_success() -> None:
+    payloads = _payloads()
+    payloads["lab"]["research_intelligence"] = {
+        "operator_id": "OP1",
+        "no_human_truth_approval_required": True,
+        "observed": [{"id": "coverage"}],
+        "inferred": [{"id": "FAKE-STRATEGY"}],
+        "unknown": [{"id": "internal-intent"}],
+        "family_quality": {
+            "counts": {"repeated_families_checked": 1},
+            "human_review_required": False,
+        },
+        "experiment_candidates": [{
+            "key": "explore", "related_hypothesis_id": "FAKE",
+            "experiment_not_proven": False,
+        }],
+    }
+    codes = {entry["code"] for entry in audit_outcome(**payloads)["failures"]}
+    assert "orphan_inferred_claim" in codes
+    assert "orphan_experiment_source" in codes
+    assert "experiment_misrepresented_as_proven" in codes
