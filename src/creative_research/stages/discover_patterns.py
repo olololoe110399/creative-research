@@ -270,23 +270,21 @@ def _dimension_performance_patterns(
                 if median_perf is None:
                     continue
                 effect = float(median_perf - baseline)
-                top20_rate = _rate(
-                    [
-                        float(item) >= 0.80
-                        for item in pd.to_numeric(
-                            measured["views_percentile_account"],
-                            errors="coerce",
-                        ).dropna()
-                    ]
+                measured_values = pd.to_numeric(
+                    measured["views_percentile_account"],
+                    errors="coerce",
+                ).dropna()
+                top20_count = int(measured_values.ge(0.80).sum())
+                bottom20_count = int(measured_values.le(0.20).sum())
+                top20_rate = (
+                    float(top20_count / len(measured_values))
+                    if len(measured_values)
+                    else None
                 )
-                bottom20_count = int(
-                    (
-                        pd.to_numeric(
-                            measured["views_percentile_account"],
-                            errors="coerce",
-                        )
-                        <= 0.20
-                    ).sum()
+                bottom20_rate = (
+                    float(bottom20_count / len(measured_values))
+                    if len(measured_values)
+                    else None
                 )
                 if abs(effect) < min_effect:
                     continue
@@ -313,16 +311,8 @@ def _dimension_performance_patterns(
                             f"{baseline:.3f}."
                         ),
                         sample_size=sample_size,
-                        support_count=sample_size - bottom20_count if effect > 0 else bottom20_count,
-                        support_rate=top20_rate if effect > 0 else _rate(
-                            [
-                                float(item) <= 0.20
-                                for item in pd.to_numeric(
-                                    measured["views_percentile_account"],
-                                    errors="coerce",
-                                ).dropna()
-                            ]
-                        ),
+                        support_count=top20_count if effect > 0 else bottom20_count,
+                        support_rate=top20_rate if effect > 0 else bottom20_rate,
                         effect_size=effect,
                         metrics={
                             "dimension": dimension,
