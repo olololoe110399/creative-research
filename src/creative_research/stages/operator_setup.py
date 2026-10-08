@@ -8,6 +8,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -24,13 +25,9 @@ def _accounts_file(path: Path) -> list[str]:
         line = line.strip()
         if not line or line.startswith("#"):
             continue
-        if "tiktok.com/@" in line.lower():
-            # This is a convenience parser, not an arbitrary URL fetch.
-            handle = line.split("tiktok.com/@", 1)[-1].split("?", 1)[0].split("/", 1)[0]
-        else:
-            handle = line.lstrip("@")
-        handle = handle.strip()
-        if not handle or any(c.isspace() or c in '#"\\' for c in handle):
+        match = re.search(r"tiktok\.com/@([^/?#]+)", line, flags=re.I)
+        handle = (match.group(1) if match else line.lstrip("@")).strip()
+        if not re.fullmatch(r"[A-Za-z0-9_.]{1,32}", handle):
             raise ValueError(f"Invalid TikTok handle: {line!r}")
         key = normalize_account(handle)
         if key not in seen:
