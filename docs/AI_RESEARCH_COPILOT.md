@@ -42,7 +42,7 @@ with data you cannot send to Gemini. Protect local credentials and datasets.
 - AI Stress Test: look for failures, coverage gaps, and unsafe generalizations.
 
 Every AI action first shows an evidence-plan preview (free; no provider call).
-It lists the source count, selected flow-pair count, estimated input tokens,
+It lists the source count, selected flow-pair count, approximate input tokens,
 output-token ceiling, and model. A separate button authorizes one paid call.
 No hidden retries, automatic human approval, or trusted knowledge writes.
 
