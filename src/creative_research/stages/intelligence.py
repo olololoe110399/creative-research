@@ -41,7 +41,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--open", action="store_true", dest="open_browser")
     parser.add_argument(
         "--ai-enabled", action="store_true",
-        help="Opt in to paid Gemini research requests from the Lab.",
+        help="Legacy developer-only Gemini research API. No Lab AI UI or buttons.",
     )
     parser.add_argument(
         "--ai-model", choices=sorted(ALLOWED_MODELS), default=DEFAULT_MODEL,
@@ -471,8 +471,8 @@ def main() -> None:
         print(f"Legacy compatibility API: enabled → {reviews_path}")
     if args.ai_enabled:
         print(
-            f"Optional AI investigation: {args.ai_model} "
-            f"(at most {args.ai_max_calls} calls; only when you click)"
+            f"Legacy developer-only AI API: {args.ai_model} "
+            f"(max {args.ai_max_calls} requests; NO user-facing Lab controls)"
         )
     print("Press Ctrl+C to stop.")
     if args.open_browser:
