@@ -70,5 +70,9 @@ jobs:
           missing = sorted(required - names)
           if missing:
               raise SystemExit("Missing workspace assets in wheel: " + ", ".join(missing))
+          retired = "creative_research/intelligence_workspace_static/ai_ui.js"
+          if retired in names:
+              raise SystemExit("Retired Copilot UI must not be packaged: " + retired)
           print("Static assets packaged:", ", ".join(sorted(required)))
+          print("Retired Copilot asset absent: PASS")
           PY
