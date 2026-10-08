@@ -27,6 +27,8 @@ COMMANDS = {
     "analyze-cadence": "creative_research.stages.analyze_cadence",
     "build-families": "creative_research.stages.build_families",
     "analyze-propagation": "creative_research.stages.analyze_propagation",
+    "analyze-timeline": "creative_research.stages.analyze_timeline",
+    "discover-patterns": "creative_research.stages.discover_patterns",
     "rank-posts": "creative_research.stages.rank_posts",
     "extract-references": "creative_research.stages.extract_references",
     "query": "creative_research.stages.query",
@@ -56,6 +58,8 @@ Canonical evidence pipeline:
   analyze-cadence     Build account/operator historical posting cadence
   build-families      Group repeated creative concepts with auditable similarity evidence
   analyze-propagation Track family movement across verified operator accounts
+  analyze-timeline    Build historical strategy windows + change points
+  discover-patterns   Discover deterministic evidence-backed recurring patterns
   rank-posts         Rank master posts for reference selection
   extract-references Build whole-system map + representative reference workspace
   query              Filter normalized creative tables without ad-hoc Pandas
@@ -84,6 +88,8 @@ Examples:
   uv run creative-research analyze-cadence --timezone UTC
   uv run creative-research build-families
   uv run creative-research analyze-propagation
+  uv run creative-research analyze-timeline --timezone UTC
+  uv run creative-research discover-patterns
   uv run creative-research rank-posts data/05_master/creative_master.parquet --content-type slideshow --top 50
   uv run creative-research extract-references data/05_master/creative_master.parquet --out data/07_exports/study-reference-pack --top 30 --strategy system --media remote
   uv run creative-research references --dir data/07_exports/study-reference-pack --open
@@ -96,6 +102,8 @@ Detailed stage help:
   uv run creative-research analyze-cadence --help
   uv run creative-research build-families --help
   uv run creative-research analyze-propagation --help
+  uv run creative-research analyze-timeline --help
+  uv run creative-research discover-patterns --help
   uv run creative-research extract-references --help
   uv run creative-research references --help
 """
@@ -301,6 +309,8 @@ def status_rows(root: Path) -> list[dict[str, object]]:
         ("creative families", root / "data/06_analytics/creative_families.parquet", "file"),
         ("cross-account propagation", root / "data/06_analytics/cross_account_propagation.parquet", "file"),
         ("account role evidence", root / "data/06_analytics/account_role_evidence.parquet", "file"),
+        ("strategy timeline", root / "data/06_analytics/strategy_windows.parquet", "file"),
+        ("evidence patterns", root / "data/06_analytics/patterns.parquet", "file"),
     ]
     rows: list[dict[str, object]] = []
     for label, path, kind in candidates:
