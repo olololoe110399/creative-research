@@ -290,7 +290,7 @@ def _prepare_pairs(
 
         gate = (
             ai_gate
-            if ai_gate == "strong_ai_core"
+            if ai_gate is not None and ai_gate.startswith("strong_")
             else classify_pair(
                 raw,
                 strong_combined=strong_combined,
