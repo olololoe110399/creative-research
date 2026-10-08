@@ -437,7 +437,10 @@ def build_production_kit(
         sort_keys=True, ensure_ascii=False, default=str,
     ).encode("utf-8")).hexdigest()
 
-    selected = _select_families(family_rows, post_map, recipes_limit)
+    # A calendar should test each chosen recipe in comparable A/B slots,
+    # not produce two singletons that cannot be compared.
+    effective_limit = min(recipes_limit, max(1, calendar_days // 2))
+    selected = _select_families(family_rows, post_map, effective_limit)
     if not selected:
         raise ValueError("No complete creative sequences available for production.")
     recipes: list[dict[str, Any]] = []
@@ -594,8 +597,11 @@ def build_production_kit(
     calendar: list[dict[str, Any]] = []
     for day in range(1, calendar_days + 1):
         rec = recipes[(day - 1) % len(recipes)]
-        account = account_blueprints[(day - 1) % len(account_blueprints)]
-        variant = "A" if day <= len(recipes) else "B"
+        # The two hook variants for a recipe must run on the SAME account.
+        account = account_blueprints[
+            ((day - 1) % len(recipes)) % len(account_blueprints)
+        ]
+        variant = "A" if ((day - 1) // len(recipes)) % 2 == 0 else "B"
         calendar.append({
             "day": day, "slot_id": f"PUB-{day:03d}",
             "pilot_account": account["slot_id"],
@@ -702,6 +708,11 @@ def build_production_kit(
         "quality": {
             "recipes_generated": len(recipes),
             "calendar_slots": len(calendar),
+            "paired_ab_recipes": sum(
+                {r["variant"] for r in calendar if r["recipe_id"] == recipe["recipe_id"]}
+                >= {"A", "B"}
+                for recipe in recipes
+            ),
             "post_evidence_links": sum(len(r["observed_source_posts"]) for r in recipes),
             "slides_drafted": sum(len(r["slides"]) for r in recipes),
             "asset_candidates": len(assets),
