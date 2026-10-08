@@ -1543,6 +1543,22 @@ def main() -> None:
     parser.add_argument("--retries", type=int, default=3)
     parser.add_argument("--retry-base-seconds", type=float, default=1.5)
     parser.add_argument("--sleep-between", type=float, default=0.0)
+    parser.add_argument(
+        "--translation-verifier-max-output-tokens",
+        type=int,
+        default=DEFAULT_TRANSLATION_VERIFIER_MAX_OUTPUT_TOKENS,
+    )
+    parser.add_argument(
+        "--max-translation-verifier-calls",
+        type=int,
+        default=DEFAULT_MAX_TRANSLATION_VERIFIER_CALLS,
+    )
+    parser.add_argument(
+        "--translation-verifier-min-confidence",
+        type=float,
+        default=DEFAULT_TRANSLATION_VERIFIER_MIN_CONFIDENCE,
+    )
+    parser.add_argument("--skip-translation-verifier", action="store_true")
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument("--force", action="store_true")
     args = parser.parse_args()
@@ -1583,6 +1599,27 @@ def main() -> None:
             ),
             "dry_run": args.dry_run,
             "max_api_calls": max(1, args.max_api_calls),
+            "translation_verifier_enabled": (
+                not args.skip_translation_verifier
+            ),
+            "translation_verifier_schema_version": (
+                TRANSLATION_VERIFIER_SCHEMA_VERSION
+            ),
+            "translation_verifier_prompt_version": (
+                TRANSLATION_VERIFIER_PROMPT_VERSION
+            ),
+            "translation_verifier_max_output_tokens": max(
+                1,
+                args.translation_verifier_max_output_tokens,
+            ),
+            "max_translation_verifier_calls": max(
+                1,
+                args.max_translation_verifier_calls,
+            ),
+            "translation_verifier_min_confidence": min(
+                1.0,
+                max(0.0, args.translation_verifier_min_confidence),
+            ),
         }
     )
 
@@ -1630,6 +1667,61 @@ def main() -> None:
         types=types,
     )
 
+    translation_verifier_cache_path = (
+        out_dir / "family_ai_translation_verifier_cache.jsonl"
+    )
+    if args.skip_translation_verifier:
+        translation_report = {
+            "translation_verifier_candidates": 0,
+            "translation_verifier_api_calls": 0,
+            "translation_verifier_api_attempts": 0,
+            "translation_verifier_cache_hits": 0,
+            "translation_verifier_failures": 0,
+            "translation_verifier_actual_input_tokens": 0,
+            "translation_verifier_actual_output_tokens": 0,
+            "translation_verifier_actual_total_tokens": 0,
+            "translation_verifier_final_counts": {},
+            "translation_verifier_min_confidence": (
+                min(
+                    1.0,
+                    max(
+                        0.0,
+                        args.translation_verifier_min_confidence,
+                    ),
+                )
+            ),
+        }
+    else:
+        judgments, translation_report = verify_translation_judgments(
+            judgments,
+            model=args.model,
+            cache_path=translation_verifier_cache_path,
+            max_output_tokens=max(
+                1,
+                args.translation_verifier_max_output_tokens,
+            ),
+            max_calls=max(
+                1,
+                args.max_translation_verifier_calls,
+            ),
+            min_confidence=min(
+                1.0,
+                max(
+                    0.0,
+                    args.translation_verifier_min_confidence,
+                ),
+            ),
+            retries=max(0, args.retries),
+            retry_base_seconds=max(
+                0.0,
+                args.retry_base_seconds,
+            ),
+            sleep_between=max(0.0, args.sleep_between),
+            force=args.force,
+            client=client,
+            types=types,
+        )
+
     judgments_path = out_dir / "family_ai_judgments.parquet"
     jsonl_path = out_dir / "family_ai_judgments.jsonl"
     review_path = out_dir / "family_ai_review.csv"
@@ -1674,6 +1766,16 @@ def main() -> None:
         "reason",
         "candidate_reason",
         "judgment_source",
+        "primary_decision",
+        "primary_relationship",
+        "primary_confidence",
+        "translation_verifier_equivalence",
+        "translation_verifier_type",
+        "translation_verifier_confidence",
+        "translation_verifier_left_central_idea",
+        "translation_verifier_right_central_idea",
+        "translation_verifier_reason",
+        "translation_verifier_source",
     ]
     available_review_columns = [
         column
@@ -1700,9 +1802,33 @@ def main() -> None:
             output_rate,
         )
 
+    translation_verifier_cost = _estimated_cost(
+        int(
+            translation_report.get(
+                "translation_verifier_actual_input_tokens",
+                0,
+            )
+            or 0
+        ),
+        int(
+            translation_report.get(
+                "translation_verifier_actual_output_tokens",
+                0,
+            )
+            or 0
+        ),
+        input_rate,
+        output_rate,
+    )
+    total_actual_cost = (
+        (actual_cost or 0.0)
+        + (translation_verifier_cost or 0.0)
+    )
+
     report = {
         **plan,
         **execution,
+        **translation_report,
         **merge_stats,
         "cumulative_decision_counts": (
             cumulative_judgments["decision"].value_counts().to_dict()
@@ -1717,12 +1843,19 @@ def main() -> None:
             else {}
         ),
         "actual_cost_usd_estimate": actual_cost,
+        "translation_verifier_actual_cost_usd_estimate": (
+            translation_verifier_cost
+        ),
+        "total_actual_cost_usd_estimate": total_actual_cost,
         "outputs": {
             "plan": str(plan_path),
             "judgments": str(judgments_path),
             "judgments_jsonl": str(jsonl_path),
             "review_csv": str(review_path),
             "cache": str(cache_path),
+            "translation_verifier_cache": str(
+                translation_verifier_cache_path
+            ),
             "report": str(report_path),
         },
         "notes": [
@@ -1732,6 +1865,7 @@ def main() -> None:
             "AI judgments are inferred evidence and do not mutate production families.",
             "Cache identity includes pair, evidence hash, model, prompt version, and judge schema version.",
             "Judgment outputs are cumulative upserts by pair_id across compatible model/prompt/schema runs; incompatible historical rows are ignored.",
+            "Primary translation_adaptation judgments are independently verified using hook/topic evidence only; app/product/format/sequence evidence is excluded from the verifier.",
         ],
     }
     report_path.write_text(
