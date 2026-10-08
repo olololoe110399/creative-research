@@ -581,3 +581,27 @@ def test_research_intelligence_v3_materializes_without_manual_approvals() -> Non
         for row in research["experiment_candidates"]
     )
     assert research["family_quality"]["human_review_required"] is False
+
+
+
+def test_v3_lab_rejects_stale_export_even_when_static_files_exist(
+    tmp_path: Path,
+) -> None:
+    """A mixed/stale Lab must never silently render the retired review UI."""
+    write_intelligence_workspace(
+        out_dir=tmp_path, sources={"test": "fixture"}, **_frames()
+    )
+    manifest_path = tmp_path / "workspace.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest["workspace_schema_version"] = "operator-intelligence-lab-v2"
+    manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+    issues = validate_intelligence_workspace(tmp_path)
+    assert any("stale export" in issue for issue in issues)
+    manifest["workspace_schema_version"] = "operator-intelligence-lab-v3"
+    manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+    lab_path = tmp_path / "lab.json"
+    lab = json.loads(lab_path.read_text(encoding="utf-8"))
+    lab.pop("research_intelligence")
+    lab_path.write_text(json.dumps(lab), encoding="utf-8")
+    issues = validate_intelligence_workspace(tmp_path)
+    assert "lab.json: missing Research Intelligence v3" in issues
