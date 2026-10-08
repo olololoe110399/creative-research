@@ -65,7 +65,8 @@ function productionCalendar(k){
       '<td><b>Day '+num(slot.day)+'</b></td>'+
       '<td>'+badge(slot.pilot_account,'info')+'</td>'+
       '<td><button class="production-recipe-link" data-production-recipe="'+esc(slot.recipe_id)+'">'+esc(r.title||slot.recipe_id)+'</button>'+
-      '<small>'+esc(slot.recipe_id)+' · '+esc(slot.variant)+'</small></td>'+
+      '<small>'+esc(slot.recipe_id)+' · Variant '+esc(slot.variant)+
+      ' · hook: '+esc(slot.hook_to_publish_draft_vi||'draft pending')+'</small></td>'+
       '<td>'+esc(label(slot.test_dimension))+'</td>'+
       '<td>'+esc(slot.planned_local_time||'')+'<small>'+esc(slot.timezone||'')+'</small></td>'+
       '<td>'+badge('assets pending','warn')+'</td>'+
