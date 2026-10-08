@@ -988,7 +988,8 @@ def write_intelligence_workspace(
     )
     if raw_root is not None and raw_root.is_dir():
         enrich_production_kit_from_raw(
-            kit, raw_root, evidence_posts=payloads["evidence.json"]["posts"]
+            kit, raw_root, evidence_posts=payloads["evidence.json"]["posts"],
+            cache_path=out_dir.parent.parent / "05_master" / "source_asset_index.json",
         )
     production_report = write_production_kit(kit, workspace=out_dir)
 
