@@ -26,6 +26,8 @@
 - Tighten the AI family judge to prompt/schema v2 after auditing cross-language false positives: add `template_variant`, require true central-idea equivalence for translations, ignore shared app/format/product funnel in the identity test, and enforce decision/relationship consistency in Pydantic.
 - Add a second-pass translation verifier that sees only hook/topic/language evidence, independently validates `translation_adaptation`, downgrades mismatches to `template_variant`, and fails closed to deterministic fallback when verification is uncertain or unavailable.
 - Tighten preview translation-family precision: only verifier `direct_translation` results may seed strong AI core-family edges; `localized_paraphrase` and unverified translation results remain semantic evidence and defer to deterministic family gates.
+- Promote reviewed family-v2 policy to the production `build-families` default: rebuild strict v1 positive controls in-memory, recompute blocked calibration candidates from canonical evidence, consume compatible cached AI judgments without making API calls, preserve downstream family/member columns, and emit `creative-family-v2` lineage.
+- Make `intelligence-build` require a v2 family report and treat precomputed family-AI judgments as an optional freshness dependency.
 - Add `analyze-propagation` to derive family account entries, cross-account propagation events, origin/sequence account edges, creative-dimension changes, and descriptive account-role evidence.
 - Keep propagation chronology explicitly non-causal and defer testing/scaling/conversion strategy labels to later inference.
 - Add `analyze-timeline` for monthly/weekly operator/account strategy windows and deterministic adjacent-window change points.
