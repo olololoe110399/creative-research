@@ -150,7 +150,7 @@ def test_prompt_uses_creative_evidence_and_excludes_performance() -> None:
     assert "999999" not in prompt
     assert '"views"' not in prompt
     assert '"likes"' not in prompt
-    assert "same app/product" in prompt
+    assert "shared app/product" in prompt
     assert "template_variant" in prompt
     assert "language difference alone is never enough" in prompt
 
