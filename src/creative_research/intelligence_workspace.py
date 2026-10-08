@@ -591,6 +591,15 @@ def _lab_payload(
         knowledge_evidence_links,
     )
     review_rows = _records(review_queue)
+    all_review_queue, _ = build_review_queue(
+        knowledge if knowledge is not None else pd.DataFrame(),
+        knowledge_evidence_links,
+        include_reviewed=True,
+    )
+    reviewed_rows = [
+        row for row in _records(all_review_queue)
+        if row.get("existing_review_decision") in {"approve", "hold", "reject"}
+    ]
     tier_counts = (
         {
             str(int(key)): int(value)
@@ -691,6 +700,8 @@ def _lab_payload(
         "family_highlights": family_highlights,
         "review": {
             "pending_sources": int(len(review_queue)),
+            "reviewed_sources": len(reviewed_rows),
+            "reviewed_items": reviewed_rows,
             "tier_counts": tier_counts,
             "unresolved_review_targets": review_meta.get(
                 "unresolved_review_targets", 0
