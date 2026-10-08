@@ -124,8 +124,10 @@ function aiDrawReport(report){
     (report.source_type==='family'
       ?'<p class="method-note">Family review uses member descriptions, matching and sequence. Views and scaling are deliberately EXCLUDED from the identity decision.</p>'
       :'<p class="method-note">Sampled flows are not statistically representative. Use full-population Research Brief metrics for denominators.</p>')+
-    (reviewMode?'<button class="ai-review-draft" data-ai-review-draft="1">'+
-      'Return to Human Review with editable AI note (no decision saved)</button>':'')+
+    (reviewMode&&report.snapshot_is_current!==false
+      ?'<button class="ai-review-draft" data-ai-review-draft="1">'+
+        'Return to Human Review with editable AI note (no decision saved)</button>'
+      :reviewMode?'<p class="method-note">This historical AI suggestion is stale. Re-run AI review before drafting a human decision.</p>':'')+
     '<button class="ai-history-link" data-ai-reopen-plan="1">Inspect another research mode</button>');
 }
 
@@ -221,6 +223,7 @@ async function aiConfirm(){
 function aiDraftReviewNote(){
   const r=aiLastReport;
   if(!r||!['investigate','challenge'].includes(r.mode))return;
+  if(r.snapshot_is_current===false){toast('Re-run AI research: this report is stale.');return;}
   const key=r.source_type+':'+r.source_id;
   if(!data.reviewBySource.has(key))return;
   openReview(key);
