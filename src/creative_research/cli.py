@@ -41,6 +41,7 @@ COMMANDS = {
     "intelligence-build": "creative_research.stages.intelligence_build",
     "quality-audit": "creative_research.stages.quality_audit",
     "outcome-audit": "creative_research.stages.outcome_audit",
+    "ai-research-audit": "creative_research.stages.ai_research_audit",
     "rank-posts": "creative_research.stages.rank_posts",
     "extract-references": "creative_research.stages.extract_references",
     "query": "creative_research.stages.query",
@@ -84,6 +85,7 @@ Canonical evidence pipeline:
   intelligence-build Build/reuse the full deterministic intelligence pipeline
   quality-audit      Audit coverage, freshness, integrity, lineage, and trust status
   outcome-audit      Validate research brief, role flows, playbook and trust boundaries
+  ai-research-audit  Check AI evidence retrieval on the Lab with zero model calls
   rank-posts         Rank master posts for reference selection
   extract-references Build whole-system map + representative reference workspace
   query              Filter normalized creative tables without ad-hoc Pandas
