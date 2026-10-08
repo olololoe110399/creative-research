@@ -41,6 +41,39 @@ with data you cannot send to Gemini. Protect local credentials and datasets.
   conditions and validated evidence links. Not a claim about operator intent.
 - AI Stress Test: look for failures, coverage gaps, and unsafe generalizations.
 
+Each review source has a DIFFERENT rubric:
+
+| Source | AI evaluates | AI must NOT decide from |
+|---|---|---|
+| Creative family | Shared underlying hook/core concept, member-to-origin match, slide/story sequence, translation, product role, possible false merges | Views, low performance, proven scale, internal distribution intent |
+| Strategy hypothesis | Exactly the stated operator claim, supporting/counter evidence and alternative explanations | A related but unclaimed internal workflow |
+| Playbook bundle | Every constituent hypothesis, status, exceptions and human approvals | Model confidence or approval of only the bundle |
+| Operator Playbook | Experiments the USER can test, with measurable signals and stop rules | Claims that the operator followed those experiments |
+
+**Family identity is not a test-to-scale review.** For example, a six-member
+family may have both a 182-view execution and a 182,500-view execution and
+still represent the same creative concept. AI Investigate now compares ALL
+available member hooks, creative formulas, multi-language adaptations, match
+rationales and short slide/sequence descriptions (up to 12 members per call).
+The family packet deliberately excludes views, percentiles and cross-account
+propagation as grounds for membership approval. It is not a raw-image/video
+inspection; the UI always requires a human to open the original visual media.
+
+A family APPROVE *suggestion* requires all included members examined,
+at least two directly cited member posts showing core identity and no
+unresolved outliers. A family REJECT suggestion requires specific divergent
+member posts. Missing members, ambiguous semantic overlap or unverified
+visual differences justify HOLD. Statements such as "HOLD because scaling
+intent cannot be proven" or "HOLD because receiving views are low" are
+**rejected by deterministic validation**, not published as research reports.
+
+For playbook/strategy experiments, historical Lab snapshots do not measure
+hourly view velocity or 72-hour post-level trajectories. New velocity or
+timed outcome tracking MUST be labelled "new_tracking_required". Numeric
+cutoffs such as >0.50 views percentile or stopping below 0.30 at 72 hours
+MUST be labelled "proposed_experiment", never represented as a rule
+derived from the observed operator. Unlabelled cutoffs fail validation.
+
 Every AI action first shows an evidence-plan preview (free; no provider call).
 It lists the source count, selected flow-pair count, approximate input tokens,
 output-token ceiling, and model. A separate button authorizes one paid call.
@@ -58,8 +91,11 @@ The researcher reads six previously materialized Lab outputs:
     knowledge.json  knowledge statuses, including held and rejected entries
 
 Evidence is selected deterministically and kept within strict size limits.
-Negative receiving-performance results are prioritized alongside stronger
-examples; singleton families are included for the playbook when applicable.
+For hypothesis/playbook research, negative receiving-performance results
+are prioritized alongside stronger examples; singleton families are
+included for the playbook when applicable. For a family membership review,
+all available member-level *identity* evidence is used and performance
+is deliberately excluded.
 This is a targeted **audit sample**, not a statistically representative
 sample of the full corpus. Population-wide percentages come from deterministic
 Research Brief totals, not LLM counting.
@@ -88,8 +124,10 @@ reuse the saved report (no additional paid attempt).
 
 Use **Saved AI reports** to reopen historical proposals. The server recalculates
 the current evidence fingerprint and marks an old report STALE after the
-source evidence or reviewed knowledge changes. Reviewing a stale report is
-possible, but it should not be used as current proof.
+source evidence, review rubric version or reviewed knowledge changes.
+Older reports created with operator-ai-research-v1 remain accessible but
+become STALE after the v2 rubric migration. Stale reports are not allowed
+to populate an editable Human Review note; run new AI research instead.
 
 In Insight Review, **Return to Human Review** copies the AI suggestion into
 an editable, clearly UNVERIFIED note. The human still inspects source posts,
@@ -132,9 +170,13 @@ produced reliable reasoning or that the user has approved the proposals.
 
 ## What CI can and cannot establish
 
-Offline tests with fake model responses check source scoping, both positive
-and negative examples, falsified citations, review boundaries, deterministic
-cache invalidation, read-only and same-origin server behavior.
+Offline tests with fake model responses check source scoping, positive and
+negative examples, falsified citations, review boundaries, deterministic
+cache invalidation, read-only and same-origin server behavior. New regression
+tests exercise a six-post multilingual family with wildly different view
+counts, requiring identity-only rationale, complete member citations and
+rejection of false test-to-scale HOLD explanations. Other tests reject
+made-up metric cutoffs and view-velocity claims without new tracking.
 
 CI cannot prove live Gemini research quality, semantic accuracy of the family
 assignments, media playback or improved human decisions. Before merging,
