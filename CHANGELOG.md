@@ -18,6 +18,7 @@
 - Tighten same-language family-v2 preview seeds/bridges with hook/topic coherence gates after real review found broad same-taxonomy false positives, while leaving cross-language translation gates unchanged.
 - Add opt-in `judge-family-candidates` with deterministic candidate selection, structured Gemini semantic judgments, pair/evidence/model cache keys, dry-run token/cost planning, hard pair/API-call/output caps, and actual usage reporting.
 - Let `preview-families-v2` consume confidence-gated AI judgments: high-confidence same-core edges are strong, high-confidence different/thematic-only edges are rejected, and uncertain/low-confidence judgments fall back to deterministic gates.
+- Fix Pydantic schema resolution for `judge-family-candidates` when invoked through the CLI/runpy dispatcher, fail fast on non-retryable local schema errors, and raise the per-pair prompt ceiling while preserving the 900k aggregate input budget.
 - Add `analyze-propagation` to derive family account entries, cross-account propagation events, origin/sequence account edges, creative-dimension changes, and descriptive account-role evidence.
 - Keep propagation chronology explicitly non-causal and defer testing/scaling/conversion strategy labels to later inference.
 - Add `analyze-timeline` for monthly/weekly operator/account strategy windows and deterministic adjacent-window change points.
