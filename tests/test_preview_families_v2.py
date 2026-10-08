@@ -350,3 +350,28 @@ def test_ai_execution_variant_can_fall_back_to_deterministic_edge() -> None:
         result["report"]["ai_override_counts"]["defer_ai_execution"]
         == 1
     )
+
+
+def test_ai_template_variant_rejects_core_family_edge() -> None:
+    judgments = pd.DataFrame(
+        [
+            {
+                "left_post_uid": "P1",
+                "right_post_uid": "P2",
+                "decision": "different_core_concept",
+                "relationship": "template_variant",
+                "confidence": 0.95,
+            }
+        ]
+    )
+    result = build_family_v2_preview(
+        _posts(),
+        _pairs(),
+        _analysis(),
+        judgments,
+    )
+    members = result["members"]
+    assert isinstance(members, pd.DataFrame)
+    family_by_post = members.set_index("post_uid")["family_id"].to_dict()
+    assert family_by_post["P1"] != family_by_post["P2"]
+    assert result["report"]["ai_override_counts"]["reject_ai_different"] == 1
