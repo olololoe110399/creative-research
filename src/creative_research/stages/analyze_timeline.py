@@ -35,7 +35,7 @@ DIMENSIONS = (
 
 FREQUENCIES = {
     "month": "M",
-    "week": "W-MON",
+    "week": "W-SUN",
 }
 
 
@@ -77,6 +77,31 @@ def _median(values: list[float]) -> float | None:
 
 def _rate(values: list[bool]) -> float | None:
     return float(sum(values) / len(values)) if values else None
+
+
+def _bool_values(values: pd.Series) -> list[bool]:
+    result: list[bool] = []
+    for value in values:
+        if value is None or value is pd.NA:
+            continue
+        try:
+            if pd.isna(value):
+                continue
+        except (TypeError, ValueError):
+            pass
+        result.append(bool(value))
+    return result
+
+
+def _as_bool(value: Any) -> bool:
+    if value is None or value is pd.NA:
+        return False
+    try:
+        if pd.isna(value):
+            return False
+    except (TypeError, ValueError):
+        pass
+    return bool(value)
 
 
 def _json(data: Any) -> str:
@@ -270,7 +295,7 @@ def _family_features(
     for row in family_members.to_dict(orient="records"):
         result[str(row["post_uid"])] = {
             "family_id": _clean(row.get("family_id")),
-            "is_family_origin": bool(row.get("is_family_origin", False)),
+            "is_family_origin": _as_bool(row.get("is_family_origin", False)),
         }
     return result
 
@@ -289,7 +314,7 @@ def _entry_features(
             continue
         result[post_uid] = {
             "is_family_account_entry": True,
-            "is_origin_account_entry": bool(row.get("is_origin_account", False)),
+            "is_origin_account_entry": _as_bool(row.get("is_origin_account", False)),
             "entry_order": row.get("entry_order"),
         }
     return result
@@ -380,10 +405,10 @@ def _group_window_row(
             [str(value) == "video" for value in group["content_type"]]
         ),
         "product_rate": _rate(
-            [bool(value) for value in group.get("has_product", pd.Series(False, index=group.index))]
+            _bool_values(group.get("has_product", pd.Series(pd.NA, index=group.index)))
         ),
         "cta_rate": _rate(
-            [bool(value) for value in group.get("has_cta", pd.Series(False, index=group.index))]
+            _bool_values(group.get("has_cta", pd.Series(pd.NA, index=group.index)))
         ),
         "family_origins": int(
             group.get("is_family_origin", pd.Series(False, index=group.index))
