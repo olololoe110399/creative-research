@@ -6,6 +6,12 @@ const path = require('node:path');
 const vm = require('node:vm');
 
 const base = path.resolve(__dirname, '../src/creative_research/intelligence_workspace_static');
+const markup = fs.readFileSync(path.join(base,'index.html'),'utf8');
+assert.doesNotMatch(markup,/script src="ai_ui\.js"/);
+assert.doesNotMatch(markup,/Insight Review|Human Review|AI Research Copilot/);
+const requested = [];
+let enabledAI = false;
+let aiScriptsLoaded = 0;
 const nodes = new Map();
 const one = (key) => {
   if(key === '#search' || key === '#family-filter')return null;
@@ -62,28 +68,52 @@ const payloads={
   'knowledge.json':{knowledge:[]},
   'evidence.json':{posts:[]},
   'lab.json':lab,
-  '/api/ai/status':{enabled:false,configured:false},
+  '/api/ai/plan':{ok:true,plan:{
+    review_question:'Is this hypothesis evidence-backed?',
+    source_count:4,flow_count:1,available_flow_count:1,
+    estimated_input_tokens_approx:1200,input_chars:2400,max_input_chars:42000,
+    max_output_tokens:3200,model:'gemini-3.5-flash-lite'
+  }},
   '/api/experiments':{entries:[],selected_keys:[],selected_count:0}
 };
-const context=vm.createContext({
-  document:{
+const documentMock={
+
     querySelector:one,
     querySelectorAll(){return [];},
     createElement(){return{className:'',textContent:'',remove(){}};}
+};
+const context=vm.createContext({
+  document:documentMock,
+  fetch:async(url)=>{
+    requested.push(url);
+    return {
+      ok:true,
+      json:async()=>url==='/api/ai/status'
+        ?{enabled:enabledAI,configured:enabledAI}
+        :payloads[url]
+    };
   },
-  fetch:async(url)=>({ok:true,json:async()=>payloads[url]}),
   Intl,Math,Date,JSON,Number,String,Map,Set,Array,Object,
   console,
   setTimeout,
   window:{location:{reload(){}}}
 });
-const scripts=['product_ui.js','ai_ui.js','research_ui.js','app.js'];
+documentMock.head={appendChild(script){
+  assert.equal(script.src,'ai_ui.js');
+  aiScriptsLoaded+=1;
+  vm.runInContext(fs.readFileSync(path.join(base,script.src),'utf8'),context,{filename:script.src});
+  script.onload();
+}};
+const scripts=Array.from(markup.matchAll(/<script src="([^"]+)"[^>]*><\/script>/g),match=>match[1]);
+assert.deepEqual(scripts,['product_ui.js','research_ui.js','app.js']);
 for(const filename of scripts){
   vm.runInContext(fs.readFileSync(path.join(base,filename),'utf8'),
     context,{filename});
 }
 (async()=>{
   await new Promise(resolve=>setTimeout(resolve,25));
+  assert.equal(requested.filter(url=>url==='/api/ai/status').length,0);
+  assert.equal(aiScriptsLoaded,0);
   vm.runInContext('tab="intelligence";render();',context);
   const intelligence=one('#main').innerHTML;
   assert.match(intelligence,/What we know, infer and cannot know/);
@@ -91,17 +121,35 @@ for(const filename of scripts){
   assert.match(intelligence,/Inferred/);
   assert.match(intelligence,/Unknown/);
   assert.match(intelligence,/semantic flags|semantic uncertain/i);
-  assert.doesNotMatch(intelligence,/Approve|Human Review/);
+  assert.doesNotMatch(intelligence,/Approve|Human Review|AI Research Copilot/);
+  assert.match(intelligence,/Investigate further with AI \(optional\)/);
 
   vm.runInContext('tab="playbook";render();',context);
   const playbook=one('#main').innerHTML;
   assert.match(playbook,/Add to My Experiment Plan/);
   assert.match(playbook,/NOT proof|not proven|not proof/i);
-  assert.doesNotMatch(playbook,/human-approved|Approve\s*\/\s*Hold/);
+  assert.doesNotMatch(playbook,/human-approved|Approve\s*\/\s*Hold|AI Research Copilot/);
 
   vm.runInContext('tab="experiments";render();',context);
   const plan=one('#main').innerHTML;
   assert.match(plan,/No experiments selected/);
   assert.match(plan,/Open the Operator Playbook/);
-  console.log('Research Intelligence / Playbook / My Experiments smoke: PASS');
+  // Clicking optional AI while disabled checks local capabilities but does not
+  // download the model UI or initiate a paid inference.
+  const aiClick='{dataset:{deepAiKind:"hypothesis",deepAiId:"STR1",deepAiMode:"investigate"},disabled:false}';
+  await vm.runInContext('launchOptionalAI('+aiClick+')',context);
+  assert.equal(aiScriptsLoaded,0);
+  assert.equal(requested.filter(url=>url==='/api/ai/status').length,1);
+  assert.equal(requested.filter(url=>url==='/api/ai/run').length,0);
+
+  // Explicit opt-in: load the tool exactly once and preview evidence only.
+  enabledAI=true;
+  vm.runInContext('drawer=function(title,body){window.lastDrawer={title,body};};',context);
+  await vm.runInContext('launchOptionalAI('+aiClick+')',context);
+  await new Promise(resolve=>setTimeout(resolve,25));
+  assert.equal(aiScriptsLoaded,1);
+  assert.equal(requested.filter(url=>url==='/api/ai/plan').length,1);
+  assert.equal(requested.filter(url=>url==='/api/ai/run').length,0);
+  assert.match(context.window.lastDrawer.body,/No tokens charged for planning/);
+  console.log('Research Intelligence + optional on-demand AI smoke: PASS');
 })().catch(err=>{console.error(err);process.exitCode=1;});
