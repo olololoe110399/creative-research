@@ -426,14 +426,10 @@ def test_write_workspace_copies_static_and_required_data(tmp_path: Path) -> None
     workspace = json.loads((tmp_path / "workspace.json").read_text(encoding="utf-8"))
     assert workspace["workspace_schema_version"] == "operator-intelligence-lab-v3"
     assert workspace["views"] == [
-        "brief",
-        "network",
-        "families",
-        "intelligence",
-        "production",
-        "playbook",
-        "experiments",
-        "advanced",
+        "production", "assets", "results", "evidence",
+    ]
+    assert workspace["evidence_modes"] == [
+        "brief", "families", "network", "intelligence", "advanced",
     ]
     assert (tmp_path / "lab.json").is_file()
     assert (tmp_path / "production.json").is_file()
@@ -642,3 +638,57 @@ def test_rebuild_prunes_legacy_copilot_asset_and_buttons(tmp_path: Path) -> None
     assert "data-deep-ai-" not in combined
     assert "/api/ai/status" not in combined
     assert "AI Research Copilot" not in html
+
+
+
+def test_rebuild_preserves_previous_embedded_team_results_in_private_state(
+    tmp_path: Path,
+) -> None:
+    from creative_research.operating_state import OperatingStore
+
+    workspace=tmp_path / "data/07_exports/operator-intelligence"
+    write_intelligence_workspace(
+        out_dir=workspace,
+        sources={"test":"fixture"},
+        **_frames(),
+    )
+    kit_path=workspace / "production.json"
+    old=json.loads(kit_path.read_text(encoding="utf-8"))
+    old["asset_bank"][0].update({
+        "rights_status":"team_attested_licensed",
+        "file_or_licensed_source_url":"owned/asset.png",
+        "license_evidence_url":"team-photo-rights-log",
+        "license_scope":"TikTok organic and commercial",
+        "verified_by":"team-editor",
+    })
+    old["own_experiment_outcomes"]=[{
+        "recipe_id":old["recipes"][0]["recipe_id"],
+        "account_slot":"PILOT-A",
+        "views":200, "account_median_views":100,
+        "published_url":"https://www.tiktok.com/@myteam/video/987",
+        "notes":"Legacy team experiment not age-matched",
+        "evidence_origin":"first_party_team_reported_not_scraped_operator",
+    }]
+    kit_path.write_text(json.dumps(old),encoding="utf-8")
+    # Rebuild is not allowed to make the only record disappear.
+    write_intelligence_workspace(
+        out_dir=workspace,
+        sources={"test":"regenerated"},
+        **_frames(),
+    )
+    after=json.loads(kit_path.read_text(encoding="utf-8"))
+    assert "own_experiment_outcomes" not in after
+    store=OperatingStore(workspace)
+    legacy=store.view()["legacy_results"]
+    assert len(legacy)==1
+    assert legacy[0]["views"]==200
+    assert legacy[0]["not_causal_proof"] is True
+    assert legacy[0]["migrated_from"]=="creator-production-kit-v1-json"
+    assert len(store.view()["legacy_asset_clearance"])==1
+    assert any(a.get("state")=="rights_checked" for a in store.view()["asset_work"])
+    write_intelligence_workspace(
+        out_dir=workspace,
+        sources={"test":"another rebuild"},
+        **_frames(),
+    )
+    assert len(OperatingStore(workspace).view()["legacy_results"])==1

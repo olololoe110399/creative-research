@@ -21,6 +21,23 @@ verified operator
 
 The goal is not a generic analytics dashboard. It is a durable research base where conclusions can eventually be traced back to the posts and Vision evidence that support them.
 
+## Operating Core — one creator-team workflow
+
+The Lab now has exactly four primary surfaces: **Production**, **Asset
+Library**, **Results & Learnings**, and **Evidence Explorer**. Content plans,
+asset permission attestations, owned-account setup, copy edits and results all
+save through a single private operator-scoped state outside the generated
+research workspace. No researcher is asked to certify an operator's hidden
+intent and no Copilot buttons are added back.
+
+Team edits persist across `intelligence-build --from-stage workspace --force`;
+changed family evidence or renumbered publishing slots are flagged instead of
+silently reusing old approvals. Previous My Experiments and historical results
+are imported as read-only history. The **live handoff ZIP** includes your edits
+and actual results, not only the regenerated source drafts.
+
+See [Operating Core Refactor](docs/OPERATING_CORE_REFACTOR.md).
+
 ## Production Kit: give the research to a creator team
 
 The primary Lab view now opens directly to the **Production Kit**: an
@@ -37,25 +54,25 @@ not automatically licensed photos, sounds or a guaranteed winning formula.
 
 After an existing research build:
 
-\`\`\`bash
+```bash
 uv run creative-research intelligence-build \\
   --operators config/operators.toml --from-stage workspace --force
 uv run creative-research lab --open
-\`\`\`
+```
 
 Download the team ZIP in the Production Kit view, or get it directly:
 
-\`\`\`text
+```text
 data/07_exports/operator-intelligence/production-kit.zip
-\`\`\`
+```
 
 Optional: recover observed music IDs, captions and hashtags from the
 original public scrape JSONL when it still exists:
 
-\`\`\`bash
+```bash
 uv run creative-research production-kit \\
   --raw-root data/00_raw/apify --recipes 24 --days 30
-\`\`\`
+```
 
 Read **[Operator Production Kit](docs/OPERATOR_PRODUCTION_KIT.md)** for
 production roles, references, asset rights checks and importing results.
@@ -68,9 +85,10 @@ or Unknown. Multilingual family matching and clustering consistency are
 machine-owned diagnostics; the product never asks a researcher to approve
 facts they cannot know about another operator's internal workflow.
 
-The Operator Playbook shows provisional **experiment candidates immediately**.
-You can add them to **My Experiments**, save measured outcomes and recheck
-changed evidence. Selecting an experiment is NOT approval of an operator claim.
+Observed/inferred/unknown claims are accessible under **Evidence Explorer**.
+Publication decisions, asset rights, content edits and first-party metrics
+belong in the single **Production / Assets / Results** operating workflow.
+Selecting a recipe does NOT approve an operator hypothesis.
 
 See [Research Intelligence v3](docs/RESEARCH_INTELLIGENCE_V3.md).
 

@@ -11,6 +11,7 @@ const clamp = function(v,a,b){ return Math.max(a,Math.min(b,v)); };
 
 let data = {};
 let tab = 'production';
+let evidenceMode='brief';
 let query = '';
 let familyFilter = 'all';
 let advancedMode = 'strategies';
@@ -271,7 +272,13 @@ function wire(){
       media.replaceWith(placeholder);
     },{once:true});
   });
-  document.querySelectorAll('[data-go]').forEach(function(b){b.onclick=function(){tab=b.dataset.go;query='';render();};});
+  document.querySelectorAll('[data-go]').forEach(function(b){b.onclick=function(){
+    const next=b.dataset.go;
+    if(['brief','network','families','intelligence','advanced'].includes(next)){
+      tab='evidence';evidenceMode=next;
+    }else{tab=next;}
+    query='';render();
+  };});
   document.querySelectorAll('[data-strategy]').forEach(function(b){b.onclick=function(){openStrategy(b.dataset.strategy);};});
   document.querySelectorAll('[data-pattern]').forEach(function(b){b.onclick=function(){openPattern(b.dataset.pattern);};});
   document.querySelectorAll('[data-family]').forEach(function(b){b.onclick=function(){openFamily(b.dataset.family);};});
@@ -282,16 +289,17 @@ function wire(){
   document.querySelectorAll('[data-advanced]').forEach(function(b){b.onclick=function(){advancedMode=b.dataset.advanced;render();};});
   const search=$('#search'); if(search)search.oninput=function(){query=search.value;render();};
   const ff=$('#family-filter'); if(ff)ff.onchange=function(){familyFilter=ff.value;render();};
-  wireResearchControls();
   wireProductionControls();
 }
 
 function render(){
   document.querySelectorAll('.primary-nav button').forEach(function(b){b.classList.toggle('active',b.dataset.tab===tab);});
-  const views={brief:briefView,network:networkView,families:familiesView,
+  const views={
     production:productionView,
-    intelligence:researchIntelligenceView,playbook:researchPlaybookView,
-    experiments:experimentPlanView,advanced:advancedView};
+    assets:assetLibraryView,
+    results:resultsAndLearningsView,
+    evidence:evidenceExplorerView,
+  };
   $('#main').innerHTML=views[tab]();
   wire();
 }
@@ -333,7 +341,7 @@ Promise.all([
   initMaps();
   setHeader();
   render();
-  reloadExperimentPlan();
+  reloadOperating();
 }).catch(function(e){
   $('#main').innerHTML='<div class="empty-state"><h2>Research lab unavailable</h2><p>'+esc(e.message)+'</p></div>';
 });

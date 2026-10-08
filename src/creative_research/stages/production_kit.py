@@ -9,11 +9,10 @@ from pathlib import Path
 from typing import Any
 
 from creative_research.pathing import project_root
+from creative_research.operating_state import OperatingStore, OperatingError
 from creative_research.production_kit import (
     DEFAULT_DAYS,
     DEFAULT_RECIPES,
-    apply_team_asset_clearance,
-    attach_own_experiment_outcomes,
     audit_production_kit,
     build_production_kit,
     enrich_production_kit_from_raw,
@@ -86,13 +85,8 @@ def main() -> None:
     )
     if args.raw_root:
         enrich_production_kit_from_raw(
-            kit, _resolve(args.raw_root), evidence_posts=evidence["posts"]
-        )
-    if args.clearance_csv:
-        apply_team_asset_clearance(kit, _load_csv(_resolve(args.clearance_csv)))
-    if args.own_results_csv:
-        attach_own_experiment_outcomes(
-            kit, _load_csv(_resolve(args.own_results_csv))
+            kit, _resolve(args.raw_root), evidence_posts=evidence["posts"],
+            cache_path=project_root() / "data/05_master/source_asset_index.json",
         )
     audit = audit_production_kit(
         kit,
@@ -102,13 +96,34 @@ def main() -> None:
     if audit["status"] != "pass":
         raise SystemExit("Production Kit quality failed:\n" + "\n".join(audit["errors"]))
     result = write_production_kit(kit, workspace=workspace)
+    # Private team state is a separate single source of truth and survives
+    # future research/rebuild runs. No CSV writes into production.json.
+    operating = OperatingStore(workspace)
+    try:
+        if args.clearance_csv:
+            operating.import_asset_attestations(
+                _load_csv(_resolve(args.clearance_csv))
+            )
+        if args.own_results_csv:
+            operating.import_first_party_csv(
+                _load_csv(_resolve(args.own_results_csv))
+            )
+        state = operating.view()
+    except OperatingError as exc:
+        raise SystemExit(f"Operating data import rejected: {exc}") from exc
     print(json.dumps({
         "status": "draft_handoff_ready_for_team_review",
         "output": result["handoff_zip"],
         "recipe_count": len(kit["recipes"]),
         "calendar_posts": len(kit["calendar"]),
         "sound_references_found": len(kit["music_bank"]),
-        "asset_rights_attested": kit["quality"]["assets_with_verified_rights"],
+        "team_assets_rights_checked": sum(
+            entry.get("state") in ("rights_checked","editorial_checked","ready")
+            and not entry.get("needs_recheck")
+            for entry in state["asset_work"]
+        ),
+        "first_party_results_saved": len(state["outcomes"]),
+        "private_state_revision": state["revision"],
         "publish_ready": kit["quality"]["ready_to_publish"],
         "source_fingerprint": kit["source_fingerprint"],
     }, ensure_ascii=False, indent=2))

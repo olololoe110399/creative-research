@@ -13,7 +13,7 @@ or authorization to republish its copyrighted material.
 
 ## 1. Build from the existing corpus; no new scrape or Gemini call
 
-    git switch feat/operator-production-handoff-v1
+    git switch refactor/creator-operating-core
     uv sync --all-groups
 
     uv run creative-research intelligence-build \
@@ -36,10 +36,14 @@ families.json and accounts.json as the research UI. It does not invent
 source IDs, fetch social sites, start AI review or modify historical posts.
 
 If local Apify JSONL files still exist under data/00_raw/apify, the
-workspace builder automatically scans them (bounded offline pass) and
+workspace builder scans them on first use (bounded offline pass) and
 recovers music IDs/names, source captions and hashtag frequencies from
 **all matched canonical posts**. The derived sound/caption bank retains
-source URLs/IDs and remains a research reference only.
+source URLs/IDs and remains a research reference only. The scan stores a
+private, normalized, operator- and source-fingerprinted cache at
+`data/05_master/source_asset_index.json`; later refreshes reuse it
+until raw sources or canonical post identity change. No scrape/media
+permissions are inferred from observing a sound ID.
 
 For other archived raw roots or customized handoff sizes:
 
@@ -48,10 +52,11 @@ For other archived raw roots or customized handoff sizes:
       --raw-root data/01_selected/targets \
       --recipes 24 --days 30
 
-Constraints: 1–40 recipes; 1–90 content-plan days. The default is
-16 distinct editorial candidates across repeated families and promising
-single-post examples, plus a 30-day publishing experiment. Rebuilds
-overwrite the generated plan/ZIP; preserve any team edits outside it.
+Constraints: 1–40 requested recipes; 1–90 content-plan days. A default
+30-day pilot now selects up to **15 distinct recipes**, allowing comparable
+A/B hooks on the same proposed owned account. Rebuilds overwrite only the
+generated research draft/ZIP; the team state lives separately under
+`data/07_knowledge/operating_state/` and is never silently overwritten.
 
 ## 2. What the team ZIP contains
 
@@ -159,16 +164,17 @@ Then:
     uv run creative-research production-kit \
       --own-results-csv path/to/real_post_results.csv
 
-The kit records outcome metrics and comparison to your own baseline,
-with evidence_origin = first_party_team_reported_not_scraped_operator.
-It does NOT claim that a one-post result proves causality or the
-studied operator's playbook.
+The CSV import now writes to **the SAME private first-party store used by
+Results & Learnings**, not `production.json`. It requires an actual TikTok
+post URL, an ISO timestamp with timezone, an owned pilot account, a
+24h/72h/168h measurement age, valid metrics and a positive age-matched
+own-account baseline. Imports are atomic; a wrong row changes nothing.
 
-Note: for truly controlled comparisons, your entered account median
-should come from your own recent cohort at the same observation age.
-The app does not certify input accuracy. Every new kit run without
-the completed CSV starts a new output snapshot, not a persistent
-external experiment database.
+The app does not independently verify team-entered metrics and does not
+claim causality. Missing historical measurement ages stay in an explicitly
+unverified legacy-history lane, rather than being presented as comparable
+new outcomes. Every new generated research kit preserves existing team work
+and first-party records.
 
 ## 6. Evidence ranks and missing data
 

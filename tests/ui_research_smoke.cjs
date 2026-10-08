@@ -56,7 +56,7 @@ const lab={
 };
 const payloads={
   'workspace.json':{workspace_schema_version:'operator-intelligence-lab-v3',
-    views:['brief','network','families','intelligence','production','playbook','experiments','advanced']},
+    views:['production','assets','results','evidence']},
   'overview.json':{counts:{}},
   'accounts.json':{accounts:[]},
   'timeline.json':{operator_windows:[],account_windows:[],comparisons:[]},
@@ -107,7 +107,14 @@ const payloads={
       reference_post_uid:'P1',rights_status:'not_verified'}],
     music_bank:[],suspected_false_splits:[],lessons:[]
   },
-  '/api/experiments':{entries:[],selected_keys:[],selected_count:0}
+  '/api/operating':{
+    schema_version:'operator-operating-state-v1',operator_id:'OP1',revision:0,
+    recipe_work:[{family_id:'F1',state:'not_started',needs_recheck:false}],
+    slot_work:[{slot_id:'PUB-001',state:'not_started',needs_recheck:false}],
+    asset_work:[{asset_key:'F1|image|slide_1',state:'not_started',needs_recheck:false}],
+    account_work:[{slot_id:'PILOT-A',state:'not_started',needs_recheck:false}],
+    stale_work:{},stale_count:0,outcomes:[],legacy_experiments:[]
+  }
 };
 const documentMock={
 
@@ -128,49 +135,59 @@ const context=vm.createContext({
   window:{location:{reload(){}}}
 });
 const scripts=Array.from(markup.matchAll(/<script src="([^"]+)"[^>]*><\/script>/g),match=>match[1]);
-assert.deepEqual(scripts,['product_ui.js','research_ui.js','production_ui.js','app.js']);
+assert.deepEqual(scripts,['product_ui.js','research_ui.js','operating_ui.js','production_ui.js','app.js']);
 for(const filename of scripts){
   vm.runInContext(fs.readFileSync(path.join(base,filename),'utf8'),
     context,{filename});
 }
 (async()=>{
   await new Promise(resolve=>setTimeout(resolve,25));
+  const nav=Array.from(markup.matchAll(/data-tab="([^"]+)"/g),m=>m[1]);
+  assert.deepEqual(nav,['production','assets','results','evidence']);
   assert.equal(vm.runInContext('tab',context),'production');
-  assert.match(one('#main').innerHTML,/Download team handoff ZIP/);
-  assert.match(one('#main').innerHTML,/30-day calendar/);
+  assert.match(one('#main').innerHTML,/Download live team handoff ZIP/);
+  assert.match(one('#main').innerHTML,/Content calendar/);
+  assert.match(one('#main').innerHTML,/Manage/);
+
   vm.runInContext('productionMode="recipes";tab="production";render();',context);
   assert.match(one('#main').innerHTML,/Original study routine/);
   vm.runInContext('drawer=function(title,body){window.lastDrawer={title,body};};openProductionRecipe("REC-001");',context);
   assert.match(context.window.lastDrawer.body,/My own study plan/);
   assert.match(context.window.lastDrawer.body,/DRAFT · not publishable/);
   assert.match(context.window.lastDrawer.body,/https:\/\/www.tiktok.com\/\@alpha\/video\/111/);
-  vm.runInContext('tab="intelligence";render();',context);
+  assert.match(context.window.lastDrawer.body,/Edit owned copy/);
+
+  vm.runInContext('tab="assets";render();',context);
+  const assets=one('#main').innerHTML;
+  assert.match(assets,/Asset Library/);
+  assert.match(assets,/Update rights/);
+  assert.match(assets,/music|sound/i);
+
+  vm.runInContext('tab="results";render();',context);
+  const results=one('#main').innerHTML;
+  assert.match(results,/Results &amp; Learnings/);
+  assert.match(results,/No first-party outcomes yet/);
+  assert.match(results,/Export live team handoff ZIP/);
+
+  vm.runInContext('tab="evidence";evidenceMode="intelligence";render();',context);
   const intelligence=one('#main').innerHTML;
+  assert.match(intelligence,/Evidence Explorer/);
   assert.match(intelligence,/What we know, infer and cannot know/);
   assert.match(intelligence,/Observed/);
   assert.match(intelligence,/Inferred/);
   assert.match(intelligence,/Unknown/);
   assert.match(intelligence,/semantic flags|semantic uncertain/i);
-  assert.doesNotMatch(intelligence,/Approve|Human Review|AI Research Copilot|Investigate further with AI|Explore playbook further with AI|data-deep-ai-/);
 
-  vm.runInContext('tab="playbook";render();',context);
-  const playbook=one('#main').innerHTML;
-  assert.match(playbook,/Add to My Experiment Plan/);
-  assert.match(playbook,/NOT proof|not proven|not proof/i);
-  assert.doesNotMatch(playbook,/human-approved|Approve\s*\/\s*Hold|AI Research Copilot|Investigate further with AI|Explore playbook further with AI|data-deep-ai-/);
-
-  vm.runInContext('tab="experiments";render();',context);
-  const plan=one('#main').innerHTML;
-  assert.match(plan,/No experiments selected/);
-  assert.match(plan,/Open the Operator Playbook/);
-  // A family evidence drawer must also not offer AI requests.
-  vm.runInContext('drawer=function(title,body){window.lastDrawer={title,body};};openFamily("F1");',context);
+  vm.runInContext('openFamily("F1");',context);
   assert.doesNotMatch(context.window.lastDrawer.body,/Investigate further with AI|AI Research Copilot|data-deep-ai-/);
-
-  // No AI URLs or scripts should be reachable from the ordinary Lab navigation.
   assert.equal(requested.filter(url=>url.startsWith('/api/ai/')).length,0);
-  assert.deepEqual(scripts,['product_ui.js','research_ui.js','production_ui.js','app.js']);
-  assert.doesNotMatch(fs.readFileSync(path.join(base,'research_ui.js'),'utf8'),/optionalAiButton|launchOptionalAI|\/api\/ai\/|ai_ui\.js/);
-  assert.doesNotMatch(fs.readFileSync(path.join(base,'app.js'),'utf8'),/optionalAiButton|launchOptionalAI|aiControlsMarkup/);
-  console.log('Research Intelligence / Playbook / My Experiments with NO AI buttons: PASS');
+  assert.equal(requested.filter(url=>url==='/api/experiments').length,0);
+  assert.equal(requested.filter(url=>url==='/api/operating').length,1);
+
+  for(const page of [intelligence,results,assets,one('#main').innerHTML]){
+    assert.doesNotMatch(page,/AI Research Copilot|Investigate further with AI|Human Review|data-deep-ai-/);
+  }
+  console.log('Four-tab Production / Asset Library / Results / Evidence smoke: PASS');
+  console.log('No duplicate experiment API, no model calls, source evidence retained: PASS');
+
 })().catch(err=>{console.error(err);process.exitCode=1;});
