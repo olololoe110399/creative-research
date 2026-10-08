@@ -178,6 +178,7 @@ def build_stage_specs(config: PipelineConfig) -> tuple[StageSpec, ...]:
             "index.html",
             "app.js",
             "product_ui.js",
+            "ai_ui.js",
             "style.css",
             "favicon.svg",
         )
