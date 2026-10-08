@@ -121,7 +121,9 @@ def _frames() -> dict[str, pd.DataFrame]:
         [
             {
                 "family_id": "F1",
+                "origin_account_id": "A",
                 "origin_account": "alpha",
+                "target_account_id": "B",
                 "target_account": "beta",
                 "target_first_post_uid": "P2",
                 "delay_from_family_origin_days": 31.0,
@@ -212,6 +214,12 @@ def _frames() -> dict[str, pd.DataFrame]:
                 "confidence_score": 0.82,
                 "confidence_band": "high",
                 "knowledge_status": "promoted",
+                "source_type": "hypothesis",
+                "source_ids_json": json.dumps(["STR1"]),
+                "source_pattern_ids_json": json.dumps(["PAT1"]),
+                "source_family_ids_json": json.dumps([]),
+                "review_source_type": "hypothesis",
+                "review_source_id": "STR1",
                 "payload_json": json.dumps({"mode": "family"}),
                 "exceptions_json": json.dumps(["Operator specific."]),
                 "counter_evidence_json": json.dumps({}),
@@ -228,6 +236,12 @@ def _frames() -> dict[str, pd.DataFrame]:
                 "confidence_score": 0.6,
                 "confidence_band": "medium",
                 "knowledge_status": "review_candidate",
+                "source_type": "hypothesis",
+                "source_ids_json": json.dumps(["STR2"]),
+                "source_pattern_ids_json": json.dumps([]),
+                "source_family_ids_json": json.dumps([]),
+                "review_source_type": "hypothesis",
+                "review_source_id": "STR2",
                 "payload_json": "{}",
                 "exceptions_json": "[]",
                 "counter_evidence_json": "{}",
@@ -306,8 +320,22 @@ def _frames() -> dict[str, pd.DataFrame]:
     )
     roles = pd.DataFrame(
         [
-            {"account_id": "A", "originator_signal": 0.8, "receiver_signal": 0.1, "descriptive_profile": "originator_leaning"},
-            {"account_id": "B", "originator_signal": 0.1, "receiver_signal": 0.8, "descriptive_profile": "receiver_leaning"},
+            {
+                "account_id": "A",
+                "originator_signal": 0.8,
+                "receiver_signal": 0.1,
+                "cross_account_flow_observations": 5,
+                "descriptive_profile": "originator_leaning",
+                "evidence_strength": "medium",
+            },
+            {
+                "account_id": "B",
+                "originator_signal": 0.1,
+                "receiver_signal": 0.8,
+                "cross_account_flow_observations": 5,
+                "descriptive_profile": "receiver_leaning",
+                "evidence_strength": "medium",
+            },
         ]
     )
     return {
@@ -364,6 +392,21 @@ def test_workspace_payloads_keep_cross_layer_lineage() -> None:
     assert post["family"]["family_id"] == "F1"
     assert post["sequence"][0]["role"] == "hook"
 
+    lab = payloads["lab.json"]
+    brief = lab["research_brief"]
+    assert brief["stats"]["repeated_families"] == 1
+    assert brief["stats"]["cross_account_repeated_families"] == 1
+    assert brief["stats"]["cross_account_share_of_repeated"] == 1.0
+
+    network = lab["account_network"]
+    assert len(network["nodes"]) == 2
+    assert len(network["edges"]) == 1
+    assert network["edges"][0]["events"] == 1
+    assert network["edges"][0]["origin_account_id"] == "A"
+    assert network["edges"][0]["target_account_id"] == "B"
+
+    assert lab["review"]["pending_sources"] == 2
+
 
 def test_write_workspace_copies_static_and_required_data(tmp_path: Path) -> None:
     report = write_intelligence_workspace(
@@ -381,5 +424,12 @@ def test_write_workspace_copies_static_and_required_data(tmp_path: Path) -> None
     assert validate_intelligence_workspace(tmp_path) == []
 
     workspace = json.loads((tmp_path / "workspace.json").read_text(encoding="utf-8"))
-    assert workspace["workspace_schema_version"] == "operator-intelligence-workspace-v1"
-    assert workspace["views"][-1] == "evidence"
+    assert workspace["workspace_schema_version"] == "operator-intelligence-lab-v1"
+    assert workspace["views"] == [
+        "brief",
+        "network",
+        "families",
+        "review",
+        "advanced",
+    ]
+    assert (tmp_path / "lab.json").is_file()
