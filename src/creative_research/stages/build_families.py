@@ -326,6 +326,41 @@ def compare_features(
     return float(score), components
 
 
+def compare_features_upper_bound(
+    left: CreativeFeature,
+    right: CreativeFeature,
+) -> float:
+    """Return a guaranteed upper bound for compare_features' weighted score."""
+    components: dict[str, float | None] = {
+        "concept_text": _text_similarity_upper_bound(left.concept_text, right.concept_text),
+        "hook_text": _text_similarity_upper_bound(left.hook_text, right.hook_text),
+        "hook_formula": _text_similarity_upper_bound(left.hook_formula, right.hook_formula),
+        "creative_formula": _text_similarity_upper_bound(
+            left.creative_formula,
+            right.creative_formula,
+        ),
+        "sequence": _sequence_similarity(left.sequence_roles, right.sequence_roles),
+        "angle": _exact_similarity(left.content_angle, right.content_angle),
+        "audience": _exact_similarity(left.audience_segment, right.audience_segment),
+        "product_family": _exact_similarity(left.product_family, right.product_family),
+        "format": _exact_similarity(left.format_value, right.format_value),
+        "hook_technique": _exact_similarity(left.hook_technique, right.hook_technique),
+    }
+    available_weight = sum(
+        COMPONENT_WEIGHTS[name]
+        for name, value in components.items()
+        if value is not None
+    )
+    if not available_weight:
+        return 0.0
+    score = sum(
+        COMPONENT_WEIGHTS[name] * float(value)
+        for name, value in components.items()
+        if value is not None
+    ) / available_weight
+    return float(score)
+
+
 def _reason_json(
     components: dict[str, float | None],
     *,
