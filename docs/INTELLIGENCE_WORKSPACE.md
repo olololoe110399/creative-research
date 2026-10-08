@@ -139,7 +139,12 @@ The Lab deliberately leads with research value instead of implementation stages:
 2. **Account Network** — visual origin → receiver chronology with evidence-gated role labels and strongest cross-account flows.
 3. **Creative Library** — repeated concepts shown as visual executions with thumbnails, member/account coverage, chronology, and post-level drill-down.
 4. **Insight Review** — source-level Tier 1/2/3 human review with Approve / Need more evidence / Reject actions.
-5. **Advanced** — strategy hypotheses, patterns, knowledge, timeline, and canonical evidence for expert inspection.
+5. **Operator Playbook** — five evidence-linked research/application steps with explicit human-review trust status. A provisional draft is **not** a promoted catalog playbook.
+6. **Advanced** — strategy hypotheses, patterns, knowledge, timeline, and canonical evidence for expert inspection.
+
+**Evidence-to-decision acceptance:** see [RESEARCH_OUTCOME_ACCEPTANCE.md](RESEARCH_OUTCOME_ACCEPTANCE.md) and run creative-research outcome-audit.
+
+Account role denominators count unique originated/imported **families**, not the number of outgoing graph edges. Account and role-hypothesis detail now expose family, original/receiving posts, performance deltas and preserved/changed dimensions. These observations do not establish internal testing intent.
 
 Pipeline stages, schema versions, and generated artifacts remain implementation details rather than the default navigation.
 
@@ -158,6 +163,8 @@ knowledge → workspace → quality audit
 ```
 
 It does not rerun scraping, Vision, family clustering, propagation, or strategy inference.
+
+Every review requires a substantive note. Approval additionally requires a checkbox confirming source/counter-evidence inspection. The local API accepts only IDs in the materialized review queue.
 
 Use:
 
