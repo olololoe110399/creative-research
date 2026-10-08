@@ -5,8 +5,10 @@ import json
 import pandas as pd
 
 from creative_research.stages.build_families import (
+    _build_features,
     build_creative_family_tables,
     compare_features,
+    compare_features_upper_bound,
 )
 
 
@@ -157,3 +159,29 @@ def test_unmapped_accounts_do_not_cross_group_without_operator_verification() ->
     )
     members = tables["creative_family_members"].set_index("post_uid")
     assert members.loc["P1", "family_id"] != members.loc["P2", "family_id"]
+
+
+def test_similarity_upper_bound_never_underestimates_exact_score() -> None:
+    features = _build_features(_posts(), _analysis(), _sequence())
+    for index, left in enumerate(features):
+        for right in features[index + 1 :]:
+            exact, _ = compare_features(left, right)
+            upper = compare_features_upper_bound(left, right)
+            assert exact <= upper + 1e-12
+
+
+def test_family_builder_reports_pruning_without_changing_membership() -> None:
+    stats: dict[str, int] = {}
+    tables = build_creative_family_tables(
+        _posts(),
+        _analysis(),
+        _sequence(),
+        _performance(),
+        threshold=0.99,
+        bridge_floor=0.95,
+        clustering_stats=stats,
+    )
+    assert len(tables["creative_families"]) == 4
+    assert stats["upper_bound_checks"] > 0
+    assert stats["anchor_pruned"] + stats["member_pruned"] > 0
+    assert stats["full_comparisons"] < stats["upper_bound_checks"]
