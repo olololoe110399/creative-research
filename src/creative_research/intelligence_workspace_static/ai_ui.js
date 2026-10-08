@@ -23,6 +23,8 @@ function aiControlsMarkup(kind,id,modes){
   }).join('');
   return '<section class="ai-controls"><div class="row"><div><b>AI Research Copilot</b>'+
     '<small>Research proposals only · citations checked · human approval required</small></div>'+
+    '<button class="ai-history-link" data-ai-history-kind="'+esc(kind)+
+      '" data-ai-history-target="'+esc(id)+'">Saved AI reports ↗</button>'+
     (aiLastReport?'<button class="ai-history-link" data-ai-last="1">Last AI report ↗</button>':'')+'</div>'+
     '<div class="ai-control-row">'+controls+'</div>'+
     '<small class="ai-status-note">'+
@@ -83,6 +85,7 @@ function aiDrawReport(report){
   drawer(aiModeName(report.mode)+' · Proposal',
     '<div class="badges">'+badge('proposal only','warn')+badge(report.model)+
       badge(report.from_cache?'cached snapshot':'validated output','info')+'</div>'+
+    (report.snapshot_is_current===false?'<p class="method-note"><b>STALE EVIDENCE SNAPSHOT.</b> Data or review status changed after this report. Re-run research before relying on it.</p>':'')+
     '<p class="method-note"><b>NOT HUMAN REVIEWED.</b> AI cannot approve, reject, or edit knowledge. '+
       'Check each source link and counterexample before accepting any suggestion.</p>'+
     '<h3>Research summary</h3><p>'+esc(answer.summary||'')+'</p>'+
@@ -104,6 +107,42 @@ function aiDrawReport(report){
     (reviewMode?'<button class="ai-review-draft" data-ai-review-draft="1">'+
       'Return to Human Review with editable AI note (no decision saved)</button>':'')+
     '<button class="ai-history-link" data-ai-reopen-plan="1">Inspect another research mode</button>');
+}
+
+
+async function aiHistory(sourceType,sourceId){
+  drawer('Saved AI reports','Loading local research history…');
+  try{
+    const response=await fetch(
+      '/api/ai/history?source_type='+encodeURIComponent(sourceType)+
+      '&source_id='+encodeURIComponent(sourceId),
+      {cache:'no-store'}
+    );
+    const result=await response.json();
+    if(!response.ok)throw new Error(result.error||'History unavailable');
+    const cards=(result.reports||[]).map(function(report){
+      return '<button class="ai-history-item" data-ai-report-id="'+
+        esc(report.request_id)+'"><b>'+esc(aiModeName(report.mode))+'</b>'+
+        '<span>'+esc(report.generated_at)+' · '+esc(report.model)+'</span></button>';
+    }).join('');
+    drawer('Saved AI reports · '+sourceType+': '+sourceId,
+      '<p>Historical proposals are immutable. Each report is checked against the current data snapshot when opened.</p>'+
+      (cards||'<div class="empty-state">No model reports for this source yet.</div>'));
+  }catch(e){
+    drawer('AI report history unavailable','<p class="method-note">'+esc(e.message)+'</p>');
+  }
+}
+
+async function aiOpenReport(reportId){
+  drawer('Loading stored AI report','Checking source snapshot…');
+  try{
+    const response=await fetch('/api/ai/report/'+encodeURIComponent(reportId),{cache:'no-store'});
+    const report=await response.json();
+    if(!response.ok)throw new Error(report.error||'Report unavailable');
+    aiDrawReport(report);
+  }catch(e){
+    drawer('AI report unavailable','<p class="method-note">'+esc(e.message)+'</p>');
+  }
 }
 
 async function aiPreview(mode,source_type,source_id){
@@ -178,6 +217,14 @@ function wireAiControls(){
   });
   document.querySelectorAll('[data-ai-confirm]').forEach(function(button){
     button.onclick=aiConfirm;
+  });
+  document.querySelectorAll('[data-ai-history-kind]').forEach(function(button){
+    button.onclick=function(){
+      aiHistory(button.dataset.aiHistoryKind,button.dataset.aiHistoryTarget);
+    };
+  });
+  document.querySelectorAll('[data-ai-report-id]').forEach(function(button){
+    button.onclick=function(){aiOpenReport(button.dataset.aiReportId);};
   });
   document.querySelectorAll('[data-ai-last]').forEach(function(button){
     button.onclick=function(){if(aiLastReport)aiDrawReport(aiLastReport);};
