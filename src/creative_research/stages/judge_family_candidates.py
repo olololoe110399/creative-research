@@ -40,6 +40,7 @@ DEFAULT_MIN_COMBINED = 0.74
 DEFAULT_CROSS_LANGUAGE_MIN_COMBINED = 0.68
 DEFAULT_CROSS_LANGUAGE_MIN_STRUCTURE = 0.90
 DEFAULT_MAX_AI_PAIRS = 1000
+DEFAULT_MAX_API_CALLS = 1100
 DEFAULT_MAX_INPUT_TOKENS_PER_PAIR = 1100
 DEFAULT_MAX_ESTIMATED_INPUT_TOKENS = 900_000
 DEFAULT_MAX_OUTPUT_TOKENS = 320
@@ -613,8 +614,9 @@ def build_plan(
             output_rate,
         ),
         "pricing_note": (
-            "Static model pricing is only a convenience estimate and may become stale; "
-            "override with CLI price flags when needed."
+            "Static model pricing is a convenience estimate verified against Google "
+            "Gemini Developer API standard pricing on 2026-10-08; override with CLI "
+            "price flags when needed."
         ),
     }
     return selected, report, evidence_lookup
@@ -628,6 +630,7 @@ def execute_judgments(
     cache_path: Path,
     max_output_tokens: int,
     max_estimated_input_tokens: int,
+    max_api_calls: int,
     retries: int,
     retry_base_seconds: float,
     sleep_between: float,
@@ -643,8 +646,12 @@ def execute_judgments(
     actual_input_tokens = 0
     actual_output_tokens = 0
     actual_total_tokens = 0
+    cached_historical_input_tokens = 0
+    cached_historical_output_tokens = 0
     usage_rows = 0
+    api_attempts = 0
     stopped_for_budget = False
+    stopped_for_api_call_cap = False
 
     for index, candidate in enumerate(selected, start=1):
         left_uid = str(candidate["left_post_uid"])
@@ -675,6 +682,11 @@ def execute_judgments(
             judgment = None
             usage: dict[str, int | None] = {}
             for attempt in range(retries + 1):
+                if api_attempts >= max_api_calls:
+                    stopped_for_api_call_cap = True
+                    last_error = "API call cap reached"
+                    break
+                api_attempts += 1
                 try:
                     judgment, usage = _call_judge(
                         client,
@@ -687,7 +699,7 @@ def execute_judgments(
                     break
                 except Exception as exc:
                     last_error = f"{type(exc).__name__}: {exc}"
-                    if attempt < retries:
+                    if attempt < retries and api_attempts < max_api_calls:
                         wait = retry_base_seconds * (2**attempt) + random.random()
                         print(
                             f"  retry {attempt + 1}/{retries}: "
@@ -727,13 +739,19 @@ def execute_judgments(
         input_used = _number(usage.get("input_tokens"))
         output_used = _number(usage.get("output_tokens"))
         total_used = _number(usage.get("total_tokens"))
-        if input_used is not None:
-            actual_input_tokens += int(input_used)
-            usage_rows += 1
-        if output_used is not None:
-            actual_output_tokens += int(output_used)
-        if total_used is not None:
-            actual_total_tokens += int(total_used)
+        if source == "api":
+            if input_used is not None:
+                actual_input_tokens += int(input_used)
+                usage_rows += 1
+            if output_used is not None:
+                actual_output_tokens += int(output_used)
+            if total_used is not None:
+                actual_total_tokens += int(total_used)
+        else:
+            if input_used is not None:
+                cached_historical_input_tokens += int(input_used)
+            if output_used is not None:
+                cached_historical_output_tokens += int(output_used)
 
         rows.append(
             {
@@ -800,12 +818,17 @@ def execute_judgments(
         "selected_pairs": len(selected),
         "judged_rows": len(frame),
         "api_calls": api_calls,
+        "api_attempts": api_attempts,
+        "max_api_calls": max_api_calls,
         "cache_hits": cache_hits,
         "failures": failures,
         "stopped_for_budget": stopped_for_budget,
+        "stopped_for_api_call_cap": stopped_for_api_call_cap,
         "actual_input_tokens": actual_input_tokens if usage_rows else None,
         "actual_output_tokens": actual_output_tokens if usage_rows else None,
         "actual_total_tokens": actual_total_tokens if usage_rows else None,
+        "cached_historical_input_tokens": cached_historical_input_tokens,
+        "cached_historical_output_tokens": cached_historical_output_tokens,
         "usage_rows": usage_rows,
         "decision_counts": (
             frame["decision"].value_counts().to_dict()
@@ -857,6 +880,12 @@ def main() -> None:
         default=DEFAULT_CROSS_LANGUAGE_MIN_STRUCTURE,
     )
     parser.add_argument("--max-ai-pairs", type=int, default=DEFAULT_MAX_AI_PAIRS)
+    parser.add_argument(
+        "--max-api-calls",
+        type=int,
+        default=DEFAULT_MAX_API_CALLS,
+        help="Hard cap across successful calls plus retry attempts.",
+    )
     parser.add_argument(
         "--max-input-tokens-per-pair",
         type=int,
@@ -954,6 +983,7 @@ def main() -> None:
         cache_path=cache_path,
         max_output_tokens=max(1, args.max_output_tokens),
         max_estimated_input_tokens=max(1, args.max_estimated_input_tokens),
+        max_api_calls=max(1, args.max_api_calls),
         retries=max(0, args.retries),
         retry_base_seconds=max(0.0, args.retry_base_seconds),
         sleep_between=max(0.0, args.sleep_between),
