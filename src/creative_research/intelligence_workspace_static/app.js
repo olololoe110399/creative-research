@@ -244,7 +244,7 @@ function openStrategy(id){
 function openKnowledge(id){
   const k=data.knowledgeById.get(String(id)); if(!k)return;
   const sources=(k.source_links||[]).map(function(l){return data.strategyById.has(String(l.source_id))?strategyButton(l.source_id,'Strategy source · '+l.source_id):'<div>'+esc(l.source_type)+': '+esc(l.source_id)+'</div>';}).join('');
-  drawer(k.title||id,'<div class="badges">'+badge(k.knowledge_type)+badge(k.knowledge_status,k.knowledge_status==='approved'?'good':k.knowledge_status==='promoted'||k.knowledge_status==='review_candidate'?'warn':'bad')+confidenceBadge(k.confidence_band,k.confidence_score)+'</div><p>'+esc(k.statement||'')+'</p><h3>Practical guidance</h3>'+(k.knowledge_status==='rejected'||k.knowledge_status==='hold'?'<p class="method-note">Guidance withheld: source was held/rejected during human review.</p>':'<p>'+esc(k.actionable_guidance||'')+'</p>')+'<h3>Exceptions / caveats</h3><ul>'+(k.exceptions||[]).map(function(x){return '<li>'+esc(x)+'</li>';}).join('')+'</ul><h3>Counter evidence</h3><pre>'+esc(json(k.counter_evidence||{}))+'</pre><h3>Source</h3><div class="link-list">'+sources+'</div>');
+  drawer(k.title||id,'<div class="badges">'+badge(k.knowledge_type)+badge(k.knowledge_status,k.knowledge_status==='approved'?'good':k.knowledge_status==='promoted'||k.knowledge_status==='review_candidate'?'warn':'bad')+confidenceBadge(k.confidence_band,k.confidence_score)+'</div><p>'+esc(k.statement||'')+'</p><h3>Practical guidance</h3>'+(k.knowledge_status==='rejected'||k.knowledge_status==='hold'?'<p class="method-note">Legacy catalog annotation: guidance withheld. This is not evidence of the operator's intent.</p>':'<p>'+esc(k.actionable_guidance||'')+'</p>')+'<h3>Exceptions / caveats</h3><ul>'+(k.exceptions||[]).map(function(x){return '<li>'+esc(x)+'</li>';}).join('')+'</ul><h3>Counter evidence</h3><pre>'+esc(json(k.counter_evidence||{}))+'</pre><h3>Source</h3><div class="link-list">'+sources+'</div>');
 }
 
 function openPost(id){
@@ -311,6 +311,10 @@ Promise.all([
   fetch('evidence.json',{cache:'no-store'}).then(function(r){return r.json();}),
   fetch('lab.json',{cache:'no-store'}).then(function(r){return r.json();})
 ]).then(function(values){
+  if(values[0].workspace_schema_version!=='operator-intelligence-lab-v3'||
+     !values[9]||!values[9].research_intelligence){
+    throw new Error('Old workspace detected. Run intelligence-build --from-stage workspace --force, then restart Lab.');
+  }
   data.manifest=values[0];
   data.overview=values[1];
   data.accounts=values[2];
