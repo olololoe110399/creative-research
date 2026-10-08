@@ -19,3 +19,5 @@ data/
 # Local research configuration. Commit only explicit example files.
 config/*.txt
 !config/*.example.txt
+config/*.toml
+!config/*.example.toml
