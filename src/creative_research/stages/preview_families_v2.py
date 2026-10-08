@@ -23,7 +23,7 @@ import pandas as pd
 from creative_research.stages.build_families import _text_similarity
 from creative_research.validation import read_table
 
-PREVIEW_SCHEMA_VERSION = "creative-family-v2-preview-v2"
+PREVIEW_SCHEMA_VERSION = "creative-family-v2-preview-v3"
 
 DEFAULT_STRONG_COMBINED = 0.80
 DEFAULT_BRIDGE_COMBINED = 0.75
