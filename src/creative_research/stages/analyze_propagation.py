@@ -24,7 +24,7 @@ import pandas as pd
 from creative_research.constants import ANALYTICS_SCHEMA_VERSION
 from creative_research.validation import read_table
 
-PROPAGATION_SCHEMA_VERSION = "creative-propagation-v1"
+PROPAGATION_SCHEMA_VERSION = "creative-propagation-v2"
 
 CHANGE_DIMENSIONS = (
     "content_type",
@@ -697,8 +697,28 @@ def build_account_role_evidence(
             else 0.0
         )
 
-        originator_signal = 0.60 * family_origin_rate + 0.40 * outbound_propagation_rate
-        receiver_signal = imported_family_rate
+        # Role inference must be conditioned on families that actually crossed
+        # accounts. Singleton/one-account families dominate the warehouse and
+        # otherwise make every account look like an originator.
+        cross_account_flow_observations = (
+            propagated_origin_families + imported_family_count
+        )
+        cross_account_origin_rate = (
+            float(
+                propagated_origin_families
+                / cross_account_flow_observations
+            )
+            if cross_account_flow_observations
+            else 0.0
+        )
+        cross_account_import_rate = (
+            float(imported_family_count / cross_account_flow_observations)
+            if cross_account_flow_observations
+            else 0.0
+        )
+
+        originator_signal = cross_account_origin_rate
+        receiver_signal = cross_account_import_rate
 
         inbound_outperform = (
             [
@@ -739,11 +759,9 @@ def build_account_role_evidence(
             if value is not None
         ]
 
-        cross_account_observations = (
-            propagated_origin_families + imported_family_count
-        )
+        cross_account_observations = cross_account_flow_observations
         profile = _descriptive_profile(
-            family_count=family_count,
+            family_count=cross_account_flow_observations,
             cross_account_observations=cross_account_observations,
             originator_signal=originator_signal,
             receiver_signal=receiver_signal,
@@ -769,6 +787,9 @@ def build_account_role_evidence(
                 "imported_family_rate": imported_family_rate,
                 "outbound_propagation_rate": outbound_propagation_rate,
                 "cross_account_participation_rate": cross_account_participation_rate,
+                "cross_account_flow_observations": cross_account_flow_observations,
+                "cross_account_origin_rate": cross_account_origin_rate,
+                "cross_account_import_rate": cross_account_import_rate,
                 "median_import_delay_days": _median(import_delays),
                 "median_outbound_delay_days": _median(outbound_delays),
                 "imported_family_repeat_rate": repeat_rate,
@@ -785,7 +806,8 @@ def build_account_role_evidence(
                     else "low"
                 ),
                 "notes": (
-                    "descriptive evidence only; not a final testing/scaling/conversion role"
+                    "role signals are conditioned on observed cross-account family flow; "
+                    "descriptive evidence only, not a final testing/scaling/conversion role"
                 ),
             }
         )
@@ -871,7 +893,8 @@ def main() -> None:
         "notes": [
             "No scrape was performed.",
             "No LLM/Vision call was performed.",
-            "Propagation means observed later appearance inside a deterministic family, not causation.",
+            "Propagation means observed later appearance inside an evidence-backed family, not causation.",
+            "Account role signals are conditioned on cross-account family flow so singleton families do not dominate origin/receiver evidence.",
             "Role evidence is descriptive and does not assign testing/scaling/conversion strategy labels.",
         ],
     }
