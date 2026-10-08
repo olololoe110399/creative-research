@@ -8,6 +8,7 @@ import pandas as pd
 from creative_research.intelligence_pipeline import (
     PipelineConfig,
     StageSpec,
+    build_stage_specs,
     execute_pipeline,
     plan_pipeline,
     slice_specs,
@@ -286,3 +287,27 @@ def test_quality_report_fails_orphan_lineage_and_low_coverage() -> None:
     assert "lineage.family_member_post_orphan" in codes
     assert "lineage.pattern_evidence_pattern" in codes
     assert "workspace.missing_files" in codes
+
+
+
+def test_workspace_pipeline_tracks_production_pack_and_never_requires_retired_ai_ui(
+    tmp_path: Path,
+) -> None:
+    config = PipelineConfig(
+        root=tmp_path,
+        operators=tmp_path / "config/operators.toml",
+        reviews=None,
+        timezone="UTC",
+        workspace_out=tmp_path / "lab",
+        quality_out=tmp_path / "lab/quality_report.json",
+    )
+    specs = build_stage_specs(config)
+    workspace = next(spec for spec in specs if spec.name == "workspace")
+    names = {path.name for path in workspace.outputs}
+    assert "production.json" in names
+    assert "production-kit.zip" in names
+    assert "production_ui.js" in names
+    assert "ai_ui.js" not in names
+    assert "production.json" in {
+        p.name for p in next(x for x in specs if x.name == "workspace").outputs
+    }
