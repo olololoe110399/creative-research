@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import argparse
 import http.server
+import ipaddress
 import json
 import mimetypes
 import subprocess
@@ -13,6 +14,12 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import unquote, urlparse
 
+from creative_research.ai_endpoints import (
+    handle_ai_get,
+    handle_ai_post,
+    same_origin_json_request,
+)
+from creative_research.ai_research import AIResearchService, ALLOWED_MODELS, DEFAULT_MODEL
 from creative_research.intelligence_workspace import validate_intelligence_workspace
 from creative_research.knowledge_reviews import (
     KnowledgeReview,
@@ -30,6 +37,17 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", type=int, default=8767)
     parser.add_argument("--open", action="store_true", dest="open_browser")
+    parser.add_argument(
+        "--ai-enabled", action="store_true",
+        help="Opt in to paid Gemini research requests from the Lab.",
+    )
+    parser.add_argument(
+        "--ai-model", choices=sorted(ALLOWED_MODELS), default=DEFAULT_MODEL,
+    )
+    parser.add_argument(
+        "--ai-max-calls", type=int, default=12,
+        help="Maximum paid model attempts per local Lab server process (1–100).",
+    )
     parser.add_argument(
         "--reviews",
         default="config/knowledge_reviews.toml",
@@ -108,6 +126,7 @@ def _make_handler(
     reviews_path: Path,
     read_only: bool,
     media_records: dict[str, dict[str, Any]],
+    ai_service: AIResearchService | None = None,
 ) -> type[http.server.SimpleHTTPRequestHandler]:
     class LabHandler(http.server.SimpleHTTPRequestHandler):
         def __init__(self, *args: Any, **kwargs: Any) -> None:
@@ -177,6 +196,8 @@ def _make_handler(
 
         def do_GET(self) -> None:  # noqa: N802
             parsed = urlparse(self.path)
+            if handle_ai_get(self, ai_service, parsed.path):
+                return
             parts = parsed.path.strip("/").split("/")
             if (
                 len(parts) == 4
@@ -192,6 +213,8 @@ def _make_handler(
             super().do_GET()
 
         def do_POST(self) -> None:  # noqa: N802
+            if handle_ai_post(self, ai_service, read_only=read_only):
+                return
             if self.path != "/api/review":
                 _json_response(self, 404, {"error": "not_found"})
                 return
@@ -201,6 +224,9 @@ def _make_handler(
                     403,
                     {"error": "lab_is_read_only"},
                 )
+                return
+            if not same_origin_json_request(self):
+                _json_response(self, 403, {"error": "same_origin_json_required"})
                 return
 
             try:
@@ -358,6 +384,21 @@ def main() -> None:
     args = build_parser().parse_args()
     root = resolve_intelligence_dir(args.dir)
     reviews_path = resolve_project_path(args.reviews)
+    if args.ai_enabled:
+        if args.read_only:
+            raise SystemExit("Cannot enable AI model calls in --read-only mode.")
+        try:
+            is_loopback = ipaddress.ip_address(args.host).is_loopback
+        except ValueError:
+            is_loopback = args.host.lower() == "localhost"
+        if not is_loopback:
+            raise SystemExit("AI model calls require --host localhost / loopback.")
+    ai_service = AIResearchService(
+        root,
+        enabled=args.ai_enabled,
+        model=args.ai_model,
+        max_calls=args.ai_max_calls,
+    )
     missing = validate_intelligence_workspace(root)
     if missing:
         rendered = "\n".join(f"  - {name}" for name in missing)
@@ -385,6 +426,7 @@ def main() -> None:
         reviews_path=reviews_path,
         read_only=args.read_only,
         media_records=media_records,
+        ai_service=ai_service,
     )
     server = http.server.ThreadingHTTPServer(
         (args.host, args.port),
@@ -402,6 +444,13 @@ def main() -> None:
     print(
         "Review actions:            "
         + ("disabled" if args.read_only else f"enabled → {reviews_path}")
+    )
+    print(
+        "AI Research Copilot:      "
+        + (
+            f"enabled ({args.ai_model}, {args.ai_max_calls} max calls)"
+            if args.ai_enabled else "disabled (enable with --ai-enabled)"
+        )
     )
     print("Press Ctrl+C to stop.")
     if args.open_browser:
