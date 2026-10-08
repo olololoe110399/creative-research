@@ -1,5 +1,47 @@
 # Creative families
 
+## Production model v2
+
+`build-families` now defaults to `creative-family-v2`.
+
+```text
+canonical posts + Vision analysis + sequence
+        ↓
+strict v1 baseline rebuilt in memory
+        ↓
+blocked calibration candidate retrieval
+        ↓
+language-aware deterministic gates
+        ↓
+optional precomputed AI pair judgments
+        ↓
+anchor-constrained core-family clustering
+        ↓
+creative_families.parquet
+creative_family_members.parquet
+```
+
+The stage never calls an AI API. If
+`data/06_analytics/family_ai/family_ai_judgments.parquet` exists, only compatible
+`family-ai-judge-v2` / prompt-v2 rows are consumed as durable inferred evidence.
+Missing or stale AI evidence falls back to deterministic gates.
+
+The strict legacy v1 model is recomputed in memory only to provide backward-compatible
+positive controls. Production v2 does not read the previous production family output as
+clustering truth, so repeated builds do not create a self-reinforcing family loop.
+
+AI policy is precision-first:
+
+- exact reuse, paraphrase, and hook variants may form strong core edges;
+- translation edges require the isolated verifier and only `direct_translation`
+  can form an AI-only strong edge;
+- localized paraphrases and execution variants remain semantic evidence but defer
+  to deterministic gates;
+- template/thematic/unrelated judgments reject a core-family edge.
+
+Family IDs remain stable `FAM-...` identifiers derived from operator scope + origin
+post UID. Downstream lineage columns are preserved; v2 adds match-gate provenance.
+
 Creative families are the bridge between individual post analysis and later operator-strategy inference.
 
 A family answers:

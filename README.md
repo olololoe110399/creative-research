@@ -291,7 +291,7 @@ Every post remains represented. Posts without a sufficiently similar sibling bec
 - the nearest supporting `post_uid`;
 - component-level matching evidence in `match_reason_json`.
 
-A family therefore means **deterministic candidate for a shared creative concept**, not “proven strategy.” The next stages can use family origin, chronology, cross-account reuse, and relative performance to study propagation and operator behavior.
+A family therefore means an **evidence-backed candidate for a shared core creative concept**, not “proven strategy.” Production family v2 combines deterministic blocked/calibrated retrieval with optional precomputed AI pair judgments; `build-families` itself never calls an AI API. The next stages can use family origin, chronology, cross-account reuse, and relative performance to study propagation and operator behavior.
 
 #### Calibrate family discovery before loosening thresholds
 

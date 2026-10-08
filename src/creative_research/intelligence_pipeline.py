@@ -320,6 +320,13 @@ def build_stage_specs(config: PipelineConfig) -> tuple[StageSpec, ...]:
                 master_dir / "creative_analysis.parquet",
                 master_dir / "creative_sequence.parquet",
                 analytics / "post_performance.parquet",
+                *_existing_inputs(
+                    (
+                        analytics
+                        / "family_ai"
+                        / "family_ai_judgments.parquet",
+                    )
+                ),
             ),
             outputs=family_outputs,
             args=(
@@ -331,8 +338,23 @@ def build_stage_specs(config: PipelineConfig) -> tuple[StageSpec, ...]:
                 str(master_dir / "creative_sequence.parquet"),
                 "--performance",
                 str(analytics / "post_performance.parquet"),
+                "--ai-judgments",
+                str(
+                    analytics
+                    / "family_ai"
+                    / "family_ai_judgments.parquet"
+                ),
+                "--family-model",
+                "v2",
                 "--out",
                 str(analytics),
+            ),
+            report_expectations=(
+                (
+                    analytics / "creative_families_report.json",
+                    "family_schema_version",
+                    "creative-family-v2",
+                ),
             ),
         ),
         StageSpec(
