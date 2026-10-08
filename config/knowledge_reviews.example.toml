@@ -1,0 +1,21 @@
+schema_version = "knowledge-review-v1"
+
+# Keep real review decisions local as config/knowledge_reviews.toml.
+# Source types currently supported:
+# - hypothesis
+# - family
+# - playbook_sources
+
+[[reviews]]
+source_type = "hypothesis"
+source_id = "STR-EXAMPLE"
+decision = "approve"
+note = "Manually checked supporting and counter evidence."
+reviewed_by = "researcher"
+reviewed_at = "2026-10-08"
+
+[[reviews]]
+source_type = "family"
+source_id = "FAM-EXAMPLE"
+decision = "hold"
+note = "Need to inspect more family members before approving as a template."
