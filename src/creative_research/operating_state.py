@@ -477,6 +477,8 @@ class OperatingStore:
                 ) > 1 and ASSET_STATES.index(requested) > ASSET_STATES.index(prev):
                     raise OperatingError("cannot_skip_asset_quality_gate")
                 location = _text(payload.get("location",""),limit=1500)
+                if requested != "needed" and not location:
+                    raise OperatingError("sourced_asset_requires_file")
                 evidence = _text(payload.get("license_evidence",""),limit=1500)
                 scope = _text(payload.get("license_scope",""),limit=600)
                 reviewer = _text(payload.get("rights_checked_by",""),limit=120)
