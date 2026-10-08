@@ -684,6 +684,8 @@ def test_rebuild_preserves_previous_embedded_team_results_in_private_state(
     assert legacy[0]["views"]==200
     assert legacy[0]["not_causal_proof"] is True
     assert legacy[0]["migrated_from"]=="creator-production-kit-v1-json"
+    assert len(store.view()["legacy_asset_clearance"])==1
+    assert any(a.get("state")=="rights_checked" for a in store.view()["asset_work"])
     write_intelligence_workspace(
         out_dir=workspace,
         sources={"test":"another rebuild"},
