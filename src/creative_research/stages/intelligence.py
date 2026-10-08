@@ -22,6 +22,8 @@ from creative_research.ai_endpoints import (
 from creative_research.ai_research import AIResearchService, ALLOWED_MODELS, DEFAULT_MODEL
 from creative_research.experiment_endpoints import handle_experiment_get, handle_experiment_post
 from creative_research.experiment_plan import ExperimentPlanStore
+from creative_research.operating_endpoints import handle_operating_get, handle_operating_post
+from creative_research.operating_state import OperatingStore
 from creative_research.intelligence_workspace import validate_intelligence_workspace
 from creative_research.knowledge_reviews import (
     KnowledgeReview,
@@ -135,6 +137,7 @@ def _make_handler(
     media_records: dict[str, dict[str, Any]],
     ai_service: AIResearchService | None = None,
     experiment_service: ExperimentPlanStore | None = None,
+    operating_service: OperatingStore | None = None,
     allow_legacy_reviews: bool = False,
 ) -> type[http.server.SimpleHTTPRequestHandler]:
     class LabHandler(http.server.SimpleHTTPRequestHandler):
@@ -205,6 +208,11 @@ def _make_handler(
 
         def do_GET(self) -> None:  # noqa: N802
             parsed = urlparse(self.path)
+            if handle_operating_get(self, operating_service):
+                return
+            if parsed.path == "/api/experiments" and experiment_service is None:
+                _json_response(self, 410, {"error": "legacy_experiment_api_retired"})
+                return
             if handle_experiment_get(self, experiment_service):
                 return
             if handle_ai_get(self, ai_service, self.path):
@@ -224,6 +232,11 @@ def _make_handler(
             super().do_GET()
 
         def do_POST(self) -> None:  # noqa: N802
+            if handle_operating_post(self, operating_service, read_only=read_only):
+                return
+            if urlparse(self.path).path == "/api/experiments" and experiment_service is None:
+                _json_response(self, 410, {"error": "legacy_experiment_api_retired"})
+                return
             if handle_experiment_post(self, experiment_service, read_only=read_only):
                 return
             if handle_ai_post(self, ai_service, read_only=read_only):
@@ -451,7 +464,8 @@ def main() -> None:
         read_only=args.read_only,
         media_records=media_records,
         ai_service=ai_service,
-        experiment_service=ExperimentPlanStore(root),
+        experiment_service=None,  # Historical API for explicit compatibility tests only.
+        operating_service=OperatingStore(root),
         allow_legacy_reviews=args.enable_legacy_review_actions,
     )
     server = http.server.ThreadingHTTPServer(
