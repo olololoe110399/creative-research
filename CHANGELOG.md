@@ -14,6 +14,7 @@
 - Add `calibrate-families` to measure language-independent structural similarity, existing Vision descriptive-text similarity, and current production-family scores without mutating family assignments.
 - Export threshold distributions and a stratified review CSV so multilingual/paraphrased family clustering can be calibrated from real data instead of blindly lowering thresholds.
 - Speed up `calibrate-families` with structural candidate blocking, semantic upper-bound pruning, blocker-recall diagnostics, and progress output so large operator datasets do not appear hung.
+- Add `preview-families-v2` to test conservative language-aware strong/bridge gates and anchor-constrained clustering against calibration pairs without replacing production families.
 - Add `analyze-propagation` to derive family account entries, cross-account propagation events, origin/sequence account edges, creative-dimension changes, and descriptive account-role evidence.
 - Keep propagation chronology explicitly non-causal and defer testing/scaling/conversion strategy labels to later inference.
 - Add `analyze-timeline` for monthly/weekly operator/account strategy windows and deterministic adjacent-window change points.
