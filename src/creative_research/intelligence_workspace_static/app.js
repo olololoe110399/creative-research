@@ -151,23 +151,6 @@ function familiesView(){
     '<div class="grid">'+(rows.map(familyCard).join('')||'<div class="empty-state">No families match this view.</div>')+'</div>';
 }
 
-function reviewView(){
-  const review=data.lab.review||{}, items=review.items||[], tiers=review.tier_counts||{}, reviewed=review.reviewed_items||[];
-  const cards=items.map(function(r){
-    return '<article class="review-card" data-review="'+esc(r.review_source_type)+':'+esc(r.review_source_id)+'"><span class="tier">TIER '+esc(r.priority_tier)+'</span><div class="eyebrow">'+esc(label(r.priority_reason))+'</div><h3>'+esc(r.title||r.review_source_id)+'</h3><p>'+esc(r.statement||'')+'</p><div class="badges">'+confidenceBadge(null,r.confidence_max)+badge(r.review_source_type)+badge(JSON.parse(r.knowledge_types_json||'[]').join(' + '),'info')+'</div><div class="review-evidence"><span>'+num(r.evidence_post_count)+' posts</span><span>'+num(r.evidence_family_count)+' families</span><span>'+num(r.evidence_pattern_count)+' patterns</span></div></article>';
-  }).join('');
-  return pageHead('Human review','Decide what becomes trusted knowledge','Review high-value operating-model findings first. Approval is scope-bound evidence judgment, not universal truth.')+
-    '<div class="review-summary"><span class="tier-pill"><b>'+num(review.pending_sources)+'</b> pending sources</span><span class="tier-pill">Tier 1 · <b>'+num(tiers['1']||0)+'</b></span><span class="tier-pill">Tier 2 · <b>'+num(tiers['2']||0)+'</b></span><span class="tier-pill">Tier 3 · <b>'+num(tiers['3']||0)+'</b></span></div>'+
-    '<section class="section"><div class="grid">'+(cards||'<div class="empty-state"><h3>Review queue is clear</h3><p>No promoted or review-candidate sources remain in the current queue.</p></div>')+'</div></section>'+
-    '<section class="section"><div class="section-head"><div><h2>Reviewed sources ('+num(review.reviewed_sources||0)+')</h2><p>Every decision remains inspectable. Re-review if new evidence changes your judgment.</p></div></div>'+
-    '<div class="grid">'+(reviewed.map(function(r){
-      return '<article class="review-card" data-review="'+esc(r.review_source_type)+':'+esc(r.review_source_id)+'">'+
-        '<div class="badges">'+badge(r.existing_review_decision,r.existing_review_decision==='approve'?'good':r.existing_review_decision==='hold'?'warn':'bad')+
-        badge(r.review_source_type)+'</div><h3>'+esc(r.title||r.review_source_id)+'</h3>'+
-        '<p>'+esc(r.statement||'')+'</p><small>'+esc(r.existing_review_note||'')+'</small></article>';
-    }).join('')||'<div class="empty-state">No human review decisions yet.</div>')+'</div></section>';
-}
-
 function advancedView(){
   const tabs=['strategies','patterns','evidence','knowledge','timeline'];
   let body='';
@@ -281,50 +264,6 @@ function openEdge(key){
   drawer('@'+(edge.origin_account||parts[0])+' → @'+(edge.target_account||parts[1]),'<div class="badges">'+badge((edge.events||0)+' events','info')+badge((edge.families||0)+' families')+badge('median '+num(edge.median_delay_days)+' days')+'</div><h3>Observed families</h3><div class="link-list">'+fams+'</div><p>This is chronology inside matched creative families, not a causal claim about publishing decisions.</p>');
 }
 
-function openReview(key){
-  const r=data.reviewBySource.get(String(key)); if(!r)return;
-  let evidence='';
-  if(r.review_source_type==='hypothesis'){
-    const s=data.strategyById.get(String(r.review_source_id));
-    if(s)evidence='<h3>Claim</h3><p>'+esc(s.claim||'')+'</p><h3>Evidence summary</h3><pre>'+esc(json(s.evidence_summary||{}))+'</pre><h3>Counter evidence</h3><pre>'+esc(json(s.counter_evidence||{}))+'</pre><h3>Alternative explanations</h3><ul>'+(s.alternative_explanations||[]).map(function(x){return '<li>'+esc(x)+'</li>';}).join('')+'</ul><div class="link-list">'+(s.pattern_links||[]).map(function(l){return patternButton(l.pattern_id,l.pattern_id+' · '+(l.relation||'support'));}).join('')+'</div>'+strategyFlowHtml(s);
-  }else if(r.review_source_type==='family'){
-    evidence='<h3>Family evidence</h3>'+familyButton(r.review_source_id,'Open complete creative family');
-  }else if(r.review_source_type==='playbook_sources'){
-    const sources=String(r.review_source_id||'').split('|').filter(Boolean);
-    evidence='<p class="method-note">A bundle approval does not override constituent source reviews. Review each hypothesis individually first; held/rejected components block the playbook.</p>'+
-      '<h3>Component hypotheses and counter evidence</h3>'+
-      sources.map(function(id){
-        const s=data.strategyById.get(id);
-        if(!s)return '<p class="method-note">Missing source: '+esc(id)+'</p>';
-        return '<div class="panel">'+strategyButton(id,s.title||id)+
-          '<p>'+esc(s.claim||'')+'</p>'+
-          '<details><summary>Counter evidence and alternatives</summary><pre>'+esc(json(s.counter_evidence||{}))+'</pre>'+
-          '<ul>'+(s.alternative_explanations||[]).map(function(x){return '<li>'+esc(x)+'</li>';}).join('')+'</ul></details>'+
-          strategyFlowHtml(s)+'</div>';
-      }).join('');
-  }
-  drawer(r.title||r.review_source_id,'<div class="badges">'+badge('Legacy research source','info')+confidenceBadge(null,r.confidence_max)+badge(r.review_source_type)+'</div><p>'+esc(r.statement||'')+'</p><h3>What to check</h3><p>'+esc(r.review_focus||'')+'</p><div class="review-evidence"><span>'+num(r.evidence_post_count)+' posts</span><span>'+num(r.evidence_family_count)+' families</span><span>'+num(r.evidence_pattern_count)+' patterns</span></div>'+evidence+aiControlsMarkup(r.review_source_type,r.review_source_id,['investigate','challenge'])+
-    '<h3>Your judgment</h3>'+(r.existing_review_decision?'<p class="method-note">Previous decision: '+esc(r.existing_review_decision)+(r.existing_review_note?' · '+esc(r.existing_review_note):'')+'. This review replaces that decision.</p>':'')+'<div class="review-form"><input id="reviewed-by" placeholder="Your name (optional)"><textarea id="review-note" placeholder="Required: which supporting/counter evidence did you check, and why?"></textarea><label class="review-confirm"><input id="evidence-inspected" type="checkbox"> I inspected source evidence and alternatives, not just the confidence score.</label><div class="review-actions"><button class="reject" data-review-decision="reject" data-review-key="'+esc(key)+'">Reject</button><button class="hold" data-review-decision="hold" data-review-key="'+esc(key)+'">Need more evidence</button><button class="approve" data-review-decision="approve" data-review-key="'+esc(key)+'">Approve</button></div><small style="color:#6b7280">The decision is saved locally and the knowledge/workspace trust layer is rebuilt automatically.</small></div>');
-}
-
-async function submitReview(key,decision){
-  const r=data.reviewBySource.get(String(key)); if(!r)return;
-  const note=$('#review-note')?$('#review-note').value.trim():'', reviewedBy=$('#reviewed-by')?$('#reviewed-by').value.trim():'';
-  if(note.length<10){toast('Please record what you checked (at least 10 characters).');return;}
-  if(decision==='approve'&&!$('#evidence-inspected').checked){toast('Inspect source evidence and confirm before approval.');return;}
-  const buttons=document.querySelectorAll('[data-review-decision]'); buttons.forEach(function(b){b.disabled=true; b.textContent='Saving…';});
-  try{
-    const response=await fetch('/api/review',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({source_type:r.review_source_type,source_id:r.review_source_id,decision:decision,note:note,reviewed_by:reviewedBy,evidence_inspected:!!($('#evidence-inspected')&&$('#evidence-inspected').checked),rebuild:true})});
-    const result=await response.json();
-    if(!response.ok)throw new Error(result.error||'Review failed');
-    toast('Review saved. Refreshing trusted knowledge…');
-    setTimeout(function(){window.location.reload();},500);
-  }catch(e){
-    buttons.forEach(function(b){b.disabled=false; b.textContent=b.classList.contains('approve')?'Approve':b.classList.contains('hold')?'Need more evidence':'Reject';});
-    toast('Could not save review: '+e.message);
-  }
-}
-
 function wire(){
   document.querySelectorAll('.lab-media').forEach(function(media){
     media.addEventListener('error',function(){
@@ -342,8 +281,6 @@ function wire(){
   document.querySelectorAll('[data-knowledge]').forEach(function(b){b.onclick=function(){openKnowledge(b.dataset.knowledge);};});
   document.querySelectorAll('[data-post]').forEach(function(b){b.onclick=function(){openPost(b.dataset.post);};});
   document.querySelectorAll('[data-edge]').forEach(function(b){b.onclick=function(){openEdge(b.dataset.edge);};});
-  document.querySelectorAll('[data-review]').forEach(function(b){b.onclick=function(){openReview(b.dataset.review);};});
-  document.querySelectorAll('[data-review-decision]').forEach(function(b){b.onclick=function(){submitReview(b.dataset.reviewKey,b.dataset.reviewDecision);};});
   document.querySelectorAll('[data-advanced]').forEach(function(b){b.onclick=function(){advancedMode=b.dataset.advanced;render();};});
   const search=$('#search'); if(search)search.oninput=function(){query=search.value;render();};
   const ff=$('#family-filter'); if(ff)ff.onchange=function(){familyFilter=ff.value;render();};
