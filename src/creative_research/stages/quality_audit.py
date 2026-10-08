@@ -588,7 +588,7 @@ def main() -> None:
     )
     freshness: dict[str, dict[str, str]] = {}
     for spec in build_stage_specs(config):
-        if spec.name == "audit":
+        if spec.name in {"audit", "outcome"}:
             continue
         action, reason = stage_freshness(spec)
         freshness[spec.name] = {
