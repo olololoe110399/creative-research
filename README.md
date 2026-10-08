@@ -55,6 +55,7 @@ analyze-propagation
 analyze-timeline
 discover-patterns
 infer-strategies
+promote-knowledge
 
 rank-posts
 extract-references
@@ -82,7 +83,8 @@ data/
 ├── 04_vision/slides/
 ├── 04_vision/videos/
 ├── 05_master/                # creative_master + operator-aware canonical tables
-├── 06_analytics/             # deterministic performance + cadence analytics
+├── 06_analytics/             # deterministic evidence + intelligence analytics
+├── 07_knowledge/             # strategies/rules/lessons/templates/playbooks
 └── 07_exports/               # generated system/reference workspaces
 ```
 
@@ -449,6 +451,65 @@ and contains:
 
 This stage still does **not** create final rules, lessons, templates, or playbooks. Those belong to the next knowledge-promotion layer after human review and/or stronger evidence requirements.
 
+### 16. Promote reviewed/high-confidence evidence into the knowledge bank
+
+Build the typed knowledge layer:
+
+```bash
+uv run creative-research promote-knowledge \
+  --hypotheses data/06_analytics/strategy_hypotheses.parquet \
+  --strategy-evidence data/06_analytics/strategy_evidence_links.parquet \
+  --families data/06_analytics/creative_families.parquet \
+  --family-members data/06_analytics/creative_family_members.parquet \
+  --out data/07_knowledge
+```
+
+Optional manual review:
+
+```bash
+cp config/knowledge_reviews.example.toml config/knowledge_reviews.toml
+# edit local decisions, then:
+uv run creative-research promote-knowledge \
+  --reviews config/knowledge_reviews.toml
+```
+
+The real review file is local/ignored. Review decisions can approve, reject, or hold a hypothesis/family source without editing generated datasets.
+
+The knowledge bank writes both Parquet and JSONL:
+
+```text
+data/07_knowledge/
+├── strategies.parquet / .jsonl
+├── rules.parquet / .jsonl
+├── lessons.parquet / .jsonl
+├── templates.parquet / .jsonl
+├── playbooks.parquet / .jsonl
+├── knowledge_catalog.parquet / .jsonl
+├── knowledge_source_links.parquet / .jsonl
+├── knowledge_evidence_links.parquet / .jsonl
+└── knowledge_report.json
+```
+
+Every knowledge item has a trust state:
+
+- `promoted` — passed deterministic automatic promotion gates;
+- `review_candidate` — useful but should be reviewed before high-impact automation;
+- `approved` — explicitly approved in the local review registry;
+- `rejected` — explicitly rejected but retained for audit;
+- `hold` — deliberately paused pending more evidence.
+
+The bank currently contains:
+
+- **strategies** promoted from sufficiently supported strategy hypotheses;
+- **rules** from evidence types that can safely become scoped operating guidance, currently family iteration and preserve-core/vary-execution;
+- **lessons** that preserve caveats/alternative explanations without becoming prescriptive;
+- **templates** from strong repeated creative families plus cross-account adaptation templates;
+- **playbooks** assembled only when multiple operator hypotheses support an explore → propagate → adapt → iterate operating model.
+
+Creative-family templates require repeated executions and sufficient cohesion; singletons are never promoted into templates. Template payloads preserve the core angle, hook formula, creative formula, ordered sequence roles, representative post, family performance, and family IDs.
+
+`knowledge_source_links` maps knowledge items to hypotheses/families. `knowledge_evidence_links` carries lineage further down to pattern/post/family/account evidence, so downstream systems can trace any strategy/rule/template/playbook back toward the source evidence.
+
 ## System-first reference workflow
 
 The default workflow is deliberately **not "take the global top 30"**.
@@ -644,10 +705,11 @@ raw evidence
 -> strategy timeline + change points
 -> evidence patterns
 -> strategy hypotheses + counter-evidence
+-> knowledge bank: strategies/rules/lessons/templates/playbooks
 -> system/reference workspace
 ```
 
-The operator warehouse is intentionally built before strategy inference. Relative performance, historical cadence, creative families, propagation/account-role evidence, strategy windows/change points, evidence-backed recurring patterns, and deterministic strategy hypotheses are now analytics layers. Future stages can promote reviewed/high-confidence hypotheses into durable rules, lessons, templates, and playbooks while retaining lineage. Those future knowledge assets must retain evidence lineage instead of being unsupported LLM summaries.
+The operator warehouse is intentionally built before strategy inference. Relative performance, historical cadence, creative families, propagation/account-role evidence, strategy windows/change points, patterns, strategy hypotheses, and the typed evidence-linked knowledge bank are now implemented. Downstream Creative Bank/Creative Director systems can consume the JSONL/Parquet outputs while filtering by scope, confidence, status, validity, and evidence lineage. Those future knowledge assets must retain evidence lineage instead of being unsupported LLM summaries.
 
 Brief/variant production and first-party experiment outcomes remain downstream concerns.
 
