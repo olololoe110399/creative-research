@@ -50,6 +50,7 @@ MODEL_PRICING_USD_PER_MILLION: dict[str, tuple[float, float]] = {
 }
 
 TEXT_FIELDS = (
+    "content_type",
     "primary_language_code",
     "audience_segment",
     "niche",
@@ -731,6 +732,12 @@ def execute_judgments(
                         time.sleep(wait)
 
             if judgment is None:
+                if stopped_for_api_call_cap:
+                    print(
+                        f"[{index}/{len(selected)}] STOPPED: {last_error}",
+                        flush=True,
+                    )
+                    break
                 failures += 1
                 print(
                     f"[{index}/{len(selected)}] FAILED "
