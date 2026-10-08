@@ -126,7 +126,8 @@ It now delegates to:
 - `production_copy.py`: source-aware Vietnamese editorial archetypes
   and original visual prompts.
 - `production_source_bank.py`: offline caption/hashtag/sound extraction
-  from existing public raw files. Never grants rights.
+  from existing public raw files, backed by a reusable, operator-scoped,
+  fingerprinted local metadata index. Never grants rights.
 - `production_quality.py` and `production_contracts.py`: one handoff
   schema, limits and source/rights safety invariants.
 - `production_handoff.py`: deterministic CSV/Markdown/ZIP writer.
@@ -167,9 +168,20 @@ the same public sources and current team-owned work from
 `/api/operating/export`; use that ZIP when handing the project to another
 team. Neither file contains a verified/cleared source media download.
 
-**Remaining work outside this refactor:** a canonical one-time music/caption/
-hashtag warehouse index instead of rescanning existing JSONL per refresh;
-a unified calibrated multi-language family judge with measured false-split
-recall; live platform availability checks for commercial music; a publishing
-API; controlled cross-post inference. These need new datasets and independent
+**Cached observed source metadata:** the first workspace/production refresh
+with local Apify JSONL creates
+`data/05_master/source_asset_index.json` (private 0600, gitignored).
+Subsequent refreshes reuse this normalized public metadata when the operator,
+expected post identity/percentiles, source files/sizes/mtimes and scan
+limits have not changed. Raw source changes invalidate the cache. This
+eliminates repeated full JSONL scans on ordinary rebuilds; it is not yet a
+versioned columnar warehouse table, doesn't infer missing music IDs and
+doesn't verify copyrighted music usage rights. Reports expose cache hits,
+matched-post coverage and bounded-scan/truncation flags.
+
+**Remaining work outside this refactor:** fully versioned canonical/columnar
+asset warehouse tables and live rights provenance; unified calibrated
+multi-language family judge with measured false-split recall; live platform
+availability checks for commercial music; creator-platform publishing API;
+controlled cross-post inference. These need new datasets and independent
 acceptance, not fabricated confidence claims.
