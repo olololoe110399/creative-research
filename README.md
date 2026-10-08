@@ -374,7 +374,7 @@ Default safeguards:
 model                         gemini-2.5-flash-lite
 max selected pairs            1,000
 max API call attempts         1,100
-max estimated input / pair    1,800 tokens
+max estimated input / pair    3,500 tokens
 max aggregate input estimate  900,000 tokens
 max output / pair             320 tokens
 ```
