@@ -36,10 +36,14 @@ families.json and accounts.json as the research UI. It does not invent
 source IDs, fetch social sites, start AI review or modify historical posts.
 
 If local Apify JSONL files still exist under data/00_raw/apify, the
-workspace builder automatically scans them (bounded offline pass) and
+workspace builder scans them on first use (bounded offline pass) and
 recovers music IDs/names, source captions and hashtag frequencies from
 **all matched canonical posts**. The derived sound/caption bank retains
-source URLs/IDs and remains a research reference only.
+source URLs/IDs and remains a research reference only. The scan stores a
+private, normalized, operator- and source-fingerprinted cache at
+`data/05_master/source_asset_index.json`; later refreshes reuse it
+until raw sources or canonical post identity change. No scrape/media
+permissions are inferred from observing a sound ID.
 
 For other archived raw roots or customized handoff sizes:
 
