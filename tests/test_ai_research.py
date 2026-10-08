@@ -399,3 +399,36 @@ def test_cached_proposals_are_operator_scoped(tmp_path: Path) -> None:
         service.load(saved["request_id"])
     with pytest.raises(ResearchValidationError, match="unknown_research_source"):
         service.history("hypothesis", "STR1")
+
+
+
+def test_real_sdk_adapter_disables_implicit_retries_and_times_out(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from types import SimpleNamespace
+    from google import genai
+
+    path = corpus_fixture(tmp_path)
+    calls: list[dict] = []
+    monkeypatch.setenv("GEMINI_API_KEY", "synthetic-no-network")
+    def fake_client(*, api_key: str, http_options: object) -> object:
+        assert api_key == "synthetic-no-network"
+        assert http_options.timeout == 90_000
+        assert http_options.retry_options.attempts == 1
+        def generate_content(**kwargs: object) -> object:
+            calls.append(kwargs)
+            return SimpleNamespace(
+                parsed=AIResearchAnswer.model_validate(valid_answer()),
+                text=None,
+            )
+        return SimpleNamespace(models=SimpleNamespace(
+            generate_content=generate_content
+        ))
+    monkeypatch.setattr(genai, "Client", fake_client)
+    service = AIResearchService(path, enabled=True, max_calls=1)
+    report = service.run("investigate", "hypothesis", "STR1")
+    assert report["ai_status"] == "proposal_only"
+    assert len(calls) == 1
+    assert calls[0]["model"] == service.model
+    assert calls[0]["config"].max_output_tokens > 0
+    assert service.call_count == 1
