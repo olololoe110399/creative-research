@@ -61,6 +61,9 @@ def audit_ai_readiness(workspace: Path) -> dict[str, Any]:
                 issues.append("selected_flow_missing_source_post")
             if not has_source_posts:
                 issues.append("no_direct_post_sources")
+            if (source_type == "family"
+                    and (packet.get("family_identity") or {}).get("member_sample_truncated")):
+                issues.append("family_identity_member_sample_truncated")
             status = "fail" if issues else "pass"
             entry = {
                 "mode": mode, "source_type": source_type,
