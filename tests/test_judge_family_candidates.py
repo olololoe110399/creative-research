@@ -3,6 +3,7 @@ from __future__ import annotations
 import pandas as pd
 
 from creative_research.stages.judge_family_candidates import (
+    FamilyPairJudgment,
     _cache_key,
     _evidence_hash,
     build_evidence_lookup,
@@ -192,3 +193,11 @@ def test_build_plan_reports_token_and_cost_ceiling_without_api() -> None:
     assert report["estimated_output_token_ceiling"] == 200
     assert report["estimated_cost_usd_ceiling"] is not None
     assert report["pricing_source"] == "static_model_estimate"
+
+
+def test_family_pair_judgment_json_schema_is_fully_resolved() -> None:
+    schema = FamilyPairJudgment.model_json_schema()
+    properties = schema["properties"]
+    assert "decision" in properties
+    assert "relationship" in properties
+    assert "confidence" in properties
