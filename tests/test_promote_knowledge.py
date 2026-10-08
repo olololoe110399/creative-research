@@ -255,6 +255,8 @@ def test_knowledge_promotion_builds_all_typed_banks_and_lineage() -> None:
         catalog["subtype"].eq("selective_cross_account_reuse_model")
     ]
     assert set(selective_rows["knowledge_type"]) == {"strategy", "lesson"}
+    assert set(selective_rows["review_source_type"]) == {"hypothesis"}
+    assert set(selective_rows["review_source_id"]) == {"STR-SELECTIVE"}
 
     templates = tables["templates"]
     family_templates = templates.loc[
@@ -264,6 +266,8 @@ def test_knowledge_promotion_builds_all_typed_banks_and_lineage() -> None:
     payload = json.loads(family_templates.iloc[0]["payload_json"])
     assert payload["sequence_roles"] == ["hook", "problem", "proof", "cta"]
     assert family_templates.iloc[0]["knowledge_status"] == "promoted"
+    assert family_templates.iloc[0]["review_source_type"] == "family"
+    assert family_templates.iloc[0]["review_source_id"] == "F1"
 
     rules = tables["rules"]
     adaptation_rule = rules.loc[
@@ -277,6 +281,8 @@ def test_knowledge_promotion_builds_all_typed_banks_and_lineage() -> None:
     assert len(steps) >= 4
     assert steps[0]["accounts"] == ["A"]
     assert steps[2]["accounts"] == ["B"]
+    assert playbook["review_source_type"] == "playbook_sources"
+    assert playbook["review_source_id"]
 
     evidence = tables["knowledge_evidence_links"]
     assert "P2" in set(evidence["post_uid"].dropna())
