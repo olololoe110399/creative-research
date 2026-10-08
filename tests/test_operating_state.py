@@ -50,6 +50,10 @@ def _workspace(tmp_path: Path) -> Path:
         recipes_limit=1,calendar_days=2,
     )
     write_production_kit(kit,workspace=root)
+    for name,payload in [
+        ("evidence.json",evidence),("families.json",family),("accounts.json",accounts),
+    ]:
+        (root/name).write_text(json.dumps(payload),encoding="utf-8")
     (root/"lab.json").write_text(
         json.dumps({"research_intelligence":{"operator_id":"OP1"}}),encoding="utf-8"
     )
@@ -360,3 +364,78 @@ def test_team_csv_imports_are_atomic_source_scoped_and_survive_rebuild(
     assert OperatingStore(workspace).view()["outcomes"][0]["views"]==750
     with zipfile.ZipFile(io.BytesIO(store.export_zip())) as z:
         assert b"750" in z.read("TEAM_OWN_OUTCOMES.csv")
+
+
+
+def test_cli_csv_import_uses_one_store_not_generated_research_snapshot(
+    tmp_path: Path,monkeypatch,
+) -> None:
+    import csv
+    import sys
+    from creative_research.stages.production_kit import main as cli_main
+
+    workspace=_workspace(tmp_path)
+    kit=json.loads((workspace/"production.json").read_text(encoding="utf-8"))
+    asset=kit["asset_bank"][0]["asset_id"]
+    files={
+        "assets.csv":[{
+            "asset_id":asset,
+            "rights_status":"team_attested_licensed",
+            "file_or_licensed_source_url":"owned/desk.png",
+            "license_evidence_url":"signed-by-photographer",
+            "license_scope":"TikTok organic and commercial",
+            "verified_by":"team-legal","verified_at":"2026-10-09",
+        }],
+        "own.csv":[{
+            "recipe_id":kit["recipes"][0]["recipe_id"],
+            "account_slot":"PILOT-A",
+            "published_url":"https://www.tiktok.com/@our_account/video/555",
+            "posted_at":"2026-10-09T10:00:00+07:00",
+            "measurement_age_hours":"24",
+            "views":"1500","saves":"20","shares":"7",
+            "account_median_views":"1000","notes":"our own post",
+        }],
+    }
+    for filename,rows in files.items():
+        dest=tmp_path/filename
+        with dest.open("w",encoding="utf-8",newline="") as f:
+            writer=csv.DictWriter(f,fieldnames=list(rows[0]))
+            writer.writeheader()
+            writer.writerows(rows)
+    monkeypatch.setattr(sys,"argv",[
+        "production-kit","--workspace",str(workspace),
+        "--recipes","1","--days","2",
+        "--clearance-csv",str(tmp_path/"assets.csv"),
+        "--own-results-csv",str(tmp_path/"own.csv"),
+    ])
+    cli_main()
+    state=OperatingStore(workspace).view()
+    assert state["revision"]==2
+    assert state["outcomes"][0]["views_vs_baseline"]==1.5
+    assert "own_experiment_outcomes" not in json.loads(
+        (workspace/"production.json").read_text(encoding="utf-8")
+    )
+    assert next(a for a in state["asset_work"] if a["asset_id"]==asset)[
+        "state"
+    ]=="rights_checked"
+    assert state["asset_work"][0]["needs_recheck"] is False
+
+
+def test_editable_slides_and_schedule_survive_source_export(
+    tmp_path: Path,
+) -> None:
+    workspace=_workspace(tmp_path)
+    store=OperatingStore(workspace)
+    _act(store,action="recipe",key="F1",edited_hook="Our own overlay",
+         edited_caption="Our own text",slides={"1":"First slide drafted in-house"},
+         editorial_checked_by="editor",notes="edited")
+    _act(store,action="slot",key="PUB-001",state="draft",owner="creator",
+         scheduled_at="2026-10-19T19:00:00+07:00",published_url="",
+         published_at="",notes="set by the team")
+    assert store.view()["slot_work"][0]["scheduled_at"].startswith("2026-10-19")
+    with zipfile.ZipFile(io.BytesIO(store.export_zip())) as z:
+        paths=[p for p in z.namelist() if p.startswith("TEAM_EDITED_BRIEFS/")]
+        assert len(paths)==1
+        assert b"First slide drafted in-house" in z.read(paths[0])
+        assert b"2026-10-19" in z.read("TEAM_STATE.json")
+        assert "TEAM_ASSET_RIGHTS.csv" in z.namelist()
