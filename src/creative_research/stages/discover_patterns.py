@@ -618,6 +618,14 @@ def _family_reuse_patterns(
         ).fillna(1).gt(1)
         cross_rate = float(cross.mean())
         repeated_rate = float(repeated.mean())
+        repeated_count = int(repeated.sum())
+        cross_repeated = cross & repeated
+        cross_repeated_count = int(cross_repeated.sum())
+        cross_share_of_repeated = (
+            float(cross_repeated_count / repeated_count)
+            if repeated_count
+            else None
+        )
         lifespans = pd.to_numeric(
             group.get("lifespan_days", pd.Series(pd.NA, index=group.index)),
             errors="coerce",
@@ -642,12 +650,15 @@ def _family_reuse_patterns(
                     f"{cross_rate:.1%} appear on multiple verified accounts."
                 ),
                 sample_size=sample_size,
-                support_count=int(repeated.sum()),
+                support_count=repeated_count,
                 support_rate=repeated_rate,
                 effect_size=None,
                 metrics={
                     "multi_post_family_rate": repeated_rate,
+                    "multi_post_families": repeated_count,
                     "cross_account_family_rate": cross_rate,
+                    "cross_account_families": cross_repeated_count,
+                    "cross_account_share_of_repeated": cross_share_of_repeated,
                     "median_family_lifespan_days": (
                         float(lifespans.median()) if not lifespans.empty else None
                     ),
@@ -658,26 +669,74 @@ def _family_reuse_patterns(
                 },
             )
         )
-        for family_id in group["family_id"].astype(str):
+
+        conditional_id: str | None = None
+        if repeated_count >= min_sample and cross_share_of_repeated is not None:
+            conditional_id = _pattern_id(
+                "cross_account_reuse_conditional",
+                "operator",
+                str(operator_id),
+                "repeated-family-cross-account-share",
+            )
+            patterns.append(
+                _base_record(
+                    pattern_id=conditional_id,
+                    pattern_type="cross_account_reuse_conditional",
+                    scope_type="operator",
+                    scope_id=str(operator_id),
+                    operator_id=str(operator_id),
+                    title="Repeated creative families are usually reused across accounts",
+                    observation=(
+                        f"{cross_repeated_count}/{repeated_count} repeated families "
+                        f"({cross_share_of_repeated:.1%}) appear across multiple verified accounts, "
+                        f"while only {repeated_rate:.1%} of all families repeat."
+                    ),
+                    sample_size=repeated_count,
+                    support_count=cross_repeated_count,
+                    support_rate=cross_share_of_repeated,
+                    effect_size=cross_share_of_repeated - 0.50,
+                    metrics={
+                        "multi_post_family_rate": repeated_rate,
+                        "multi_post_families": repeated_count,
+                        "cross_account_repeated_families": cross_repeated_count,
+                        "cross_account_share_of_repeated": cross_share_of_repeated,
+                    },
+                    counter_evidence={
+                        "repeated_single_account_families": (
+                            repeated_count - cross_repeated_count
+                        ),
+                        "singleton_families": int((~repeated).sum()),
+                    },
+                )
+            )
+        for family_index, family_row in group.iterrows():
+            family_id = str(family_row["family_id"])
             post_uids = member_lookup.get(family_id, [])
+            link_targets = [(pattern_id, "family_population")]
+            if conditional_id is not None and bool(repeated.loc[family_index]):
+                link_targets.append(
+                    (conditional_id, "repeated_family_population")
+                )
             if post_uids:
                 for post_uid in post_uids:
+                    for target_pattern_id, role in link_targets:
+                        links.append(
+                            _link(
+                                target_pattern_id,
+                                post_uid=post_uid,
+                                family_id=family_id,
+                                link_role=role,
+                            )
+                        )
+            else:
+                for target_pattern_id, role in link_targets:
                     links.append(
                         _link(
-                            pattern_id,
-                            post_uid=post_uid,
+                            target_pattern_id,
                             family_id=family_id,
-                            link_role="family_population",
+                            link_role=role,
                         )
                     )
-            else:
-                links.append(
-                    _link(
-                        pattern_id,
-                        family_id=family_id,
-                        link_role="family_population",
-                    )
-                )
 
     return patterns, links
 
@@ -706,8 +765,12 @@ def _role_evidence_patterns(
             account_id,
             key,
         )
-        observations = int(_numeric(row.get("propagated_origin_families")) or 0) + int(
-            _numeric(row.get("imported_families")) or 0
+        observations = int(
+            _numeric(row.get("cross_account_flow_observations"))
+            or (
+                int(_numeric(row.get("propagated_origin_families")) or 0)
+                + int(_numeric(row.get("imported_families")) or 0)
+            )
         )
         originator = _numeric(row.get("originator_signal"))
         receiver = _numeric(row.get("receiver_signal"))
@@ -729,7 +792,7 @@ def _role_evidence_patterns(
                         f"Observed family-flow profile is {profile}; this is descriptive evidence, "
                         "not a final testing/scaling/conversion role."
                     ),
-                    sample_size=max(observations, int(_numeric(row.get("families_participated")) or 0)),
+                    sample_size=observations,
                     support_count=observations,
                     support_rate=None,
                     effect_size=effect,
@@ -740,13 +803,23 @@ def _role_evidence_patterns(
                             "imported_family_rate",
                             "outbound_propagation_rate",
                             "cross_account_participation_rate",
+                            "cross_account_flow_observations",
+                            "cross_account_origin_rate",
+                            "cross_account_import_rate",
                             "originator_signal",
                             "receiver_signal",
                             "amplifier_signal",
                             "evidence_strength",
                         )
                     },
-                    counter_evidence={},
+                    counter_evidence={
+                        "all_families_participated": int(
+                            _numeric(row.get("families_participated")) or 0
+                        ),
+                        "cross_account_participation_rate": _numeric(
+                            row.get("cross_account_participation_rate")
+                        ),
+                    },
                 ),
                 "evidence_strength": strength,
             }

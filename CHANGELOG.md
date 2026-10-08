@@ -28,6 +28,8 @@
 - Tighten preview translation-family precision: only verifier `direct_translation` results may seed strong AI core-family edges; `localized_paraphrase` and unverified translation results remain semantic evidence and defer to deterministic family gates.
 - Promote reviewed family-v2 policy to the production `build-families` default: rebuild strict v1 positive controls in-memory, recompute blocked calibration candidates from canonical evidence, consume compatible cached AI judgments without making API calls, preserve downstream family/member columns, and emit `creative-family-v2` lineage.
 - Make `intelligence-build` require a v2 family report and treat precomputed family-AI judgments as an optional freshness dependency.
+- Correct account-role denominators after family-v2 migration: originator/receiver signals are now conditioned on observed cross-account family flow instead of all mostly-singleton families, while overall origin/import rates remain available separately.
+- Add a conditional repeated-family cross-account pattern and `selective_cross_account_reuse_model` strategy hypothesis for operators that reuse few concepts overall but distribute most reused concepts across verified accounts; no scaling/amplification claim is made without separate evidence.
 - Add `analyze-propagation` to derive family account entries, cross-account propagation events, origin/sequence account edges, creative-dimension changes, and descriptive account-role evidence.
 - Keep propagation chronology explicitly non-causal and defer testing/scaling/conversion strategy labels to later inference.
 - Add `analyze-timeline` for monthly/weekly operator/account strategy windows and deterministic adjacent-window change points.

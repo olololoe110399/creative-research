@@ -43,6 +43,7 @@ PROMOTABLE_STRATEGY_TYPES = {
     "account_reuse_receiver",
     "account_reuse_amplification",
     "operator_explore_propagate_model",
+    "selective_cross_account_reuse_model",
     "preserve_core_vary_execution",
     "iterative_reuse_model",
     "performance_responsive_cadence",
@@ -308,6 +309,21 @@ def _strategy_statement(row: dict[str, Any]) -> tuple[str, str | None]:
         return (
             "The operator likely separates concept origination from downstream reuse across accounts.",
             f"Model the system as concept origination on {origins}, followed by reuse/adaptation on {receivers}; keep checking family-level evidence for exceptions.",
+        )
+    if htype == "selective_cross_account_reuse_model":
+        cross_share = summary.get("cross_account_share_of_repeated")
+        repeated_rate = summary.get("multi_post_family_rate")
+        return (
+            "Creative reuse appears selective, but repeated families are usually distributed across multiple verified accounts.",
+            (
+                "Treat reuse as a selective cross-account propagation behavior rather than assuming every concept is iterated. "
+                f"Observed repeated-family rate: {repeated_rate:.1%}; "
+                f"cross-account share among repeated families: {cross_share:.1%}."
+                if isinstance(repeated_rate, (int, float))
+                and isinstance(cross_share, (int, float))
+                else
+                "Treat reuse as a selective cross-account propagation behavior rather than assuming every concept is iterated."
+            ),
         )
     if htype == "preserve_core_vary_execution":
         preserved = ", ".join(summary.get("preserved_core_dimensions", [])) or "core concept"

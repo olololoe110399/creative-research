@@ -499,9 +499,10 @@ Current pattern classes include:
 1. **creative dimension ↔ performance** — e.g. a hook technique performs above/below the operator's historical account-relative baseline;
 2. **cadence after performance** — e.g. high-performing posts are followed by longer/shorter next-post gaps than low performers;
 3. **cross-account mutation behavior** — dimensions usually changed or preserved when a family enters another verified account;
-4. **family reuse baseline** — multi-post and cross-account family reuse rates;
-5. **account flow profile** — medium/high evidence originator/receiver leaning from propagation analytics;
-6. **strategy change point** — material adjacent-window shifts with post-level evidence from both windows.
+4. **family reuse baseline** — overall multi-post and cross-account family rates across the full family population;
+5. **conditional cross-account reuse** — among families that actually repeat, the share whose repeated executions span multiple verified accounts;
+6. **account flow profile** — originator/receiver leaning conditioned on cross-account family flow so singleton families do not dominate role evidence;
+7. **strategy change point** — material adjacent-window shifts with post-level evidence from both windows.
 
 Every pattern stores sample size, support/counter evidence, effect size where meaningful, evidence strength, metrics JSON, and `causal_claim=false`.
 
@@ -534,11 +535,14 @@ Current hypothesis types include:
 
 - **account origin/exploration** — an account repeatedly originates families that propagate elsewhere;
 - **account reuse/amplification** — an account repeatedly receives families and may repeat or outperform receiving executions;
-- **operator explore→propagate model** — different verified accounts show repeated origin-versus-reuse asymmetry;
+- **operator explore→propagate model** — different verified accounts show repeated origin-versus-reuse asymmetry, without assuming a formal test→scale workflow;
+- **selective cross-account reuse model** — most concepts remain one-offs, but concepts that are reused are predominantly distributed across verified accounts;
 - **preserve core / vary execution** — cross-account reuse preserves core concept/structure while changing hook/format/execution;
 - **iterative reuse model** — most observed families contain multiple executions rather than one-offs;
 - **performance-responsive cadence** — high- and low-performing posts are followed by systematically different posting gaps;
 - **temporal strategy shift** — a material measured change between adjacent strategy windows.
+
+Account role signals use only observed cross-account family flow for the origin/receiver denominator. Overall origin/import rates across all families remain available as descriptive context, but singleton families no longer inflate role classification. Amplification still requires separate repeat/performance evidence; receiving a family is not treated as scaling by default.
 
 Every row remains:
 

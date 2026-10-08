@@ -95,6 +95,19 @@ def _hypotheses() -> pd.DataFrame:
                 patterns=["PAT-A", "PAT-B", "PAT-REUSE"],
             ),
             _hypothesis(
+                "STR-SELECTIVE",
+                "selective_cross_account_reuse_model",
+                confidence=0.76,
+                readiness="review",
+                summary={
+                    "multi_post_family_rate": 0.033,
+                    "multi_post_families": 59,
+                    "cross_account_repeated_families": 55,
+                    "cross_account_share_of_repeated": 55 / 59,
+                },
+                patterns=["PAT-SELECTIVE"],
+            ),
+            _hypothesis(
                 "STR-MUTATION",
                 "preserve_core_vary_execution",
                 summary={
@@ -238,6 +251,10 @@ def test_knowledge_promotion_builds_all_typed_banks_and_lineage() -> None:
     assert {"strategy", "rule", "lesson", "template", "playbook"}.issubset(
         set(catalog["knowledge_type"])
     )
+    selective_rows = catalog.loc[
+        catalog["subtype"].eq("selective_cross_account_reuse_model")
+    ]
+    assert set(selective_rows["knowledge_type"]) == {"strategy", "lesson"}
 
     templates = tables["templates"]
     family_templates = templates.loc[

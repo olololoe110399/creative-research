@@ -119,6 +119,9 @@ def _role_evidence() -> pd.DataFrame:
                 "imported_family_rate": 0.2,
                 "outbound_propagation_rate": 0.75,
                 "cross_account_participation_rate": 0.6,
+                "cross_account_flow_observations": 5,
+                "cross_account_origin_rate": 0.8,
+                "cross_account_import_rate": 0.2,
                 "originator_signal": 0.78,
                 "receiver_signal": 0.2,
                 "amplifier_signal": 0.5,
@@ -217,3 +220,47 @@ def test_pattern_engine_does_not_emit_small_performance_groups() -> None:
         or "creative_dimension_performance"
         not in set(patterns["pattern_type"])
     )
+
+
+
+def test_reuse_pattern_conditions_cross_account_share_on_repeated_families() -> None:
+    families = pd.DataFrame(
+        [
+            {
+                "family_id": f"F{index}",
+                "operator_id": "OP1",
+                "member_count": 2 if index < 6 else 1,
+                "cross_account": index < 5,
+                "lifespan_days": float(index),
+            }
+            for index in range(10)
+        ]
+    )
+    members = pd.DataFrame(
+        [
+            {"family_id": f"F{index}", "post_uid": f"P{index}"}
+            for index in range(10)
+        ]
+    )
+    tables = build_pattern_tables(
+        families=families,
+        family_members=members,
+        min_sample=5,
+    )
+    patterns = tables["patterns"]
+    conditional = patterns.loc[
+        patterns["pattern_type"].eq("cross_account_reuse_conditional")
+    ].iloc[0]
+    metrics = json.loads(conditional["metrics_json"])
+    assert metrics["multi_post_families"] == 6
+    assert metrics["cross_account_repeated_families"] == 5
+    assert metrics["cross_account_share_of_repeated"] == 5 / 6
+    assert conditional["sample_size"] == 6
+    assert conditional["support_rate"] == 5 / 6
+
+    links = tables["pattern_evidence_links"].loc[
+        tables["pattern_evidence_links"]["pattern_id"].eq(
+            conditional["pattern_id"]
+        )
+    ]
+    assert set(links["family_id"]) == {f"F{i}" for i in range(6)}
