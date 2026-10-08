@@ -78,6 +78,13 @@ function openOperatingForm(kind,id){
     head='Edit your original copy · '+r.recipe_id;
     form=opField('edited_hook',(status||{}).edited_hook||r.new_hook_draft_vi,'New first-slide hook','input')+
       opField('edited_caption',(status||{}).edited_caption||r.new_caption_draft_vi,'New caption','textarea')+
+      '<h3>Your editable slides</h3>'+
+      (r.slides||[]).map(function(slide){
+        const index=String(slide.slide_number);
+        return opField('slide_'+index,
+          ((status||{}).slides||{})[index]||slide.new_draft_text_vi,
+          'Original slide '+index+' overlay','textarea');
+      }).join('')+
       opField('editorial_checked_by',(status||{}).editorial_checked_by||'','Editor name (checks YOUR content, not operator intent)','input')+
       opField('notes',(status||{}).notes||'','Team notes','textarea');
   }else if(kind==='asset'){
@@ -108,6 +115,8 @@ function openOperatingForm(kind,id){
       opSelect('state',['draft','in_production','ready','published','skipped'],
         (status||{}).state||'draft','Task state')+
       opField('owner',(status||{}).owner||'','Assigned teammate','input')+
+      opField('scheduled_at',(status||{}).scheduled_at||'',
+        'Your planned publishing time (ISO with timezone offset)','input')+
       opField('published_url',(status||{}).published_url||'','Actual TikTok post URL (required for published)','input')+
       opField('published_at',(status||{}).published_at||'','Published ISO time (required for published)','input')+
       opField('notes',(status||{}).notes||'','Production notes','textarea')+
@@ -163,6 +172,16 @@ function openOperatingForm(kind,id){
       parent.querySelectorAll('[data-operating-field]').forEach(function(control){
         fields[control.dataset.operatingField]=control.value;
       });
+      if(kind==='recipe'){
+        const slides={};
+        Object.keys(fields).forEach(function(key){
+          if(key.startsWith('slide_')){
+            slides[key.slice(6)]=fields[key];
+            delete fields[key];
+          }
+        });
+        fields.slides=slides;
+      }
       saveOperating({action:kind,key:id,...fields});
     };
   });
