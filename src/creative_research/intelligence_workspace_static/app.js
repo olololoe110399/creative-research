@@ -28,8 +28,6 @@ function initMaps(){
   data.strategyById=byId(data.strategies.strategies,'hypothesis_id');
   data.knowledgeById=byId(data.knowledge.knowledge,'knowledge_id');
   data.accountById=byId(data.lab.account_network.nodes,'account_id');
-  data.reviewBySource=new Map();
-  (data.lab.review.items||[]).concat(data.lab.review.reviewed_items||[]).forEach(function(r){data.reviewBySource.set(String(r.review_source_type)+':'+String(r.review_source_id),r);});
 }
 
 function setHeader(){
@@ -53,7 +51,7 @@ function briefView(){
   const b=data.lab.research_brief||{}, hero=b.hero||{}, s=b.stats||{};
   const score=hero.confidence_score==null?0:clamp(Number(hero.confidence_score)*100,0,100);
   const findings=(b.key_findings||[]).slice(0,8).map(function(f){
-    return '<article class="finding-card" data-strategy="'+esc(f.hypothesis_id)+'"><div class="row"><span class="eyebrow">'+esc(label(f.hypothesis_type))+'</span>'+confidenceBadge(f.confidence_band,f.confidence_score)+badge(f.trust_status,f.trust_status==='approved'?'good':'warn')+'</div><h3>'+esc(f.title||label(f.hypothesis_type))+'</h3><p>'+esc(f.claim||'')+'</p></article>';
+    return '<article class="finding-card" data-strategy="'+esc(f.hypothesis_id)+'"><div class="row"><span class="eyebrow">'+esc(label(f.hypothesis_type))+'</span>'+confidenceBadge(f.confidence_band,f.confidence_score)+badge('inferred','warn')+'</div><h3>'+esc(f.title||label(f.hypothesis_type))+'</h3><p>'+esc(f.claim||'')+'</p></article>';
   }).join('');
   const canSay=(b.key_findings||[]).slice(0,5).map(function(f){
     return '<div class="claim-item"><span class="claim-icon info">?</span><div><b>'+esc(f.title||label(f.hypothesis_type))+'</b><span>'+esc(f.claim||'')+'</span></div></div>';
@@ -77,7 +75,7 @@ function briefView(){
       metricCard('Reuse events',num(s.propagation_events),'observed chronology')+
     '</div>'+
     '<section class="section"><div class="section-head"><div><h2>Most useful findings</h2><p>High-leverage interpretations before lower-level analytics.</p></div></div><div class="grid">'+(findings||'<div class="empty-state">No operating-model findings yet.</div>')+'</div></section>'+
-    '<section class="section claims"><div class="claim-box"><h3>What the evidence suggests (hypotheses)</h3><p>Not automatically human-approved. Open supporting and counter evidence before acting.</p><div class="claim-list">'+(canSay||'<p>No reviewed findings yet.</p>')+'</div></div><div class="claim-box"><h3>What we should not claim</h3><div class="claim-list">'+cannot+'</div></div></section>'+
+    '<section class="section claims"><div class="claim-box"><h3>What the evidence suggests (hypotheses)</h3><p>These are evidence-linked interpretations, not verified operator intent. Check sources, counterexamples and alternatives.</p><div class="claim-list">'+(canSay||'<p>No grounded hypotheses yet.</p>')+'</div></div><div class="claim-box"><h3>What we should not claim</h3><div class="claim-list">'+cannot+'</div></div></section>'+
     '<section class="section"><div class="section-head"><div><h2>Creative ideas worth inspecting</h2><p>The strongest repeated families, visualized as executions rather than rows.</p></div><button class="hero-link" data-go="families" style="background:#fff;color:#17191d;border-color:#d3d8e0">Open library</button></div><div class="grid">'+topFamilies+'</div></section>'+
     '<section class="section"><div class="section-head"><div><h2>Account roles at a glance</h2><p>Observed origin/receiver asymmetry, not internal org-chart labels.</p></div><button class="hero-link" data-go="network" style="background:#fff;color:#17191d;border-color:#d3d8e0">Open network</button></div><div class="grid">'+accounts+'</div></section>';
 }
@@ -226,7 +224,7 @@ function openFamily(id){
     '<h3>What appears preserved</h3><dl><dt>Angle</dt><dd>'+esc(label(f.core_angle))+'</dd><dt>Hook formula</dt><dd>'+esc(label(f.core_hook_formula))+'</dd><dt>Creative formula</dt><dd>'+esc(label(f.core_creative_formula))+'</dd><dt>First observed account</dt><dd>@'+esc(f.origin_account||'—')+'</dd></dl>'+
     '<h3>Executions</h3><div class="link-list">'+members+'</div>'+
     '<p class="research-limitation">These are machine-generated grouping candidates. AI can compare normalized creative and sequence evidence, not certify raw visual identity or intent.</p>'+
-    aiControlsMarkup('family',f.family_id,['investigate','challenge'])+
+    optionalAiButton('family',f.family_id,'investigate')+
     '<h3>Cross-account chronology</h3><div class="link-list">'+(prop||'<p>No cross-account propagation in this family.</p>')+'</div>');
 }
 
@@ -284,8 +282,8 @@ function wire(){
   document.querySelectorAll('[data-advanced]').forEach(function(b){b.onclick=function(){advancedMode=b.dataset.advanced;render();};});
   const search=$('#search'); if(search)search.oninput=function(){query=search.value;render();};
   const ff=$('#family-filter'); if(ff)ff.onchange=function(){familyFilter=ff.value;render();};
-  wireAiControls();
   wireResearchControls();
+  if(typeof wireAiControls==='function')wireAiControls();
 }
 
 function render(){
