@@ -22,6 +22,8 @@ def test_canonical_commands_exist() -> None:
         "analyze-cadence",
         "build-families",
         "analyze-propagation",
+        "analyze-timeline",
+        "discover-patterns",
         "rank-posts",
         "extract-references",
         "query",
