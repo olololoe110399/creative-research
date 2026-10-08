@@ -150,6 +150,20 @@ _COPY_VI = {
     ),
 }
 
+_VARIANT_SUBTYPE_HOOK_VI = {
+    "student_personas": "Lịch học nào hợp từng kiểu người học?",
+    "schedule_myth": "Bạn có cần một lịch học hoàn hảo, hay chỉ cần lịch hợp mình?",
+    "subject_techniques": "Môn Sinh và môn Văn có nên học bằng cùng một cách?",
+    "tips_wish_sooner": "Nếu học lại từ đầu, mình sẽ bỏ bốn thói quen này",
+    "knowledge_habits": "Mỗi ngày 15 phút học chủ đề mới: thử lịch này",
+    "clinical_study": "Cách tự kiểm tra kiến thức điều dưỡng mà không đoán liều",
+    "active_recall": "Vì sao đọc lại ghi chú liên tục chưa chắc giúp bạn nhớ?",
+    "exam_errors": "Thử sửa lỗi bài thi thay vì chỉ làm thêm đề",
+    "note_taking": "Bạn sẽ biến một trang ghi chú thành bài tự kiểm tra thế nào?",
+    "study_tool_workflow": "Bốn bước học với công cụ mà vẫn kiểm tra nguồn",
+    "everyday_schedule": "Lịch học bị lệch hôm nay? Thử điều chỉnh theo phiên",
+}
+
 _VARIANT_HOOK_VI = {
     "schedule": "Lịch học nào hợp nhịp sống của bạn nhất?",
     "exam": "Tuần thi tới rồi: bạn đã có cách ôn lại bài sai chưa?",
@@ -880,7 +894,10 @@ def build_production_kit(
             "test_dimension": "hook wording",
             "hook_to_publish_draft_vi": (
                 rec["new_hook_draft_vi"] if variant == "A" else
-                _VARIANT_HOOK_VI.get(rec["creative_kind"], _VARIANT_HOOK_VI["study_method"])
+                _VARIANT_SUBTYPE_HOOK_VI.get(
+                    rec.get("creative_subtype"),
+                    _VARIANT_HOOK_VI.get(rec["creative_kind"], _VARIANT_HOOK_VI["study_method"]),
+                )
             ),
             "controlled_test": (
                 "A/B test changes only the first-slide hook; keep account, "
