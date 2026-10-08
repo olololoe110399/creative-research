@@ -677,6 +677,7 @@ def _family_reuse_patterns(
             )
         )
 
+        conditional_id: str | None = None
         if repeated_count >= min_sample and cross_share_of_repeated is not None:
             conditional_id = _pattern_id(
                 "cross_account_reuse_conditional",
@@ -715,26 +716,34 @@ def _family_reuse_patterns(
                     },
                 )
             )
-        for family_id in group["family_id"].astype(str):
+        for family_index, family_row in group.iterrows():
+            family_id = str(family_row["family_id"])
             post_uids = member_lookup.get(family_id, [])
+            link_targets = [(pattern_id, "family_population")]
+            if conditional_id is not None and bool(repeated.loc[family_index]):
+                link_targets.append(
+                    (conditional_id, "repeated_family_population")
+                )
             if post_uids:
                 for post_uid in post_uids:
+                    for target_pattern_id, role in link_targets:
+                        links.append(
+                            _link(
+                                target_pattern_id,
+                                post_uid=post_uid,
+                                family_id=family_id,
+                                link_role=role,
+                            )
+                        )
+            else:
+                for target_pattern_id, role in link_targets:
                     links.append(
                         _link(
-                            pattern_id,
-                            post_uid=post_uid,
+                            target_pattern_id,
                             family_id=family_id,
-                            link_role="family_population",
+                            link_role=role,
                         )
                     )
-            else:
-                links.append(
-                    _link(
-                        pattern_id,
-                        family_id=family_id,
-                        link_role="family_population",
-                    )
-                )
 
     return patterns, links
 
