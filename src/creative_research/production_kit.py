@@ -535,7 +535,30 @@ def build_production_kit(
         raise ValueError("Production Kit must be scoped to exactly one operator.")
     operator_id = next(iter(account_scopes | post_scopes))
     source_digest = hashlib.sha256(json.dumps(
-        [(p.get("post_uid"), p.get("views"), p.get("created_at")) for p in posts],
+        {
+            "posts": [
+                (
+                    p.get("post_uid"), p.get("views"), p.get("created_at"),
+                    (p.get("creative") or {}).get("creative_formula"),
+                    (p.get("creative") or {}).get("hook_text"),
+                    [
+                        (s.get("role"), s.get("primary_text"), s.get("visual_type"))
+                        for s in p.get("sequence") or []
+                    ],
+                )
+                for p in posts
+            ],
+            "family_members": [
+                (
+                    f.get("family_id"),
+                    sorted(
+                        str(m.get("post_uid"))
+                        for m in f.get("members") or []
+                    ),
+                )
+                for f in family_rows
+            ],
+        },
         sort_keys=True, ensure_ascii=False, default=str,
     ).encode("utf-8")).hexdigest()
 
