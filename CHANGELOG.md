@@ -23,6 +23,7 @@
 - Refine AI family integration after real preview review: exact/translation/paraphrase/hook variants may create strong core-family edges, while `execution_variant` is preserved as semantic/template evidence and cannot seed a core family by itself.
 - Export `family_ai_review.csv` with pair hooks/topics and AI decision/reason/confidence for direct human audit without reading Parquet.
 - Make AI family judgment artifacts cumulative upserts by pair ID across compatible model/prompt/schema batches, preserving earlier judgments when a later budgeted batch selects a different subset.
+- Tighten the AI family judge to prompt/schema v2 after auditing cross-language false positives: add `template_variant`, require true central-idea equivalence for translations, ignore shared app/format/product funnel in the identity test, and enforce decision/relationship consistency in Pydantic.
 - Add `analyze-propagation` to derive family account entries, cross-account propagation events, origin/sequence account edges, creative-dimension changes, and descriptive account-role evidence.
 - Keep propagation chronology explicitly non-causal and defer testing/scaling/conversion strategy labels to later inference.
 - Add `analyze-timeline` for monthly/weekly operator/account strategy windows and deterministic adjacent-window change points.
