@@ -815,6 +815,8 @@ def build_production_kit(
             "post_evidence_links": sum(len(r["observed_source_posts"]) for r in recipes),
             "slides_drafted": sum(len(r["slides"]) for r in recipes),
             "asset_candidates": len(assets),
+            "false_split_candidates": len(false_splits),
+            "false_split_diagnostics_capped_at": 50,
             "corpus_observations": len(lessons),
             "assets_with_verified_rights": 0,
             "ready_to_publish": 0,
@@ -871,10 +873,11 @@ def enrich_production_kit_from_raw(
         })
 
     located: dict[tuple[str, str], dict[str, Any]] = {}
-    files = sorted({
+    available_files = sorted({
         *raw_root.rglob("all_items.jsonl"),
         *raw_root.rglob("posts.jsonl"),
-    })[:max_files]
+    })
+    files = available_files[:max_files]
     scanned = 0
     for path in files:
         if scanned >= max_rows or len(located) == len(expected):
@@ -1019,7 +1022,12 @@ def enrich_production_kit_from_raw(
     q = kit["quality"]
     q["raw_enrichment"] = "scanned_public_local_archive"
     q["raw_files_scanned"] = len(files)
+    q["raw_file_candidates"] = len(available_files)
     q["raw_rows_scanned"] = scanned
+    q["raw_scan_may_be_truncated"] = (
+        len(available_files) > max_files
+        or (scanned >= max_rows and len(located) < len(expected))
+    )
     q["raw_posts_matched"] = len(located)
     q["raw_posts_expected"] = len(expected)
     q["observed_caption_count"] = len(caption_examples)
