@@ -35,37 +35,21 @@ changed evidence. Selecting an experiment is NOT approval of an operator claim.
 
 See [Research Intelligence v3](docs/RESEARCH_INTELLIGENCE_V3.md).
 
-## Optional: deeper AI investigation (loaded only on click)
+## Research runs automatically — no AI buttons or truth approval
 
-Research Intelligence is available without AI or human approvals.
-Only when a user clicks **Investigate further with AI (optional)** does the
-Lab check AI availability and lazy-load the investigation dialog.
-The default page never fetches an AI status or loads the AI module.
-If explicitly requested, the model can investigate a hypothesis, challenge
-its counter-evidence, draft a provisional playbook and stress-test ideas. AI reports remain **provisional research assessments**; every cited source ID
-is validated against the materialized research data. AI does not approve
-or certify the operator's hidden actions.
+Open the Lab to see **Observed / Inferred / Unknown**, creative family
+consistency flags, and experiment candidates derived from your materialized
+warehouse. There is **no "Investigate further with AI" button** in Research
+Intelligence, the Creative Library or Operator Playbook, and no Copilot script
+or model-status request on page load.
 
-Model calls are **opt-in** and require your own Gemini API key:
+The analysis pipeline and optional offline family AI judge are separate from
+the Lab UI. Neither is a user-driven approval step. Gemini is still used by
+the upstream Vision / explicit family-judge stages when those stages run;
+opening the Lab does not trigger provider calls.
 
-```bash
-export GEMINI_API_KEY="..."
-uv run creative-research lab --open --ai-enabled --ai-max-calls 12
-```
-
-Before spending on model calls, run the free readiness check:
-
-```bash
-uv run creative-research ai-research-audit --strict
-```
-
-It writes `data/07_exports/operator-intelligence/ai_research_readiness.json`
-and checks all review sources for bounded, resolvable source evidence.
-
-Every call shows a free evidence/cost-budget preflight. Reports are saved in
-the gitignored local data directory with prompt/model/snapshot provenance.
-See [AI Research Copilot](docs/AI_RESEARCH_COPILOT.md) for safeguards,
-offline tests and what still needs real-dataset acceptance.
+After updating the source branch, regenerate the static Lab and restart the
+running server; see [Research Intelligence v3](docs/RESEARCH_INTELLIGENCE_V3.md).
 
 ## Requirements
 
