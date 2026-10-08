@@ -253,3 +253,37 @@ Each new batch is upserted by `pair_id` into compatible historical judgments tha
 Pairs not selected in the new batch remain in the cumulative output. If a selected pair is judged again, the new row replaces the previous row for that pair. Historical rows from incompatible model/prompt/schema versions are ignored rather than mixed into the active judgment set.
 
 The report distinguishes batch counts from cumulative counts.
+
+
+## Core-concept judge v2
+
+Real audit of the 258-pair v1 judgment set found that cross-language pairs were sometimes labeled `translation_adaptation` merely because they shared the same listicle/product-reveal/app funnel.
+
+Judge v2 makes the identity boundary explicit:
+
+```text
+same_core_concept
+  exact_reuse
+  translation_adaptation
+  paraphrase
+  hook_variant
+  execution_variant
+
+different_core_concept
+  template_variant
+  thematic_only
+  unrelated
+
+uncertain
+  uncertain
+```
+
+`template_variant` means the posts reuse a meaningful execution template/product funnel but have a different central topic, promise, problem, list subject, or medical/study subject.
+
+The prompt now applies an identity test that temporarily ignores shared app/product, CTA, visual style, listicle format, sequence, product reveal, and creator niche. Those dimensions can support `template_variant`, but cannot by themselves prove a shared core concept.
+
+For `translation_adaptation`, language difference is never sufficient. The central hook/promise/topic must be semantically equivalent.
+
+The Pydantic schema enforces decision/relationship consistency so a `template_variant` cannot validate as `same_core_concept`.
+
+Judge v2 uses new prompt/schema versions, so v1 cache/judgment rows are intentionally not mixed into the active v2 output.
