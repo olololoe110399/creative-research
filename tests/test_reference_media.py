@@ -3,7 +3,13 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from creative_research.reference_media import export_media_for_post, preview_media_for_post, select_media_keys
+from creative_research.reference_media import (
+    export_media_for_post,
+    local_media_sources_for_post,
+    preview_media_for_post,
+    remote_url_is_usable,
+    select_media_keys,
+)
 
 
 def _write_json(path: Path, value: dict) -> None:
@@ -140,3 +146,89 @@ def test_preview_media_returns_only_lightweight_remote_fields(
         "post_url": "https://www.tiktok.com/@creator/photo/321",
         "thumbnail_url": "https://cdn.example/slide-1.jpeg",
     }
+
+
+
+def test_expired_signed_tiktok_url_is_not_usable() -> None:
+    url = (
+        "https://p16-common-sign.tiktokcdn-eu.com/x.jpeg"
+        "?x-expires=1791392400&x-signature=abc"
+    )
+    assert not remote_url_is_usable(
+        url,
+        now_epoch=1791392401,
+        safety_margin_seconds=0,
+    )
+    assert remote_url_is_usable(
+        url,
+        now_epoch=1791390000,
+        safety_margin_seconds=0,
+    )
+    assert remote_url_is_usable(
+        "https://cdn.example/static.jpeg",
+        now_epoch=9999999999,
+    )
+
+
+def test_preview_filters_expired_signed_thumbnail(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    monkeypatch.setenv(
+        "CREATIVE_RESEARCH_PROJECT_ROOT",
+        str(tmp_path),
+    )
+    source = tmp_path / "data/02_media/tiktok/creator/expired"
+    source.mkdir(parents=True)
+    _write_json(
+        source / "raw.json",
+        {
+            "slideshowImageLinks": [
+                {
+                    "tiktokLink": (
+                        "https://cdn.example/slide.jpeg"
+                        "?x-expires=1"
+                    )
+                }
+            ]
+        },
+    )
+    preview = preview_media_for_post(
+        {
+            "account": "creator",
+            "post_id": "expired",
+            "content_type": "slideshow",
+        }
+    )
+    assert "thumbnail_url" not in preview
+
+
+def test_local_media_sources_resolve_archive_without_copying(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    monkeypatch.setenv(
+        "CREATIVE_RESEARCH_PROJECT_ROOT",
+        str(tmp_path),
+    )
+    archive = tmp_path / "data/02_media/tiktok/creator/999"
+    archive.mkdir(parents=True)
+    cover = archive / "cover.jpg"
+    cover.write_bytes(b"poster")
+    video_dir = tmp_path / "data/03_video_media/creator/999"
+    video_dir.mkdir(parents=True)
+    video = video_dir / "video.mp4"
+    video.write_bytes(b"video")
+
+    sources = local_media_sources_for_post(
+        {
+            "account": "creator",
+            "post_id": "999",
+            "content_type": "video",
+            "source_media_path": (
+                "data/03_video_media/creator/999"
+            ),
+        }
+    )
+    assert sources["thumbnail"] == cover
+    assert sources["video"] == video
