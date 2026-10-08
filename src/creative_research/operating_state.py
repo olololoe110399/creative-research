@@ -414,12 +414,26 @@ class OperatingStore:
                 old = state["recipes"].get(family)
                 if old and old.get("source_signature") != signature:
                     raise OperatingError("source_changed_recheck_required")
+                slides = payload.get("slides", {})
+                if not isinstance(slides,dict) or len(slides) > 24:
+                    raise OperatingError("invalid_slide_edits")
+                allowed_positions = {
+                    str(slide.get("slide_number"))
+                    for slide in row.get("slides",[])
+                }
+                if not set(slides).issubset(allowed_positions):
+                    raise OperatingError("unknown_slide_position")
+                cleaned_slides = {
+                    str(position):_text(copy,limit=800)
+                    for position,copy in slides.items()
+                }
                 state["recipes"][family] = {
                     "family_id": family,
                     "source_signature": signature,
                     "state": "edited",
                     "edited_hook": _text(payload.get("edited_hook",""),limit=1200),
                     "edited_caption": _text(payload.get("edited_caption",""),limit=2500),
+                    "slides": cleaned_slides,
                     "notes": _text(payload.get("notes","")),
                     "editorial_checked_by": _text(
                         payload.get("editorial_checked_by",""),limit=120
@@ -497,6 +511,14 @@ class OperatingStore:
                 if old and old.get("source_signature") != signature:
                     raise OperatingError("source_changed_recheck_required")
                 owner = _text(payload.get("owner",""),limit=120)
+                scheduled_at = _text(payload.get("scheduled_at",""),limit=70)
+                if scheduled_at:
+                    try:
+                        planned = datetime.fromisoformat(scheduled_at.replace("Z","+00:00"))
+                    except ValueError as exc:
+                        raise OperatingError("invalid_planned_publication_time") from exc
+                    if planned.tzinfo is None:
+                        raise OperatingError("planned_publication_timezone_required")
                 url = _text(payload.get("published_url",""),limit=1024)
                 when = _text(payload.get("published_at",""),limit=60)
                 if requested in {"ready","published"}:
@@ -526,7 +548,8 @@ class OperatingStore:
                     "slot_id": name,"family_id": family,
                     "source_signature": signature,
                     "state": requested,
-                    "owner": owner,"published_url": url,"published_at": when,
+                    "owner": owner,"scheduled_at": scheduled_at,
+                    "published_url": url,"published_at": when,
                     "notes": _text(payload.get("notes","")),
                     "updated_at": now,
                 }
@@ -670,8 +693,52 @@ class OperatingStore:
                 ("account",snapshot["account_work"]),
             ] for r in records],
             ["kind","family_id","recipe_id","asset_key","asset_id","slot_id",
-             "state","needs_recheck","owner","notes","updated_at"],
+             "state","needs_recheck","owner","scheduled_at","notes","updated_at"],
         )
+        allfiles["TEAM_ASSET_RIGHTS.csv"] = csv_bytes(
+            snapshot["asset_work"],[
+                "asset_key","asset_id","family_id","kind","role","state",
+                "needs_recheck","location","license_evidence",
+                "license_scope","rights_checked_by","editorial_checked_by",
+                "notes","updated_at",
+            ],
+        )
+        for recipe in sources["kit"].get("recipes",[]):
+            family=_family_id(recipe)
+            work=state["recipes"].get(family)
+            if not work or work.get("source_signature") != _recipe_signature(recipe):
+                continue
+            title=work.get("edited_hook") or recipe.get("new_hook_draft_vi") or ""
+            caption=work.get("edited_caption") or recipe.get("new_caption_draft_vi") or ""
+            slides=work.get("slides") or {}
+            lines=[
+                f"# {title}",
+                "",
+                f"Family: {family} — editorial draft for your owned account.",
+                "",
+                "This is your editable team copy, NOT operator-certified or publish-ready.",
+                f"Editorial check: {work.get('editorial_checked_by') or 'not checked'}",
+                "",
+                "## Your original overlay copy",
+            ]
+            for slide in recipe.get("slides",[]):
+                idx=str(slide.get("slide_number"))
+                lines.append(
+                    f"- Slide {idx}: "
+                    + str(slides.get(idx) or slide.get("new_draft_text_vi") or "")
+                )
+            lines.extend([
+                "", "## Your caption", caption, "",
+                "## Original public evidence posts (reference only)",
+            ])
+            for reference in recipe.get("observed_source_posts",[]):
+                lines.append(
+                    f"- {reference.get('post_uid')}: {reference.get('url')}"
+                )
+            safe_family=re.sub(r"[^a-zA-Z0-9_.-]","_",family)[:90]
+            allfiles[f"TEAM_EDITED_BRIEFS/{safe_family}.md"] = (
+                "\n".join(lines)+"\n"
+            ).encode("utf-8")
         allfiles["TEAM_README.txt"] = (
             "Team-edited working state is in TEAM_STATE.json and TEAM_TASKS.csv.\n"
             "Original source research is immutable; rights and publication are "
