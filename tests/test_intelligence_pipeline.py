@@ -21,6 +21,32 @@ def _touch(path: Path, text: str = "x") -> None:
     path.write_text(text, encoding="utf-8")
 
 
+def test_stage_freshness_rebuilds_when_report_parameter_changes(
+    tmp_path: Path,
+) -> None:
+    source = tmp_path / "input"
+    output = tmp_path / "output"
+    report = tmp_path / "report.json"
+    _touch(source)
+    _touch(output)
+    report.write_text('{"timezone": "UTC"}', encoding="utf-8")
+
+    newest = max(source.stat().st_mtime_ns, report.stat().st_mtime_ns)
+    os.utime(output, ns=(newest + 10_000, newest + 10_000))
+
+    spec = StageSpec(
+        name="cadence",
+        module="example",
+        inputs=(source,),
+        outputs=(output, report),
+        args=(),
+        report_expectations=((report, "timezone", "Asia/Ho_Chi_Minh"),),
+    )
+    action, reason = stage_freshness(spec)
+    assert action == "run"
+    assert "timezone" in reason
+
+
 def test_stage_freshness_reuses_outputs_until_input_changes(tmp_path: Path) -> None:
     source = tmp_path / "input"
     output = tmp_path / "output"
