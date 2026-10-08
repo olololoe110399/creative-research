@@ -343,13 +343,24 @@ def _account_network_payload(
         origin = _as_float(role.get("originator_signal")) or 0.0
         receiver = _as_float(role.get("receiver_signal")) or 0.0
         amplifier = _as_float(role.get("amplifier_signal"))
-        profile = str(role.get("descriptive_profile") or "")
-        if origin >= 0.65 and origin - receiver >= 0.25:
+        flow_observations = _as_int(
+            role.get("cross_account_flow_observations")
+        )
+        strength = str(role.get("evidence_strength") or "")
+        if (
+            flow_observations >= 5
+            and strength != "low"
+            and origin >= 0.65
+            and origin - receiver >= 0.25
+        ):
             role_label = "origin_leaning"
-        elif receiver >= 0.65 and receiver - origin >= 0.20:
+        elif (
+            flow_observations >= 5
+            and strength != "low"
+            and receiver >= 0.65
+            and receiver - origin >= 0.20
+        ):
             role_label = "receiver_leaning"
-        elif profile:
-            role_label = profile
         else:
             role_label = "mixed_or_insufficient"
         nodes.append(
@@ -361,9 +372,7 @@ def _account_network_payload(
                 "originator_signal": origin,
                 "receiver_signal": receiver,
                 "amplifier_signal": amplifier,
-                "flow_observations": _as_int(
-                    role.get("cross_account_flow_observations")
-                ),
+                "flow_observations": flow_observations,
                 "evidence_strength": role.get("evidence_strength"),
                 "strategy_hypotheses": strategy_by_account.get(account_id, []),
             }
