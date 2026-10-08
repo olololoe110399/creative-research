@@ -1022,9 +1022,13 @@ def attach_own_experiment_outcomes(
 
 
 def audit_production_kit(
-    kit: dict[str, Any], post_ids: set[str] | None = None
+    kit: dict[str, Any],
+    post_ids: set[str] | None = None,
+    family_ids: set[str] | None = None,
 ) -> dict[str, Any]:
     errors: list[str] = []
+    if kit.get("schema_version") != SCHEMA_VERSION:
+        errors.append("invalid_production_kit_schema")
     recipe_rows = kit.get("recipes") or []
     recipe_ids = [r.get("recipe_id") for r in recipe_rows]
     if not recipe_ids or len(recipe_ids) != len(set(recipe_ids)):
@@ -1035,6 +1039,8 @@ def audit_production_kit(
         errors.append("duplicate_asset_ids")
     for recipe in recipe_rows:
         rid = recipe.get("recipe_id")
+        if family_ids is not None and recipe.get("family_id") not in family_ids:
+            errors.append(f"{rid}:orphan_source_family")
         if not recipe.get("observed_source_posts"):
             errors.append(f"{rid}:missing_source_posts")
         if not recipe.get("slides"):
@@ -1056,6 +1062,12 @@ def audit_production_kit(
             errors.append(f"{asset.get('asset_id')}:orphan_asset_recipe")
         if asset.get("rights_status") != "team_attested_licensed" and asset.get("safe_to_publish"):
             errors.append(f"{asset.get('asset_id')}:unlicensed_asset_marked_publishable")
+    for sound in kit.get("music_bank", []):
+        if sound.get("usable_as_commercial_sound") is not False:
+            errors.append(f"{sound.get('sound_key')}:sound_rights_not_verified")
+    for match in kit.get("suspected_false_splits", []):
+        if match.get("validated_same_concept") is not False:
+            errors.append("unverified_family_split_presented_as_fact")
     for calendar in kit.get("calendar", []):
         if calendar.get("recipe_id") not in recipe_ids:
             errors.append(f"{calendar.get('slot_id')}:orphan_calendar_recipe")
