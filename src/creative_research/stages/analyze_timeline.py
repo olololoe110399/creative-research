@@ -361,7 +361,9 @@ def _group_window_row(
     timezone: str,
 ) -> dict[str, Any]:
     created = pd.to_datetime(group["created_at"], errors="coerce", utc=True)
-    active_days = int(created.dt.strftime("%Y-%m-%d").nunique())
+    zone = ZoneInfo(timezone)
+    local_created = created.dt.tz_convert(zone)
+    active_days = int(local_created.dt.strftime("%Y-%m-%d").nunique())
     posts_per_active_day = (
         float(len(group) / active_days) if active_days else None
     )
