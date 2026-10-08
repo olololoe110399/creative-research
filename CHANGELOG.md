@@ -16,6 +16,8 @@
 - Speed up `calibrate-families` with structural candidate blocking, semantic upper-bound pruning, blocker-recall diagnostics, and progress output so large operator datasets do not appear hung.
 - Add `preview-families-v2` to test conservative language-aware strong/bridge gates and anchor-constrained clustering against calibration pairs without replacing production families.
 - Tighten same-language family-v2 preview seeds/bridges with hook/topic coherence gates after real review found broad same-taxonomy false positives, while leaving cross-language translation gates unchanged.
+- Add opt-in `judge-family-candidates` with deterministic candidate selection, structured Gemini semantic judgments, pair/evidence/model cache keys, dry-run token/cost planning, hard pair/API-call/output caps, and actual usage reporting.
+- Let `preview-families-v2` consume confidence-gated AI judgments: high-confidence same-core edges are strong, high-confidence different/thematic-only edges are rejected, and uncertain/low-confidence judgments fall back to deterministic gates.
 - Add `analyze-propagation` to derive family account entries, cross-account propagation events, origin/sequence account edges, creative-dimension changes, and descriptive account-role evidence.
 - Keep propagation chronology explicitly non-causal and defer testing/scaling/conversion strategy labels to later inference.
 - Add `analyze-timeline` for monthly/weekly operator/account strategy windows and deterministic adjacent-window change points.

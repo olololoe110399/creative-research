@@ -23,6 +23,7 @@ def test_canonical_commands_exist() -> None:
         "build-families",
         "calibrate-families",
         "preview-families-v2",
+        "judge-family-candidates",
         "analyze-propagation",
         "analyze-timeline",
         "discover-patterns",

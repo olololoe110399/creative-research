@@ -349,6 +349,57 @@ The preview is deliberately conservative:
 
 The preview never overwrites `creative_families.parquet`. Inspect the family-size distribution and largest-family review CSV before migrating the production family layer.
 
+#### Add semantic AI adjudication only to ambiguous candidate pairs
+
+Plan the AI layer without spending tokens:
+
+```bash
+uv run creative-research judge-family-candidates --dry-run
+```
+
+The plan prints selected pair count, estimated input tokens, output-token ceiling, total-token ceiling, estimated USD ceiling, and hard API-call limits.
+
+Run only after inspecting that plan:
+
+```bash
+export GEMINI_API_KEY="..."
+uv run creative-research judge-family-candidates
+```
+
+The stage uses existing Vision evidence only. It does **not** send views, likes, shares, saves, percentiles, or other performance metrics to the model.
+
+Default safeguards:
+
+```text
+model                         gemini-2.5-flash-lite
+max selected pairs            1,000
+max API call attempts         1,100
+max estimated input / pair    1,800 tokens
+max aggregate input estimate  900,000 tokens
+max output / pair             320 tokens
+```
+
+Judgments are cached by pair + evidence hash + model + prompt/schema version. Re-running the stage reuses cached judgments unless `--force` is explicitly supplied.
+
+Outputs:
+
+```text
+data/06_analytics/family_ai/
+├── family_ai_plan.json
+├── family_ai_cache.jsonl
+├── family_ai_judgments.parquet
+├── family_ai_judgments.jsonl
+└── family_ai_report.json
+```
+
+Each judgment is structured as `same_core_concept`, `different_core_concept`, or `uncertain`, plus relationship type, preserved/changed dimensions, evidence, counter-evidence, confidence, and concise reason.
+
+`preview-families-v2` automatically consumes `family_ai_judgments.parquet` when present. High-confidence AI same-core judgments become strong edges; high-confidence different-core/thematic-only judgments reject edges; uncertain or low-confidence results fall back to deterministic gates.
+
+AI therefore acts as an auditable semantic adjudicator between candidate retrieval and family assignment, not as an unrestricted family generator.
+
+See `docs/AI_FAMILY_JUDGE.md`.
+
 ### 12. Analyze cross-account propagation
 
 After families exist, derive how each family appears across the manually verified accounts of the same operator:

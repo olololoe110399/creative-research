@@ -153,6 +153,9 @@ fresh outputs by explicit dependency/freshness checks.
 - Orchestration freshness checks include data mtimes plus parameter provenance for operator registry, timezone, and knowledge-review registry.
 - Rebuild propagation follows explicit data dependencies rather than command order.
 - Quality audit failures represent broken/missing integrity or materially incomplete required coverage; warnings must never be converted into fabricated data.
+- Family AI adjudication is opt-in and is never called by `intelligence-build`; users must inspect a dry-run budget plan before invoking Gemini.
+- Family AI prompts contain creative evidence only and exclude performance metrics to avoid label leakage.
+- AI pair judgments are inferred evidence with model/prompt/schema/cache provenance; they can override family-preview edges only above an explicit confidence gate.
 - Knowledge trust status must remain visible in the workspace so rejected/hold/review candidates are not confused with active guidance.
 - Pattern evidence must remain traceable to stable post/family/account IDs.
 - `creative_master` has one row per unique `account+post_id`.

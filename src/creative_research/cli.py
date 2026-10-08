@@ -28,6 +28,7 @@ COMMANDS = {
     "build-families": "creative_research.stages.build_families",
     "calibrate-families": "creative_research.stages.calibrate_families",
     "preview-families-v2": "creative_research.stages.preview_families_v2",
+    "judge-family-candidates": "creative_research.stages.judge_family_candidates",
     "analyze-propagation": "creative_research.stages.analyze_propagation",
     "analyze-timeline": "creative_research.stages.analyze_timeline",
     "discover-patterns": "creative_research.stages.discover_patterns",
@@ -67,6 +68,7 @@ Canonical evidence pipeline:
   build-families      Group repeated creative concepts with auditable similarity evidence
   calibrate-families  Measure family similarity/threshold behavior without changing families
   preview-families-v2 Preview conservative language-aware family clustering v2
+  judge-family-candidates AI-judge ambiguous family pairs with cache/budget guards
   analyze-propagation Track family movement across verified operator accounts
   analyze-timeline    Build historical strategy windows + change points
   discover-patterns   Discover deterministic evidence-backed recurring patterns
@@ -105,6 +107,7 @@ Examples:
   uv run creative-research build-families
   uv run creative-research calibrate-families
   uv run creative-research preview-families-v2
+  uv run creative-research judge-family-candidates --dry-run
   uv run creative-research analyze-propagation
   uv run creative-research analyze-timeline --timezone UTC
   uv run creative-research discover-patterns
@@ -127,6 +130,7 @@ Detailed stage help:
   uv run creative-research build-families --help
   uv run creative-research calibrate-families --help
   uv run creative-research preview-families-v2 --help
+  uv run creative-research judge-family-candidates --help
   uv run creative-research analyze-propagation --help
   uv run creative-research analyze-timeline --help
   uv run creative-research discover-patterns --help
