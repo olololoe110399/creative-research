@@ -651,9 +651,7 @@ Build a static research UI from the warehouse/analytics/knowledge outputs alread
 uv run creative-research build-intelligence-workspace \
   --out data/07_exports/operator-intelligence
 
-uv run creative-research intelligence \
-  --dir data/07_exports/operator-intelligence \
-  --open
+uv run creative-research lab --open
 ```
 
 This stage does **not** rerun scraping, Vision, analytics, strategy inference, or knowledge promotion. It only materializes existing tables into browser-friendly JSON and copies a packaged static UI.
@@ -677,30 +675,19 @@ data/07_exports/operator-intelligence/
 └── evidence.json
 ```
 
-The workspace is ordered around the reverse-engineering question:
+The Operator Intelligence Lab is ordered around the decisions a nontechnical researcher actually needs:
 
-1. **Overview** — complete operator counts, active knowledge, trust/status audit.
-2. **Accounts** — performance baseline, cadence, originator/receiver/amplifier evidence.
-3. **Timeline** — historical strategy windows and material change points.
-4. **Families** — repeated concepts, members, lifecycle, cross-account propagation.
-5. **Patterns** — recurring observations with effect/sample/counter evidence.
-6. **Strategies** — hypotheses with confidence, alternative explanations, pattern links.
-7. **Knowledge** — strategies/rules/lessons/templates/playbooks with explicit trust status.
-8. **Evidence** — canonical posts with creative analysis, relative performance, family membership, sequence, and original URLs.
+1. **Research Brief** — what we learned, strongest operating-model findings, explicit guardrails, and the most important creative/account evidence.
+2. **Account Network** — how repeated concepts move across verified accounts and which accounts are origin/receiver leaning.
+3. **Creative Library** — repeated creative concepts shown visually with executions, accounts, chronology, and evidence drill-down.
+4. **Insight Review** — Tier 1/2/3 source-level human judgment with approve / hold / reject actions.
+5. **Advanced** — raw strategy hypotheses, patterns, timeline, knowledge, and post evidence.
 
-Drawers preserve drill-down lineage such as:
+The browser intentionally hides pipeline stages, file formats, and schemas from the primary experience. They remain available underneath for audit and engineering.
 
-```text
-Knowledge
-  -> Strategy hypothesis
-  -> Pattern
-  -> Family / Post
-  -> original source URL
-```
+The Operator Intelligence Lab and Reference Workspace serve different purposes:
 
-The **Operator Intelligence Workspace** and **Reference Workspace** serve different purposes:
-
-- Operator Intelligence Workspace = understand how the operator works and what the system has learned.
+- Operator Intelligence Lab = understand how the operator works, review evidence-backed insights, and build trusted knowledge.
 - Reference Workspace = inspect/compare/select specific creative executions for downstream Creative Bank handoff.
 
 Neither UI is a new source of truth; both are generated research surfaces over canonical evidence.

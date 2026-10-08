@@ -3,27 +3,36 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <meta name="description" content="Operator intelligence research workspace">
-  <title>Operator Intelligence Workspace</title>
+  <meta name="description" content="Evidence-backed operator research, creative reuse, and human review">
+  <title>Operator Intelligence Lab</title>
   <link rel="icon" href="favicon.svg">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-<header>
-  <div><strong>Operator Intelligence</strong><small> evidence → strategy → knowledge</small></div>
-  <div id="counts"></div>
+<header class="topbar">
+  <div class="brand">
+    <div class="brand-mark">OI</div>
+    <div>
+      <strong>Operator Intelligence Lab</strong>
+      <small id="project-name">Loading research…</small>
+    </div>
+  </div>
+  <div id="research-meta" class="research-meta"></div>
 </header>
-<nav>
-  <button data-tab="overview" class="active">01 Overview</button>
-  <button data-tab="accounts">02 Accounts</button>
-  <button data-tab="timeline">03 Timeline</button>
-  <button data-tab="families">04 Families</button>
-  <button data-tab="patterns">05 Patterns</button>
-  <button data-tab="strategies">06 Strategies</button>
-  <button data-tab="knowledge">07 Knowledge</button>
-  <button data-tab="evidence">08 Evidence</button>
+<nav class="primary-nav" aria-label="Primary">
+  <button data-tab="brief" class="active">Research Brief</button>
+  <button data-tab="network">Account Network</button>
+  <button data-tab="families">Creative Library</button>
+  <button data-tab="review">Insight Review <span id="review-count" class="nav-count"></span></button>
+  <button data-tab="advanced">Advanced</button>
 </nav>
-<main id="main">Loading intelligence workspace...</main>
+<main id="main">
+  <section class="loading-state">
+    <div class="spinner"></div>
+    <h1>Building the research story…</h1>
+  </section>
+</main>
+<div id="toast-root"></div>
 <script src="app.js"></script>
 </body>
 </html>
