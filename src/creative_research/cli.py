@@ -40,6 +40,7 @@ COMMANDS = {
     "lab": "creative_research.stages.intelligence",
     "intelligence-build": "creative_research.stages.intelligence_build",
     "quality-audit": "creative_research.stages.quality_audit",
+    "outcome-audit": "creative_research.stages.outcome_audit",
     "rank-posts": "creative_research.stages.rank_posts",
     "extract-references": "creative_research.stages.extract_references",
     "query": "creative_research.stages.query",
