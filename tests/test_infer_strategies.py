@@ -52,6 +52,9 @@ def _patterns() -> pd.DataFrame:
                 "imported_family_rate": 0.15,
                 "outbound_propagation_rate": 0.78,
                 "cross_account_participation_rate": 0.70,
+                "cross_account_flow_observations": 12,
+                "cross_account_origin_rate": 0.82,
+                "cross_account_import_rate": 0.18,
                 "originator_signal": 0.80,
                 "receiver_signal": 0.15,
                 "amplifier_signal": 0.30,
@@ -69,6 +72,9 @@ def _patterns() -> pd.DataFrame:
                 "imported_family_rate": 0.84,
                 "outbound_propagation_rate": 0.20,
                 "cross_account_participation_rate": 0.76,
+                "cross_account_flow_observations": 15,
+                "cross_account_origin_rate": 0.14,
+                "cross_account_import_rate": 0.86,
                 "originator_signal": 0.14,
                 "receiver_signal": 0.84,
                 "amplifier_signal": 0.72,
@@ -82,6 +88,7 @@ def _patterns() -> pd.DataFrame:
             metrics={
                 "multi_post_family_rate": 0.72,
                 "cross_account_family_rate": 0.46,
+                "cross_account_share_of_repeated": 0.80,
                 "median_family_lifespan_days": 6.0,
             },
             effect_size=None,
@@ -89,6 +96,21 @@ def _patterns() -> pd.DataFrame:
             evidence_strength="high",
             sample_size=40,
             counter={"singleton_families": 11},
+        ),
+        _pattern(
+            "PAT-SELECTIVE-REUSE",
+            "cross_account_reuse_conditional",
+            metrics={
+                "multi_post_family_rate": 0.12,
+                "multi_post_families": 20,
+                "cross_account_repeated_families": 18,
+                "cross_account_share_of_repeated": 0.90,
+            },
+            effect_size=0.40,
+            support_rate=0.90,
+            evidence_strength="high",
+            sample_size=20,
+            counter={"repeated_single_account_families": 2},
         ),
         _pattern(
             "PAT-ANGLE-PRESERVE",
@@ -217,6 +239,7 @@ def test_strategy_inference_builds_account_and_operator_hypotheses() -> None:
     assert "account_origin_exploration" in types
     assert "account_reuse_amplification" in types
     assert "operator_explore_propagate_model" in types
+    assert "selective_cross_account_reuse_model" in types
     assert "preserve_core_vary_execution" in types
     assert "iterative_reuse_model" in types
     assert "performance_responsive_cadence" in types
@@ -238,6 +261,18 @@ def test_strategy_inference_builds_account_and_operator_hypotheses() -> None:
     assert summary["origin_accounts"] == ["A"]
     assert summary["receiver_accounts"] == ["B"]
     assert model["supporting_patterns_count"] >= 2
+
+    selective = hypotheses.loc[
+        hypotheses["hypothesis_type"].eq(
+            "selective_cross_account_reuse_model"
+        )
+    ].iloc[0]
+    selective_summary = json.loads(
+        selective["evidence_summary_json"]
+    )
+    assert selective_summary["multi_post_family_rate"] == 0.12
+    assert selective_summary["cross_account_share_of_repeated"] == 0.90
+    assert selective["causal_claim"] == False  # noqa: E712
 
 
 def test_mutation_hypothesis_keeps_supporting_patterns_and_inherited_evidence() -> None:
