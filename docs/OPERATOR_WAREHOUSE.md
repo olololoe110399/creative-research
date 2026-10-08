@@ -25,6 +25,24 @@ It never calls TikTok, Apify, Gemini, or another LLM.
 
 ## Registry
 
+Confirm ownership grouping **before scrape**, not as a repeated post-research
+approval. The researcher may assert an account set belongs to the same
+operator, but this is not independently verifiable proof of legal ownership.
+The standard path is:
+
+```bash
+uv run creative-research operator-setup \
+  --accounts-file config/target_accounts.txt \
+  --operator-id OP-001 --name "Research operator" \
+  --confirm-same-operator
+uv run creative-research scrape config/target_accounts.txt \
+  --operators config/operators.toml --preflight
+```
+
+For migration from a previously confirmed registry, you can still edit it
+directly or copy the tracked example. The old example remains a *fake*
+configuration and must not be treated as real verification.
+
 Copy the tracked fake example to a local ignored file:
 
 ```bash
