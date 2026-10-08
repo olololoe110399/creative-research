@@ -221,7 +221,14 @@ function openFamily(id){
     const p=data.postById.get(String(m.post_uid))||{}, c=p.creative||{};
     return '<div>'+postButton(m.post_uid,'@'+(m.account||p.account||'')+' · '+(c.hook_text||m.hook_text||m.post_uid))+'</div>';
   }).join('');
-  const prop=(f.propagation||[]).map(function(p){return '<div class="panel"><b>@'+esc(p.origin_account||'')+' → @'+esc(p.target_account||'')+'</b><p>'+num(p.delay_from_family_origin_days)+' days after first observed family post</p>'+postButton(p.target_first_post_uid,'Open receiving execution')+'</div>';}).join('');
+  const prop=(f.propagation||[]).map(function(p){
+    const kept=(function(){try{return JSON.parse(p.preserved_dimensions_json||'[]');}catch(e){return [];}})();
+    const changed=(function(){try{return JSON.parse(p.changed_dimensions_json||'[]');}catch(e){return [];}})();
+    return '<div class="panel"><b>@'+esc(p.origin_account||'')+' → @'+esc(p.target_account||'')+'</b><p>'+num(p.delay_from_family_origin_days)+' days after first observed family post</p>'+
+      '<div class="flow-posts">'+postButton(p.family_origin_post_uid,'Open origin execution')+postButton(p.target_first_post_uid,'Open receiving execution')+'</div>'+
+      '<small>Origin percentile '+pct(p.origin_views_percentile_account)+' · receiver percentile '+pct(p.target_first_views_percentile_account)+'</small>'+
+      '<p>Preserved: '+esc(kept.join(', ')||'unknown')+' · Changed: '+esc(changed.join(', ')||'unknown')+'</p></div>';
+  }).join('');
   drawer(f.core_hook_text||f.family_id,
     '<div class="family-preview" style="border-radius:14px;margin:10px 0 18px">'+familyThumbs(f)+'</div>'+
     '<div class="badges">'+badge((f.member_count||0)+' executions','info')+badge((f.accounts_count||0)+' accounts')+badge(f.cross_account?'cross-account':'single-account',f.cross_account?'good':'')+'</div>'+
@@ -268,19 +275,21 @@ function openReview(key){
   let evidence='';
   if(r.review_source_type==='hypothesis'){
     const s=data.strategyById.get(String(r.review_source_id));
-    if(s)evidence='<h3>Claim</h3><p>'+esc(s.claim||'')+'</p><h3>Evidence summary</h3><pre>'+esc(json(s.evidence_summary||{}))+'</pre><h3>Alternative explanations</h3><ul>'+(s.alternative_explanations||[]).map(function(x){return '<li>'+esc(x)+'</li>';}).join('')+'</ul><div class="link-list">'+(s.pattern_links||[]).map(function(l){return patternButton(l.pattern_id,l.pattern_id+' · '+(l.relation||'support'));}).join('')+'</div>';
+    if(s)evidence='<h3>Claim</h3><p>'+esc(s.claim||'')+'</p><h3>Evidence summary</h3><pre>'+esc(json(s.evidence_summary||{}))+'</pre><h3>Counter evidence</h3><pre>'+esc(json(s.counter_evidence||{}))+'</pre><h3>Alternative explanations</h3><ul>'+(s.alternative_explanations||[]).map(function(x){return '<li>'+esc(x)+'</li>';}).join('')+'</ul><div class="link-list">'+(s.pattern_links||[]).map(function(l){return patternButton(l.pattern_id,l.pattern_id+' · '+(l.relation||'support'));}).join('')+'</div>'+strategyFlowHtml(s);
   }else if(r.review_source_type==='family'){
     evidence='<h3>Family evidence</h3>'+familyButton(r.review_source_id,'Open complete creative family');
   }
-  drawer(r.title||r.review_source_id,'<div class="badges">'+badge('Tier '+r.priority_tier,'info')+confidenceBadge(null,r.confidence_max)+badge(r.review_source_type)+'</div><p>'+esc(r.statement||'')+'</p><h3>What to check</h3><p>'+esc(r.review_focus||'')+'</p><div class="review-evidence"><span>'+num(r.evidence_post_count)+' posts</span><span>'+num(r.evidence_family_count)+' families</span><span>'+num(r.evidence_pattern_count)+' patterns</span></div>'+evidence+'<h3>Your judgment</h3><div class="review-form"><input id="reviewed-by" placeholder="Your name (optional)"><textarea id="review-note" placeholder="What did you check? Why this decision?"></textarea><div class="review-actions"><button class="reject" data-review-decision="reject" data-review-key="'+esc(key)+'">Reject</button><button class="hold" data-review-decision="hold" data-review-key="'+esc(key)+'">Need more evidence</button><button class="approve" data-review-decision="approve" data-review-key="'+esc(key)+'">Approve</button></div><small style="color:#6b7280">The decision is saved locally and the knowledge/workspace trust layer is rebuilt automatically.</small></div>');
+  drawer(r.title||r.review_source_id,'<div class="badges">'+badge('Tier '+r.priority_tier,'info')+confidenceBadge(null,r.confidence_max)+badge(r.review_source_type)+'</div><p>'+esc(r.statement||'')+'</p><h3>What to check</h3><p>'+esc(r.review_focus||'')+'</p><div class="review-evidence"><span>'+num(r.evidence_post_count)+' posts</span><span>'+num(r.evidence_family_count)+' families</span><span>'+num(r.evidence_pattern_count)+' patterns</span></div>'+evidence+'<h3>Your judgment</h3><div class="review-form"><input id="reviewed-by" placeholder="Your name (optional)"><textarea id="review-note" placeholder="Required: which supporting/counter evidence did you check, and why?"></textarea><label class="review-confirm"><input id="evidence-inspected" type="checkbox"> I inspected source evidence and alternatives, not just the confidence score.</label><div class="review-actions"><button class="reject" data-review-decision="reject" data-review-key="'+esc(key)+'">Reject</button><button class="hold" data-review-decision="hold" data-review-key="'+esc(key)+'">Need more evidence</button><button class="approve" data-review-decision="approve" data-review-key="'+esc(key)+'">Approve</button></div><small style="color:#6b7280">The decision is saved locally and the knowledge/workspace trust layer is rebuilt automatically.</small></div>');
 }
 
 async function submitReview(key,decision){
   const r=data.reviewBySource.get(String(key)); if(!r)return;
-  const note=$('#review-note')?$('#review-note').value:'', reviewedBy=$('#reviewed-by')?$('#reviewed-by').value:'';
+  const note=$('#review-note')?$('#review-note').value.trim():'', reviewedBy=$('#reviewed-by')?$('#reviewed-by').value.trim():'';
+  if(note.length<10){toast('Please record what you checked (at least 10 characters).');return;}
+  if(decision==='approve'&&!$('#evidence-inspected').checked){toast('Inspect source evidence and confirm before approval.');return;}
   const buttons=document.querySelectorAll('[data-review-decision]'); buttons.forEach(function(b){b.disabled=true; b.textContent='Saving…';});
   try{
-    const response=await fetch('/api/review',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({source_type:r.review_source_type,source_id:r.review_source_id,decision:decision,note:note,reviewed_by:reviewedBy,rebuild:true})});
+    const response=await fetch('/api/review',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({source_type:r.review_source_type,source_id:r.review_source_id,decision:decision,note:note,reviewed_by:reviewedBy,evidence_inspected:!!($('#evidence-inspected')&&$('#evidence-inspected').checked),rebuild:true})});
     const result=await response.json();
     if(!response.ok)throw new Error(result.error||'Review failed');
     toast('Review saved. Refreshing trusted knowledge…');
