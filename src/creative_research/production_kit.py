@@ -160,6 +160,151 @@ _VARIANT_HOOK_VI = {
     "study_method": "Bạn đã thử học bằng cách tự giải thích chưa?",
 }
 
+# Specific creative angles found in the operator's public family vocabulary.
+# This is a conservative editorial translator of STRUCTURE, not automatic
+# translation/copying of someone's original overlay text or medical claims.
+_SUBTYPE_DRAFTS = {
+    "student_personas": (
+        "4 kiểu người học, 4 lịch ôn không giống nhau",
+        [
+            "Bạn học theo nhịp ổn định? Đặt hai phiên ngắn xen giờ nghỉ.",
+            "Dễ mất tập trung? Chia bài thành khối nhỏ và đặt điểm dừng rõ.",
+            "Vừa đi học vừa đi làm? Tận dụng một phiên 25 phút có mục tiêu.",
+            "Muốn tăng độ khó? Dành một phiên tự kiểm tra không mở sách.",
+        ],
+    ),
+    "schedule_myth": (
+        "Không có lịch học hoàn hảo cho tất cả mọi người",
+        [
+            "Bắt đầu từ giờ ngủ và lịch học cố định của chính bạn.",
+            "Chọn một phiên khó trước khi năng lượng xuống thấp.",
+            "Chèn giờ ăn, nghỉ và vận động vào lịch, đừng chỉ lấp kín việc học.",
+            "Giữ một khoảng thời gian để ôn câu sai và chỉnh lịch tuần sau.",
+        ],
+    ),
+    "subject_techniques": (
+        "Mỗi môn học nên thử một cách ôn khác nhau",
+        [
+            "Môn nhiều khái niệm: thử giải thích bằng ví dụ của bạn.",
+            "Môn cần giải bài: làm thử câu hỏi trước khi xem lời giải.",
+            "Môn có sơ đồ: tự vẽ lại quá trình mà không nhìn mẫu.",
+            "Môn nhiều từ khóa: dùng flashcard và lịch ôn lặp lại.",
+        ],
+    ),
+    "tips_wish_sooner": (
+        "4 điều mình ước biết trước khi bắt đầu ôn thi",
+        [
+            "Đọc đi đọc lại chưa chắc bằng tự trả lời câu hỏi.",
+            "Chia chủ đề theo mức độ hiểu thay vì đếm trang tài liệu.",
+            "Đặt thời gian nghỉ trước khi bắt đầu phiên ôn dài.",
+            "Ghi một danh sách câu sai để quyết định buổi học tiếp theo.",
+        ],
+    ),
+    "knowledge_habits": (
+        "Muốn mở rộng hiểu biết? Thử 4 thói quen học nhỏ",
+        [
+            "Chọn một câu hỏi mới mỗi sáng và tìm nguồn đáng tin.",
+            "Xem một bài giải thích rồi tóm tắt bằng lời của bạn.",
+            "Ghi lại điều chưa hiểu, không biến mẹo tìm nhanh thành sự thật.",
+            "Cuối tuần, kể lại điều đã học và ghi nguồn tham khảo.",
+        ],
+    ),
+    "clinical_study": (
+        "Sinh viên điều dưỡng: ôn kiến thức chuyên môn sao cho an toàn?",
+        [
+            "Dùng giáo trình và tài liệu lâm sàng được phê duyệt làm nguồn.",
+            "Tách công thức, đơn vị và tình huống thành các flashcard.",
+            "Tự kiểm tra với bài tập có đáp án được giảng viên xác nhận.",
+            "Không dùng bài đăng hoặc AI thay hướng dẫn tính liều chuyên môn.",
+        ],
+    ),
+    "active_recall": (
+        "Thử ôn một chương mà không xem lại ghi chú liên tục",
+        [
+            "Đọc một phần bài học để xác định ba điểm quan trọng.",
+            "Đóng tài liệu và thử giải thích thành một đoạn ngắn.",
+            "Tự trả lời ba câu hỏi ngắn về phần vừa học.",
+            "Mở lại nguồn học liệu để sửa lỗi, rồi lên lịch kiểm tra lần hai.",
+        ],
+    ),
+    "exam_errors": (
+        "Sai câu nào, ôn lại câu đó: thử một vòng ôn có hệ thống",
+        [
+            "Gom năm câu bạn đã trả lời sai trong lần luyện tập gần nhất.",
+            "Phân loại lỗi: thiếu khái niệm, đọc sai hay thiếu thao tác.",
+            "Học lại nguyên nhân khiến bạn sai, không chỉ nhớ đáp án.",
+            "Luyện câu mới cùng chủ đề và ghi số câu làm đúng.",
+        ],
+    ),
+    "note_taking": (
+        "Ghi chú để nhớ lâu hơn, không phải để nhìn cho đẹp",
+        [
+            "Từ mỗi trang ghi chú, rút ra ba ý chính cần nhớ.",
+            "Chuyển những ý đó thành câu hỏi ôn tập.",
+            "Vẽ sơ đồ bằng ví dụ do chính bạn nghĩ ra.",
+            "Hôm sau tự trả lời mà không mở phần ghi chú.",
+        ],
+    ),
+    "study_tool_workflow": (
+        "Thử một workflow học bằng công cụ, nhưng tự kiểm chứng kết quả",
+        [
+            "Chuẩn bị một đoạn tài liệu thật do bạn có quyền sử dụng.",
+            "Tóm tắt ý chính và xác nhận lại với nguồn gốc.",
+            "Tạo flashcard/câu hỏi để tự kiểm tra.",
+            "Chọn công cụ đã trải nghiệm thật, tránh quảng cáo tính năng chưa kiểm chứng.",
+        ],
+    ),
+    "everyday_schedule": (
+        "Một lịch học dễ sửa khi ngày hôm nay không theo kế hoạch",
+        [
+            "Khởi đầu bằng một mục tiêu học có thể kiểm tra kết quả.",
+            "Đặt một khoảng 25 phút tập trung vào môn khó.",
+            "Sau đó nghỉ rồi làm một bài kiểm tra ngắn.",
+            "Dành 10 phút cập nhật lịch ngày mai theo phần còn thiếu.",
+        ],
+    ),
+}
+
+
+def _specific_subtype(topic: str, hook: str, formula: str) -> str | None:
+    """Prefer an operator family-specific pattern over a generic study tip."""
+    text = " ".join((topic, hook, formula)).casefold()
+    if any(k in text for k in ("medication", "nursing", "clinical", "dosage", "medicamento")):
+        return "clinical_study"
+    if any(k in text for k in ("different student", "student type", "user personas", "tipo de estudiantes")):
+        return "student_personas"
+    if any(k in text for k in ("perfect study schedule", "perfecto no existe", "perfect schedule", "myth about studying")):
+        return "schedule_myth"
+    if any(k in text for k in ("techniques for each subject", "different subjects", "how to study for subjects", "subject-by-subject")):
+        return "subject_techniques"
+    if any(k in text for k in ("wish i knew", "wish i'd known", "wish i had known", "regret statement")):
+        return "tips_wish_sooner"
+    if any(k in text for k in ("knowledgeable across", "educado en", "all subjects that exist", "broad knowledge")):
+        return "knowledge_habits"
+    if any(k in text for k in ("mistakes", "past exam errors", "incorrect answers", "câu sai")):
+        return "exam_errors"
+    if any(k in text for k in ("active recall", "retrieval practice", "self-testing", "retrieval")):
+        return "active_recall"
+    if any(k in text for k in ("notetaking", "taking notes", "note taking", "flashcard")):
+        return "note_taking"
+    if any(k in text for k in ("productivity app", "app recommendation", "software", "ai tool")):
+        return "study_tool_workflow"
+    if any(k in text for k in ("schedule", "horario", "timetable")):
+        return "everyday_schedule"
+    return None
+
+
+def _editorial_spec(
+    kind: str, *, topic: str, hook: str, formula: str,
+) -> tuple[str, str, list[str]]:
+    subtype = _specific_subtype(topic, hook, formula)
+    if subtype:
+        title, steps = _SUBTYPE_DRAFTS[subtype]
+        return subtype, title, steps
+    title, steps = _COPY_VI.get(kind, _COPY_VI["study_method"])
+    return f"general_{kind}", title, steps
+
+
 _VISUAL_QUERY = {
     "study_desk_photo": "cozy study desk overhead notebook warm natural light portrait photography",
     "lifestyle_photo": "student lifestyle studying at desk warm minimal vertical photography",
@@ -182,8 +327,13 @@ def _visual_query(visual_type: Any, topic: Any) -> str:
     return brief
 
 
-def _draft_for_role(kind: str, role: str, index: int, count: int) -> str:
-    hook, body = _COPY_VI.get(kind, _COPY_VI["study_method"])
+def _draft_for_role(
+    kind: str, role: str, index: int, count: int,
+    *, headline: str | None = None, body_steps: list[str] | None = None,
+) -> str:
+    default_hook, default_steps = _COPY_VI.get(kind, _COPY_VI["study_method"])
+    hook = headline or default_hook
+    body = body_steps or default_steps
     r = _slug(role)
     if index == 1 or "hook" in r or "intro" in r:
         return hook
@@ -574,10 +724,18 @@ def build_production_kit(
         )
         c = representative.get("creative") or {}
         seq = sorted(representative.get("sequence") or [], key=lambda s: int(s.get("position") or 0))
+        source_topic = _text(fam.get("core_topic") or c.get("topic"))
+        source_hook = _text(fam.get("core_hook_text") or c.get("hook_text"))
+        source_formula = _text(
+            fam.get("core_hook_formula") or c.get("hook_replicable_formula")
+            or c.get("creative_formula")
+        )
         kind = _creative_kind(
-            _text(fam.get("core_topic") or c.get("topic")),
-            _text(fam.get("core_angle") or c.get("content_angle")),
-            _text(fam.get("core_hook_text") or c.get("hook_text")),
+            source_topic, _text(fam.get("core_angle") or c.get("content_angle")),
+            source_hook,
+        )
+        subtype, proposed_title, proposed_steps = _editorial_spec(
+            kind, topic=source_topic, hook=source_hook, formula=source_formula
         )
         pct_vals = [_pct(p) for p in members]
         pct_vals = [v for v in pct_vals if v is not None]
@@ -595,7 +753,10 @@ def build_production_kit(
             visual_type = _text(row.get("visual_type") or c.get("dominant_visual_type"))
             asset_id = f"AST-{idx:03d}-{sequence_idx:02d}"
             visual = _visual_query(visual_type, c.get("topic"))
-            draft = _draft_for_role(kind, _text(row.get("role")), sequence_idx, len(seq[:10]))
+            draft = _draft_for_role(
+                kind, _text(row.get("role")), sequence_idx, len(seq[:10]),
+                headline=proposed_title, body_steps=proposed_steps,
+            )
             slides.append({
                 "slide_number": sequence_idx,
                 "role": _text(row.get("role") or "body"),
@@ -656,7 +817,8 @@ def build_production_kit(
         )
         recipes.append({
             "recipe_id": recipe_id, "family_id": fam.get("family_id"),
-            "title": _COPY_VI[kind][0],
+            "title": proposed_title,
+            "creative_subtype": subtype,
             "concept_reference": _clean_copy(fam.get("core_topic") or c.get("topic")),
             "creative_angle": _text(c.get("content_angle") or fam.get("core_angle")),
             "hook_mechanism_reference": _clean_copy(
@@ -665,14 +827,14 @@ def build_production_kit(
             "observed_original_hook_reference_only": _clean_copy(
                 fam.get("core_hook_text") or c.get("hook_text")
             ),
-            "new_hook_draft_vi": _COPY_VI[kind][0],
+            "new_hook_draft_vi": proposed_title,
             "content_type": representative.get("content_type"),
             "creative_kind": kind,
             "format": _text(c.get("content_format") or c.get("video_format")),
             "source_product_reference": c.get("product_family"),
             "slides": slides,
             "new_caption_draft_vi": (
-                _COPY_VI[kind][0] + ". Lưu lại để thử rồi cho mình biết "
+                proposed_title + ". Lưu lại để thử rồi cho mình biết "
                 "bạn đã điều chỉnh cách học nào nhé."
             ),
             "proposed_hashtags": ["#meohoc", "#studywithme", "#hoc_tap"],
