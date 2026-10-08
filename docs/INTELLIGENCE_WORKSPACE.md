@@ -149,29 +149,19 @@ Account role denominators count unique originated/imported **families**, not the
 
 Pipeline stages, schema versions, and generated artifacts remain implementation details rather than the default navigation.
 
-## AI-assisted evidence research (optional)
+## Automated analysis, not on-demand AI buttons
 
-Open any hypothesis/family evidence item for **AI Investigate** and **AI Challenge**,
-or open Operator Playbook for **AI Draft Playbook** and **AI Stress Test**.
-AI Investigate uses a **source-specific rubric**. Family review compares
-core creative identity, all supplied member hooks, bilingual variants and
-sequence structure—not performance, causal distribution or test-to-scale
-intent. Hypothesis review separately assesses the stated operator claim.
-AI makes proposals only; visually verifying family media remains a human task.
+Research Intelligence is built from canonical evidence: reconciled
+observations, evidence-linked inferences, unresolved unknowns and
+machine-owned family-quality diagnostics. Operator Playbook turns these
+into provisional experiment candidates, with a separate first-party
+experiment plan.
 
-The AI preflight samples supporting and skeptical evidence without calling
-the provider; a separate confirmation performs one bounded Gemini call only
-when the local Lab has been started with --ai-enabled.
-
-AI is not loaded during the default page load. The optional deeper-investigation
-dialog is fetched only after a researcher explicitly clicks its small
-source-level action; it is not an automatic Copilot panel or approval workflow.
-
-AI findings and experiment proposals link to canonical post/family/pattern/
-hypothesis/knowledge IDs. Unknown citations are rejected. Results are saved
-outside the static Lab export and remain provisional. The default Lab does not
-require or expose human approval of unknowable operator intent. See
-[AI_RESEARCH_COPILOT.md](AI_RESEARCH_COPILOT.md).
+The Lab interface deliberately has **no AI Copilot controls, no manual
+"Investigate further with AI" action and no Human Review queue**. It does
+not download AI UI JavaScript or call model status endpoints on page load.
+Any Vision or multilingual-family adjudication occurs upstream in the
+appropriate pipeline stages, not in user-facing approval dialogs.
 
 ## Compatibility: historic manual knowledge-review workflow
 
