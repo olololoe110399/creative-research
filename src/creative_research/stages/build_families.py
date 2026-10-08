@@ -625,12 +625,18 @@ def build_creative_family_tables(
     *,
     threshold: float = DEFAULT_THRESHOLD,
     bridge_floor: float = DEFAULT_BRIDGE_FLOOR,
+    clustering_stats: dict[str, int] | None = None,
+    progress_every: int = 0,
+    progress_callback: Callable[[int, int, int, dict[str, int]], None] | None = None,
 ) -> dict[str, pd.DataFrame]:
     features = _build_features(posts, analysis, sequence)
     families, assignments = cluster_features(
         features,
         threshold=threshold,
         bridge_floor=bridge_floor,
+        stats=clustering_stats,
+        progress_every=progress_every,
+        progress_callback=progress_callback,
     )
     perf_lookup = _performance_lookup(performance)
 
@@ -836,6 +842,12 @@ def main() -> None:
     parser.add_argument("--out", default="data/06_analytics")
     parser.add_argument("--threshold", type=float, default=DEFAULT_THRESHOLD)
     parser.add_argument("--bridge-floor", type=float, default=DEFAULT_BRIDGE_FLOOR)
+    parser.add_argument(
+        "--progress-every",
+        type=int,
+        default=100,
+        help="Print clustering progress every N posts; use 0 to disable.",
+    )
     args = parser.parse_args()
 
     posts_path = Path(args.posts).expanduser().resolve()
@@ -850,6 +862,24 @@ def main() -> None:
     sequence = read_table(sequence_path)
     performance = read_table(performance_path) if performance_path.exists() else None
 
+    clustering_stats: dict[str, int] = {}
+
+    def progress(
+        processed: int,
+        total: int,
+        family_count: int,
+        stats: dict[str, int],
+    ) -> None:
+        pruned = stats.get("anchor_pruned", 0) + stats.get("member_pruned", 0)
+        print(
+            "Family clustering: "
+            f"{processed}/{total} posts · "
+            f"{family_count} families · "
+            f"{stats.get('full_comparisons', 0)} full comparisons · "
+            f"{pruned} pruned",
+            flush=True,
+        )
+
     tables = build_creative_family_tables(
         posts,
         analysis,
@@ -857,6 +887,9 @@ def main() -> None:
         performance,
         threshold=args.threshold,
         bridge_floor=args.bridge_floor,
+        clustering_stats=clustering_stats,
+        progress_every=max(0, args.progress_every),
+        progress_callback=progress,
     )
 
     outputs: dict[str, str] = {}
@@ -893,6 +926,7 @@ def main() -> None:
         "family_members": int(len(members)),
         "threshold": args.threshold,
         "bridge_floor": args.bridge_floor,
+        "clustering_stats": clustering_stats,
         "outputs": outputs,
         "notes": [
             "No scrape was performed.",
