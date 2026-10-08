@@ -20,6 +20,8 @@ from creative_research.ai_endpoints import (
     same_origin_json_request,
 )
 from creative_research.ai_research import AIResearchService, ALLOWED_MODELS, DEFAULT_MODEL
+from creative_research.experiment_endpoints import handle_experiment_get, handle_experiment_post
+from creative_research.experiment_plan import ExperimentPlanStore
 from creative_research.intelligence_workspace import validate_intelligence_workspace
 from creative_research.knowledge_reviews import (
     KnowledgeReview,
@@ -56,7 +58,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--read-only",
         action="store_true",
-        help="Disable review mutations/rebuild actions.",
+        help="Disable human legacy-review and first-party experiment changes.",
     )
     return parser
 
@@ -127,6 +129,7 @@ def _make_handler(
     read_only: bool,
     media_records: dict[str, dict[str, Any]],
     ai_service: AIResearchService | None = None,
+    experiment_service: ExperimentPlanStore | None = None,
 ) -> type[http.server.SimpleHTTPRequestHandler]:
     class LabHandler(http.server.SimpleHTTPRequestHandler):
         def __init__(self, *args: Any, **kwargs: Any) -> None:
@@ -196,6 +199,8 @@ def _make_handler(
 
         def do_GET(self) -> None:  # noqa: N802
             parsed = urlparse(self.path)
+            if handle_experiment_get(self, experiment_service):
+                return
             if handle_ai_get(self, ai_service, self.path):
                 return
             parts = parsed.path.strip("/").split("/")
@@ -213,6 +218,8 @@ def _make_handler(
             super().do_GET()
 
         def do_POST(self) -> None:  # noqa: N802
+            if handle_experiment_post(self, experiment_service, read_only=read_only):
+                return
             if handle_ai_post(self, ai_service, read_only=read_only):
                 return
             if self.path != "/api/review":
@@ -427,6 +434,7 @@ def main() -> None:
         read_only=args.read_only,
         media_records=media_records,
         ai_service=ai_service,
+        experiment_service=ExperimentPlanStore(root),
     )
     server = http.server.ThreadingHTTPServer(
         (args.host, args.port),
