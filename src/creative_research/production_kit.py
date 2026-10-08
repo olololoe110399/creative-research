@@ -688,6 +688,8 @@ def build_production_kit(
         "calendar": calendar,
         "asset_bank": assets,
         "music_bank": [],
+        "caption_bank": [],
+        "hashtag_bank": [],
         "suspected_false_splits": false_splits,
         "lessons": lessons,
         "quality": {
@@ -711,23 +713,45 @@ def enrich_production_kit_from_raw(
     kit: dict[str, Any],
     raw_root: Path,
     *,
+    evidence_posts: list[dict[str, Any]] | None = None,
     max_files: int = 300,
     max_rows: int = 200_000,
 ) -> dict[str, Any]:
-    """Recover observed captions, hashtags and real music identifiers where possible.
+    """Recover the observed operator's FULL music/caption/hashtag library.
 
-    Reads LOCAL exported Apify/selected JSONL only. No downloads, API calls,
-    screenshots or inference. All sounds remain unlicensed references.
+    All values are from local public scrape metadata, not guesses. A sound ID
+    or photograph does NOT imply permission to use it in a new publication.
     """
     if not raw_root.is_dir():
         raise ValueError(f"raw_root does not exist: {raw_root}")
-    expected: dict[tuple[str, str], tuple[str, str]] = {}
+    chosen_by_key: dict[tuple[str, str], tuple[str, dict[str, Any]]] = {}
     for recipe in kit["recipes"]:
         for post in recipe["observed_source_posts"]:
-            handle = _text(post.get("account")).casefold().lstrip("@")
-            pid = _text(post.get("post_id"))
-            if handle and pid:
-                expected[(handle, pid)] = (recipe["recipe_id"], _text(post["post_uid"]))
+            key = (_text(post.get("account")).casefold(), _text(post.get("post_id")))
+            chosen_by_key[key] = (recipe["recipe_id"], post)
+
+    # If canonical evidence is available, collect sound/caption metadata
+    # across ALL observed posts, not just hand-picked high-view recipes.
+    expected: dict[tuple[str, str], dict[str, Any]] = {}
+    for p in evidence_posts or []:
+        key = (_text(p.get("account")).casefold(), _text(p.get("post_id")))
+        if all(key):
+            expected[key] = {
+                "post_uid": _text(p.get("post_uid")),
+                "post_url": _text(p.get("url")),
+                "account": _text(p.get("account")),
+                "account_relative_views_percentile": _pct(p),
+            }
+    for key, (_, source) in chosen_by_key.items():
+        expected.setdefault(key, {
+            "post_uid": _text(source.get("post_uid")),
+            "post_url": _text(source.get("url")),
+            "account": _text(source.get("account")),
+            "account_relative_views_percentile": _num(
+                source.get("account_relative_views_percentile")
+            ),
+        })
+
     located: dict[tuple[str, str], dict[str, Any]] = {}
     files = sorted({
         *raw_root.rglob("all_items.jsonl"),
@@ -768,95 +792,126 @@ def enrich_production_kit_from_raw(
                 key = (handle, pid)
                 if key not in expected or key in located:
                     continue
-                meta = raw.get("musicMeta") or raw.get("music") or {}
-                if not isinstance(meta, dict):
-                    meta = {}
+                music = raw.get("musicMeta") or raw.get("music") or {}
+                if not isinstance(music, dict):
+                    music = {}
                 hashtags = raw.get("hashtags") or []
                 if isinstance(hashtags, str):
                     hashtags = [part for part in re.split(r"[,| ]+", hashtags) if part]
-                clean_tags = []
+                clean_tags: list[str] = []
                 if isinstance(hashtags, list):
                     for tag in hashtags[:30]:
-                        if isinstance(tag, dict):
-                            name = tag.get("name") or tag.get("hashtagName")
-                        else:
-                            name = str(tag)
+                        name = (
+                            tag.get("name") or tag.get("hashtagName")
+                            if isinstance(tag, dict) else str(tag)
+                        )
                         if name:
                             clean_tags.append(str(name).lstrip("#")[:60])
                 located[key] = {
+                    **expected[key],
                     "caption": _clean_copy(
-                        raw.get("text") or raw.get("caption") or raw.get("desc"), 500
+                        raw.get("text") or raw.get("caption") or raw.get("desc"),
+                        600,
                     ),
-                    "hashtags": clean_tags,
+                    "hashtags": list(dict.fromkeys(clean_tags)),
                     "music_id": _text(
-                        meta.get("musicId") or meta.get("id")
+                        music.get("musicId") or music.get("id")
                         or raw.get("music_id")
                     ),
                     "music_name": _text(
-                        meta.get("musicName") or meta.get("title")
+                        music.get("musicName") or music.get("title")
                         or raw.get("music_name")
                     ),
                     "music_author": _text(
-                        meta.get("musicAuthor") or meta.get("authorName")
+                        music.get("musicAuthor") or music.get("authorName")
                         or raw.get("music_author")
                     ),
                 }
-    music_map: dict[str, dict[str, Any]] = {}
-    caption_count = 0
-    sound_count = 0
-    for recipe in kit["recipes"]:
-        for source in recipe["observed_source_posts"]:
-            key = (_text(source.get("account")).casefold(), _text(source.get("post_id")))
-            meta = located.get(key)
-            if meta is None:
-                continue
+
+    sound_index: dict[str, dict[str, Any]] = {}
+    hashtag_index: dict[str, dict[str, Any]] = {}
+    caption_examples: list[dict[str, Any]] = []
+    for key, meta in located.items():
+        if key in chosen_by_key:
+            _, source = chosen_by_key[key]
             source["observed_caption_reference_only"] = meta["caption"]
             source["observed_hashtags_reference_only"] = meta["hashtags"]
-            if meta["caption"]:
-                caption_count += 1
-            if meta["music_id"] or meta["music_name"]:
-                sound_count += 1
-                sound_key = (
-                    meta["music_id"] or
-                    f"name:{_slug(meta['music_name'])}:{_slug(meta['music_author'])}"
-                )
-                candidate = music_map.setdefault(sound_key, {
-                    "sound_key": sound_key,
-                    "music_id": meta["music_id"] or None,
-                    "music_name": meta["music_name"] or None,
-                    "music_author": meta["music_author"] or None,
-                    "source_post_uids": [],
-                    "source_urls": [],
-                    "license_status": "not_verified",
-                    "rights_scope": "reference_only",
-                    "usable_as_commercial_sound": False,
-                    "source": "raw_scrape_metadata",
-                })
-                if source["post_uid"] not in candidate["source_post_uids"]:
-                    candidate["source_post_uids"].append(source["post_uid"])
-                    if source.get("url"):
-                        candidate["source_urls"].append(source["url"])
-                if (
-                    source["post_uid"]
-                    == recipe["evidence"]["selected_representative_uid"]
-                ):
-                    for asset in kit["asset_bank"]:
-                        if (
-                            asset["recipe_id"] == recipe["recipe_id"]
-                            and asset["kind"] == "music"
-                        ):
-                            asset["observed_sound_key"] = sound_key
-                            asset["production_status"] = "sound_found_but_license_not_verified"
-    kit["music_bank"] = sorted(music_map.values(), key=lambda x: x["sound_key"])
-    kit["quality"]["raw_enrichment"] = "scanned_public_local_archive"
-    kit["quality"]["raw_files_scanned"] = len(files)
-    kit["quality"]["raw_rows_scanned"] = scanned
-    kit["quality"]["raw_selected_posts_matched"] = len(located)
-    kit["quality"]["observed_caption_count"] = caption_count
-    kit["quality"]["observed_sound_post_count"] = sound_count
-    kit["quality"]["sound_metadata_coverage"] = (
-        round(sound_count / len(expected), 4) if expected else 0
+        if meta["caption"]:
+            caption_examples.append({
+                "post_uid": meta["post_uid"],
+                "account": meta["account"],
+                "url": meta["post_url"],
+                "caption_reference_only": meta["caption"],
+                "views_percentile_account": meta["account_relative_views_percentile"],
+                "rights_scope": "research_reference_not_republication_permission",
+            })
+        for hashtag in meta["hashtags"]:
+            hkey = hashtag.casefold()
+            item = hashtag_index.setdefault(hkey, {
+                "hashtag": hashtag,
+                "observed_post_count": 0,
+                "example_post_uids": [],
+                "usage_not_recommended_without_relevance_check": True,
+            })
+            item["observed_post_count"] += 1
+            if len(item["example_post_uids"]) < 5:
+                item["example_post_uids"].append(meta["post_uid"])
+        if not (meta["music_id"] or meta["music_name"]):
+            continue
+        sound_key = meta["music_id"] or (
+            "name:"+_slug(meta["music_name"])+":"+_slug(meta["music_author"])
+        )
+        sound = sound_index.setdefault(sound_key, {
+            "sound_key": sound_key,
+            "music_id": meta["music_id"] or None,
+            "music_name": meta["music_name"] or None,
+            "music_author": meta["music_author"] or None,
+            "source_post_uids": [],
+            "source_urls": [],
+            "observed_post_count": 0,
+            "license_status": "not_verified",
+            "rights_scope": "reference_only",
+            "usable_as_commercial_sound": False,
+            "source": "raw_scrape_metadata",
+        })
+        sound["observed_post_count"] += 1
+        if len(sound["source_post_uids"]) < 25:
+            sound["source_post_uids"].append(meta["post_uid"])
+            sound["source_urls"].append(meta["post_url"])
+        if key in chosen_by_key:
+            rid, source = chosen_by_key[key]
+            if source["post_uid"] == kit["recipes"][int(rid[4:])-1]["evidence"]["selected_representative_uid"]:
+                for asset in kit["asset_bank"]:
+                    if asset["recipe_id"] == rid and asset["kind"] == "music":
+                        asset["observed_sound_key"] = sound_key
+                        asset["production_status"] = "sound_found_but_license_not_verified"
+
+    kit["music_bank"] = sorted(
+        sound_index.values(),
+        key=lambda s: (-s["observed_post_count"],s["sound_key"]),
     )
+    kit["caption_bank"] = sorted(
+        caption_examples,
+        key=lambda p: (-(p["views_percentile_account"] or 0),p["post_uid"]),
+    )[:250]
+    kit["hashtag_bank"] = sorted(
+        hashtag_index.values(),
+        key=lambda h: (-h["observed_post_count"],h["hashtag"].casefold()),
+    )[:500]
+    q = kit["quality"]
+    q["raw_enrichment"] = "scanned_public_local_archive"
+    q["raw_files_scanned"] = len(files)
+    q["raw_rows_scanned"] = scanned
+    q["raw_posts_matched"] = len(located)
+    q["raw_posts_expected"] = len(expected)
+    q["observed_caption_count"] = len(caption_examples)
+    q["observed_hashtag_types"] = len(kit["hashtag_bank"])
+    q["observed_sound_post_count"] = sum(
+        s["observed_post_count"] for s in kit["music_bank"]
+    )
+    q["sound_metadata_coverage"] = round(
+        q["observed_sound_post_count"] / len(expected),4
+    ) if expected else 0
     return kit
 
 
@@ -1133,8 +1188,16 @@ def production_kit_artifacts(kit: dict[str, Any]) -> dict[str, bytes]:
         ]),
         "SOUND_BANK.csv": _csv_bytes(kit["music_bank"], [
             "sound_key", "music_id", "music_name", "music_author",
-            "source_post_uids", "source_urls", "license_status",
-            "rights_scope", "usable_as_commercial_sound", "source",
+            "observed_post_count", "source_post_uids", "source_urls",
+            "license_status", "rights_scope", "usable_as_commercial_sound", "source",
+        ]),
+        "CAPTION_BANK.csv": _csv_bytes(kit.get("caption_bank", []), [
+            "post_uid", "account", "url", "caption_reference_only",
+            "views_percentile_account", "rights_scope",
+        ]),
+        "HASHTAG_BANK.csv": _csv_bytes(kit.get("hashtag_bank", []), [
+            "hashtag", "observed_post_count", "example_post_uids",
+            "usage_not_recommended_without_relevance_check",
         ]),
         "SOURCE_EVIDENCE.csv": _csv_bytes([
             {"recipe_id": r["recipe_id"], "family_id": r["family_id"],
