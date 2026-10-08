@@ -58,6 +58,8 @@ infer-strategies
 promote-knowledge
 build-intelligence-workspace
 intelligence
+intelligence-build
+quality-audit
 
 rank-posts
 extract-references
@@ -573,6 +575,126 @@ The **Operator Intelligence Workspace** and **Reference Workspace** serve differ
 - Reference Workspace = inspect/compare/select specific creative executions for downstream Creative Bank handoff.
 
 Neither UI is a new source of truth; both are generated research surfaces over canonical evidence.
+
+### 18. Build or reuse the entire deterministic intelligence pipeline
+
+Once `creative_master` and the verified operator registry exist, the full post-Vision pipeline can be built with one command:
+
+```bash
+uv run creative-research intelligence-build \
+  --operators config/operators.toml \
+  --timezone UTC
+```
+
+Optional reviewed knowledge:
+
+```bash
+uv run creative-research intelligence-build \
+  --operators config/operators.toml \
+  --reviews config/knowledge_reviews.toml \
+  --timezone UTC
+```
+
+The orchestrator intentionally starts at `creative_master`. It never scrapes TikTok and never reruns Vision.
+
+Stages:
+
+```text
+warehouse
+→ performance
+→ cadence
+→ families
+→ propagation
+→ timeline
+→ patterns
+→ strategies
+→ knowledge
+→ workspace
+→ audit
+```
+
+Before executing, every stage is classified:
+
+- `skip` / reported as `reused` — all required outputs exist, parameters match, and outputs are newer than inputs;
+- `run` / reported as `rebuilt` — output is missing/stale, an input dependency will change, or parameters changed;
+- `blocked` — a required input cannot be found and is not produced by an earlier planned stage.
+
+Rebuild planning follows actual dependencies rather than blindly rerunning every later command. For example, changing the analysis timezone invalidates cadence and timeline-dependent intelligence, but does not rebuild Creative Families merely because cadence appears earlier in the CLI list.
+
+Parameter provenance is also checked from stage reports, including:
+
+- operator registry path for warehouse;
+- timezone for cadence/timeline;
+- review registry path for knowledge.
+
+Useful controls:
+
+```bash
+# show the plan without writing anything
+uv run creative-research intelligence-build --dry-run
+
+# rebuild everything deterministic
+uv run creative-research intelligence-build --force
+
+# rerun from one stage onward, assuming earlier inputs already exist
+uv run creative-research intelligence-build --from-stage patterns
+
+# stop after a stage
+uv run creative-research intelligence-build --through-stage knowledge
+```
+
+The default pipeline writes:
+
+```text
+data/07_exports/operator-intelligence/
+├── pipeline_report.json
+├── quality_report.json
+└── ...workspace files...
+```
+
+### 19. Audit quality without rebuilding
+
+Run the audit independently:
+
+```bash
+uv run creative-research quality-audit \
+  --operators config/operators.toml \
+  --timezone UTC
+```
+
+If a knowledge-review registry was used for the build, pass the same file:
+
+```bash
+uv run creative-research quality-audit \
+  --operators config/operators.toml \
+  --reviews config/knowledge_reviews.toml
+```
+
+The audit checks:
+
+- stage freshness/staleness;
+- canonical ID duplicates;
+- creative-analysis/performance/cadence/family coverage;
+- 100%-expected operator mapping and family membership;
+- family → post referential integrity;
+- propagation → family/post/account integrity;
+- pattern evidence lineage;
+- strategy → pattern/evidence lineage;
+- knowledge → hypothesis/family/evidence lineage;
+- knowledge trust-status counts;
+- Operator Intelligence Workspace completeness.
+
+Result status:
+
+```text
+pass
+warn
+fail
+```
+
+Hard lineage/integrity problems are failures. Coverage that is materially incomplete is warning/failure depending on severity. Empty pattern/strategy/active-knowledge layers are warnings rather than invented results.
+
+Use `--strict` on `quality-audit` when warnings should also produce a non-zero exit code.
 
 ## System-first reference workflow
 

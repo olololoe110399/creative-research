@@ -98,6 +98,13 @@ relative performance        account/operator chronology
      Overview -> Accounts -> Timeline
      -> Families -> Patterns -> Strategies
      -> Knowledge -> Evidence
+                       |
+                       v
+                 quality-audit
+
+intelligence-build wraps the deterministic path from
+build-warehouse through workspace + audit and reuses
+fresh outputs by explicit dependency/freshness checks.
 ```
 
 ## Sources of truth
@@ -116,7 +123,8 @@ relative performance        account/operator chronology
 12. Strategy hypotheses: deterministic pattern promotion with confidence, counter evidence, alternative explanations, and inherited evidence lineage.
 13. Knowledge bank: typed strategies/rules/lessons/templates/playbooks with promotion/review status and inherited source/evidence lineage.
 14. Operator Intelligence Workspace: generated research surface over warehouse/analytics/knowledge with cross-layer evidence drill-down.
-15. Reference Workspace: generated creative-inspection/selection surface over the evidence, not a new truth source.
+15. Quality audit: freshness, coverage, duplicate-ID, referential-integrity, lineage, trust-status, and workspace-completeness checks.
+16. Reference Workspace: generated creative-inspection/selection surface over the evidence, not a new truth source.
 
 ## Invariants
 
@@ -141,6 +149,10 @@ relative performance        account/operator chronology
 - Review candidates should not drive high-impact automation until approved or otherwise explicitly accepted downstream.
 - Creative templates require repeated family evidence; singleton families never become templates.
 - Operator Intelligence Workspace only materializes existing outputs; it never creates or mutates evidence/analytics/knowledge.
+- `intelligence-build` starts at `creative_master`; it never invokes scraping or Vision stages.
+- Orchestration freshness checks include data mtimes plus parameter provenance for operator registry, timezone, and knowledge-review registry.
+- Rebuild propagation follows explicit data dependencies rather than command order.
+- Quality audit failures represent broken/missing integrity or materially incomplete required coverage; warnings must never be converted into fabricated data.
 - Knowledge trust status must remain visible in the workspace so rejected/hold/review candidates are not confused with active guidance.
 - Pattern evidence must remain traceable to stable post/family/account IDs.
 - `creative_master` has one row per unique `account+post_id`.
