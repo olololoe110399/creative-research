@@ -17,6 +17,7 @@ def test_canonical_commands_exist() -> None:
         "download-videos",
         "vision-videos",
         "build-master",
+        "build-warehouse",
         "rank-posts",
         "extract-references",
         "query",
