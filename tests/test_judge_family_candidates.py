@@ -226,3 +226,9 @@ def test_prompt_requests_compact_json_output() -> None:
     assert "reason: one sentence" in prompt
     assert "preserved_dimensions: at most 3" in prompt
     assert "Do not add prose outside the JSON" in prompt
+
+
+def test_analysis_lookup_does_not_include_performance_fields() -> None:
+    lookup = build_evidence_lookup(_analysis(), _sequence())
+    assert "views" not in lookup["P1"]
+    assert "likes" not in lookup["P1"]
