@@ -609,6 +609,7 @@ class AIResearchService:
             "mode": mode,
             "source_type": source_type,
             "source_id": source_id,
+            "operator_id": packet["request"]["operator_id"],
             "model": self.model,
             "prompt_version": PROMPT_VERSION,
             "snapshot_sha256": digest,
@@ -758,6 +759,7 @@ class AIResearchService:
             if (
                 row.get("source_type") != source_type
                 or row.get("source_id") != source_id
+                or row.get("operator_id") != corpus.operator_id
                 or row.get("ai_status") != "proposal_only"
                 or row.get("request_id") != path.stem
             ):
@@ -782,8 +784,14 @@ class AIResearchService:
             )
         except (OSError, ValueError) as exc:
             raise ResearchValidationError("report_not_found") from exc
-        if report.get("request_id") != report_id or report.get("ai_status") != "proposal_only":
+        if (
+            not isinstance(report, dict)
+            or report.get("request_id") != report_id
+            or report.get("ai_status") != "proposal_only"
+        ):
             raise ResearchValidationError("invalid_saved_report")
+        if report.get("operator_id") != LabCorpus(self.workspace).operator_id:
+            raise ResearchValidationError("report_wrong_operator")
         try:
             _packet, latest_meta = self.plan(
                 report["mode"], report["source_type"], report["source_id"]
