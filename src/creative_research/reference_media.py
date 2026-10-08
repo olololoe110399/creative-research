@@ -2,13 +2,73 @@ from __future__ import annotations
 
 import json
 import shutil
+import time
 from pathlib import Path
 from typing import Any
+from urllib.parse import parse_qs, urlparse
 
 from creative_research.pathing import project_root, resolve_path
 
 IMAGE_EXTS = (".jpg", ".jpeg", ".png", ".webp")
 VIDEO_EXTS = (".mp4", ".webm", ".mov", ".m4v", ".mkv")
+
+
+def _signed_url_expiry(value: str) -> int | None:
+    try:
+        query = parse_qs(urlparse(value).query)
+    except ValueError:
+        return None
+    for key in ("x-expires", "expires", "expire"):
+        raw = query.get(key)
+        if not raw:
+            continue
+        try:
+            return int(raw[0])
+        except (TypeError, ValueError):
+            continue
+    return None
+
+
+def remote_url_is_usable(
+    value: str | None,
+    *,
+    now_epoch: float | None = None,
+    safety_margin_seconds: int = 300,
+) -> bool:
+    """Return False for malformed/expired signed CDN URLs.
+
+    Plain non-expiring HTTP(S) URLs remain usable. Signed URLs are treated as
+    stale slightly before their advertised expiry to avoid rendering links that
+    die during a browsing session.
+    """
+    if not isinstance(value, str):
+        return False
+    value = value.strip()
+    if not value.startswith(("http://", "https://")):
+        return False
+    expiry = _signed_url_expiry(value)
+    if expiry is None:
+        return True
+    now = time.time() if now_epoch is None else now_epoch
+    return expiry > now + max(0, safety_margin_seconds)
+
+
+def local_media_sources_for_post(
+    record: dict[str, Any],
+) -> dict[str, Path]:
+    """Resolve durable local media without copying it.
+
+    Used by the local Operator Intelligence Lab server so large video archives
+    can be streamed in place while thumbnails/slides remain durable.
+    """
+    result: dict[str, Path] = {}
+    thumbnail = _thumbnail_source(record)
+    if thumbnail is not None:
+        result["thumbnail"] = thumbnail
+    video = _video_source(record)
+    if video is not None:
+        result["video"] = video
+    return result
 
 
 def _read_json(path: Path) -> dict[str, Any]:
@@ -188,12 +248,25 @@ def _remote_media(record: dict[str, Any]) -> dict[str, Any]:
             slide_urls.append(url)
     slide_urls = _dedupe_urls(slide_urls)
 
-    thumbnail_url = _first_url(
+    slide_urls = [
+        url for url in slide_urls if remote_url_is_usable(url)
+    ]
+    thumbnail_candidates = [
         slide_urls[0] if slide_urls else None,
         video_meta.get("originalCoverUrl"),
         meta.get("cover_original_url"),
         video_meta.get("coverUrl"),
         meta.get("cover_apify_url"),
+    ]
+    thumbnail_url = next(
+        (
+            str(value)
+            for value in thumbnail_candidates
+            if remote_url_is_usable(
+                str(value) if value is not None else None
+            )
+        ),
+        None,
     )
 
     result: dict[str, Any] = {}
@@ -205,7 +278,11 @@ def _remote_media(record: dict[str, Any]) -> dict[str, Any]:
         result["slide_urls"] = slide_urls
 
     if str(record.get("content_type") or "") == "video":
-        video_urls = _direct_video_urls(raw)
+        video_urls = [
+            url
+            for url in _direct_video_urls(raw)
+            if remote_url_is_usable(url)
+        ]
         if video_urls:
             result["video_url"] = video_urls[0]
             if len(video_urls) > 1:
@@ -245,7 +322,12 @@ def _copy_local_assets(
 
 
 def preview_media_for_post(record: dict[str, Any]) -> dict[str, str]:
-    """Return lightweight remote preview media for full-population browsing."""
+    """Return lightweight preview metadata.
+
+    The Lab injects durable local /api/media URLs when local archive files are
+    present. Remote URLs here are fallback only and expired signed URLs are
+    filtered out.
+    """
     media = _remote_media(record)
     result: dict[str, str] = {}
     post_url = media.get("post_url")
