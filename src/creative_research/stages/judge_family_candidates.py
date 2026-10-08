@@ -27,7 +27,7 @@ from pathlib import Path
 from typing import Any, Literal
 
 import pandas as pd
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, PydanticUserError
 
 from creative_research.stages.preview_families_v2 import classify_pair
 from creative_research.validation import read_table
@@ -41,7 +41,7 @@ DEFAULT_CROSS_LANGUAGE_MIN_COMBINED = 0.68
 DEFAULT_CROSS_LANGUAGE_MIN_STRUCTURE = 0.90
 DEFAULT_MAX_AI_PAIRS = 1000
 DEFAULT_MAX_API_CALLS = 1100
-DEFAULT_MAX_INPUT_TOKENS_PER_PAIR = 1800
+DEFAULT_MAX_INPUT_TOKENS_PER_PAIR = 3500
 DEFAULT_MAX_ESTIMATED_INPUT_TOKENS = 900_000
 DEFAULT_MAX_OUTPUT_TOKENS = 320
 
@@ -97,6 +97,16 @@ class FamilyPairJudgment(BaseModel):
     counter_evidence: list[str] = Field(default_factory=list)
     confidence: float = Field(ge=0, le=1)
     reason: str
+
+# The CLI dispatches stage modules through runpy with run_name="__main__".
+# Under Pydantic 2.13 + postponed annotations, Literal can otherwise remain
+# unresolved when google-genai asks the model for JSON Schema.
+FamilyPairJudgment.model_rebuild(_types_namespace={"Literal": Literal})
+
+
+def _non_retryable_error(exc: Exception) -> bool:
+    """Return True for local schema/config failures that another API retry cannot fix."""
+    return isinstance(exc, (PydanticUserError, TypeError))
 
 
 def _clean(value: Any) -> Any:
@@ -722,6 +732,12 @@ def execute_judgments(
                     break
                 except Exception as exc:
                     last_error = f"{type(exc).__name__}: {exc}"
+                    if _non_retryable_error(exc):
+                        print(
+                            f"  non-retryable local error: {last_error}",
+                            flush=True,
+                        )
+                        break
                     if attempt < retries and api_attempts < max_api_calls:
                         wait = retry_base_seconds * (2**attempt) + random.random()
                         print(
