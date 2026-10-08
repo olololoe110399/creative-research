@@ -196,7 +196,7 @@ def _make_handler(
 
         def do_GET(self) -> None:  # noqa: N802
             parsed = urlparse(self.path)
-            if handle_ai_get(self, ai_service, parsed.path):
+            if handle_ai_get(self, ai_service, self.path):
                 return
             parts = parsed.path.strip("/").split("/")
             if (
