@@ -342,7 +342,8 @@ The preview is deliberately conservative:
 
 - new family seeds require a strong pair (default combined score >= 0.80);
 - same-language and cross-language pairs use different semantic/structure gates;
-- weaker 0.75–0.80 edges can only bridge a post into a family that already has strong evidence;
+- same-language seeds additionally require hook coherence, or very strong topic coherence backed by a non-weak production score;
+- weaker 0.75–0.80 same-language bridges require stronger hook coherence and can only join a family that already has strong evidence;
 - every assignment still needs an anchor relationship, preventing unconstrained transitive mega-clusters;
 - existing production-family pairs are retained as positive controls.
 
