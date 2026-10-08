@@ -4,6 +4,7 @@ from pathlib import Path
 
 MASTER_SCHEMA_VERSION = "creative-master-v1"
 WAREHOUSE_SCHEMA_VERSION = "operator-warehouse-v1"
+ANALYTICS_SCHEMA_VERSION = "operator-analytics-v1"
 
 WORKSPACE_DIRS = (
     "data/00_raw/apify",
@@ -14,6 +15,7 @@ WORKSPACE_DIRS = (
     "data/04_vision/slides",
     "data/04_vision/videos",
     "data/05_master",
+    "data/06_analytics",
     "data/07_exports",
 )
 
