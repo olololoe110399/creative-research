@@ -46,6 +46,12 @@ DEFAULT_MAX_API_CALLS = 1100
 DEFAULT_MAX_INPUT_TOKENS_PER_PAIR = 1800
 DEFAULT_MAX_ESTIMATED_INPUT_TOKENS = 900_000
 DEFAULT_MAX_OUTPUT_TOKENS = 768
+DEFAULT_TRANSLATION_VERIFIER_MAX_OUTPUT_TOKENS = 256
+DEFAULT_MAX_TRANSLATION_VERIFIER_CALLS = 300
+DEFAULT_TRANSLATION_VERIFIER_MIN_CONFIDENCE = 0.85
+
+TRANSLATION_VERIFIER_SCHEMA_VERSION = "family-ai-translation-verifier-v1"
+TRANSLATION_VERIFIER_PROMPT_VERSION = "family-ai-translation-verifier-prompt-v1"
 
 MODEL_PRICING_USD_PER_MILLION: dict[str, tuple[float, float]] = {
     "gemini-3.5-flash-lite": (0.30, 2.50),
@@ -130,6 +136,45 @@ class FamilyPairJudgment(BaseModel):
             raise ValueError("uncertain decision requires uncertain relationship")
         if self.relationship == "uncertain" and self.decision != "uncertain":
             raise ValueError("uncertain relationship requires uncertain decision")
+        return self
+
+
+class TranslationVerification(BaseModel):
+    central_idea_equivalence: Literal[
+        "equivalent",
+        "different",
+        "uncertain",
+    ]
+    translation_type: Literal[
+        "direct_translation",
+        "localized_paraphrase",
+        "not_translation",
+        "uncertain",
+    ]
+    left_central_idea: str | None = None
+    right_central_idea: str | None = None
+    confidence: float = Field(ge=0, le=1)
+    reason: str
+
+    @model_validator(mode="after")
+    def validate_translation_mapping(self) -> "TranslationVerification":
+        if self.central_idea_equivalence == "equivalent":
+            if self.translation_type not in {
+                "direct_translation",
+                "localized_paraphrase",
+            }:
+                raise ValueError(
+                    "equivalent central ideas require direct/localized translation"
+                )
+        elif self.central_idea_equivalence == "different":
+            if self.translation_type != "not_translation":
+                raise ValueError(
+                    "different central ideas require not_translation"
+                )
+        elif self.translation_type != "uncertain":
+            raise ValueError(
+                "uncertain central idea equivalence requires uncertain translation type"
+            )
         return self
 
 
@@ -384,6 +429,148 @@ Do not add prose outside the JSON.
 CREATIVE EVIDENCE:
 {evidence_json}
 """.strip()
+
+
+
+def build_translation_verifier_prompt(row: dict[str, Any]) -> str:
+    evidence = {
+        "post_a": {
+            "language": _clean(row.get("left_language")),
+            "hook_text": _clean(row.get("left_hook_text")),
+            "topic": _clean(row.get("left_topic")),
+        },
+        "post_b": {
+            "language": _clean(row.get("right_language")),
+            "hook_text": _clean(row.get("right_hook_text")),
+            "topic": _clean(row.get("right_topic")),
+        },
+    }
+    return f"""
+You are a strict translation/localization verifier.
+
+You see ONLY the central hook/topic evidence for two posts.
+You do NOT see app/product, CTA, format, visuals, sequence, creator, or performance.
+
+First independently normalize each post's central idea into one short English sentence.
+Then decide whether the two central ideas are semantically equivalent enough to be
+a genuine translation/localization of the same specific creative concept.
+
+Equivalent means the same specific promise/problem/topic or a close localized paraphrase.
+Different wording is fine. Different central subject, promise, problem, list theme,
+motivation, medical topic, or study topic is NOT equivalent.
+
+Examples of DIFFERENT:
+- "Will make parents proud" vs "study until you're excited for the exam"
+- "5 tiny habits that made me a better student" vs "5 things about studying I wish I knew"
+- "enjoy med school, you'll be a doctor soon" vs "don't give up; imagine their faces"
+- generic exam stress vs a specific exam-confidence feeling
+
+Do not infer equivalence from shared niche or likely app funnel; you cannot see those
+features and must judge only the central idea evidence below.
+
+Return compact structured JSON only.
+
+EVIDENCE:
+{json.dumps(evidence, ensure_ascii=False, indent=2)}
+""".strip()
+
+
+def _translation_evidence_hash(row: dict[str, Any]) -> str:
+    payload = {
+        "left_language": _clean(row.get("left_language")),
+        "right_language": _clean(row.get("right_language")),
+        "left_hook_text": _clean(row.get("left_hook_text")),
+        "right_hook_text": _clean(row.get("right_hook_text")),
+        "left_topic": _clean(row.get("left_topic")),
+        "right_topic": _clean(row.get("right_topic")),
+    }
+    raw = json.dumps(
+        payload,
+        ensure_ascii=False,
+        sort_keys=True,
+        separators=(",", ":"),
+    ).encode("utf-8")
+    return hashlib.sha1(raw).hexdigest()
+
+
+def _translation_cache_key(
+    pair_id: str,
+    evidence_hash: str,
+    model: str,
+) -> str:
+    raw = (
+        f"{pair_id}\0{evidence_hash}\0{model}\0"
+        f"{TRANSLATION_VERIFIER_PROMPT_VERSION}\0"
+        f"{TRANSLATION_VERIFIER_SCHEMA_VERSION}"
+    ).encode("utf-8")
+    return hashlib.sha1(raw).hexdigest()
+
+
+def _apply_translation_verification(
+    row: dict[str, Any],
+    verification: TranslationVerification,
+    *,
+    min_confidence: float = DEFAULT_TRANSLATION_VERIFIER_MIN_CONFIDENCE,
+) -> dict[str, Any]:
+    result = dict(row)
+    result["primary_decision"] = row.get("decision")
+    result["primary_relationship"] = row.get("relationship")
+    result["primary_confidence"] = row.get("confidence")
+    result["primary_reason"] = row.get("reason")
+    result["translation_verifier_schema_version"] = (
+        TRANSLATION_VERIFIER_SCHEMA_VERSION
+    )
+    result["translation_verifier_prompt_version"] = (
+        TRANSLATION_VERIFIER_PROMPT_VERSION
+    )
+    result["translation_verifier_equivalence"] = (
+        verification.central_idea_equivalence
+    )
+    result["translation_verifier_type"] = verification.translation_type
+    result["translation_verifier_left_central_idea"] = (
+        verification.left_central_idea
+    )
+    result["translation_verifier_right_central_idea"] = (
+        verification.right_central_idea
+    )
+    result["translation_verifier_confidence"] = float(
+        verification.confidence
+    )
+    result["translation_verifier_reason"] = verification.reason
+
+    if verification.confidence < min_confidence:
+        result["decision"] = "uncertain"
+        result["relationship"] = "uncertain"
+        result["reason"] = (
+            "Translation verifier confidence below threshold; "
+            "defer to deterministic family evidence."
+        )
+        result["confidence"] = float(verification.confidence)
+        return result
+
+    if verification.central_idea_equivalence == "equivalent":
+        result["decision"] = "same_core_concept"
+        result["relationship"] = "translation_adaptation"
+        result["confidence"] = min(
+            float(_number(row.get("confidence")) or 0.0),
+            float(verification.confidence),
+        )
+        result["reason"] = verification.reason
+        return result
+
+    if verification.central_idea_equivalence == "different":
+        result["decision"] = "different_core_concept"
+        result["relationship"] = "template_variant"
+        result["confidence"] = float(verification.confidence)
+        result["core_concept"] = None
+        result["reason"] = verification.reason
+        return result
+
+    result["decision"] = "uncertain"
+    result["relationship"] = "uncertain"
+    result["confidence"] = float(verification.confidence)
+    result["reason"] = verification.reason
+    return result
 
 
 def estimate_tokens(text: str) -> int:
@@ -686,6 +873,241 @@ def _generation_config(types: Any, max_output_tokens: int) -> Any:
         )
     except Exception:
         return types.GenerateContentConfig(**base)
+
+
+
+def _translation_generation_config(
+    types: Any,
+    max_output_tokens: int,
+) -> Any:
+    base = {
+        "response_mime_type": "application/json",
+        "response_schema": TranslationVerification,
+        "max_output_tokens": max_output_tokens,
+        "thinking_config": types.ThinkingConfig(
+            thinking_level="minimal",
+        ),
+    }
+    try:
+        return types.GenerateContentConfig(
+            **base,
+            automatic_function_calling=types.AutomaticFunctionCallingConfig(
+                disable=True
+            ),
+        )
+    except Exception:
+        return types.GenerateContentConfig(**base)
+
+
+def _call_translation_verifier(
+    client: Any,
+    types: Any,
+    *,
+    model: str,
+    prompt: str,
+    max_output_tokens: int,
+) -> tuple[TranslationVerification, dict[str, int | None]]:
+    response = client.models.generate_content(
+        model=model,
+        contents=[prompt],
+        config=_translation_generation_config(
+            types,
+            max_output_tokens,
+        ),
+    )
+    parsed = getattr(response, "parsed", None)
+    if isinstance(parsed, TranslationVerification):
+        return parsed, _usage_metadata(response)
+
+    text = getattr(response, "text", None)
+    if not text:
+        raise RuntimeError("Empty Gemini translation-verifier response")
+    return (
+        TranslationVerification.model_validate_json(text),
+        _usage_metadata(response),
+    )
+
+
+def verify_translation_judgments(
+    frame: pd.DataFrame,
+    *,
+    model: str,
+    cache_path: Path,
+    max_output_tokens: int,
+    max_calls: int,
+    min_confidence: float,
+    retries: int,
+    retry_base_seconds: float,
+    sleep_between: float,
+    force: bool,
+    client: Any,
+    types: Any,
+) -> tuple[pd.DataFrame, dict[str, Any]]:
+    if frame.empty or "relationship" not in frame.columns:
+        return frame, {
+            "translation_verifier_candidates": 0,
+            "translation_verifier_api_calls": 0,
+            "translation_verifier_cache_hits": 0,
+            "translation_verifier_failures": 0,
+            "translation_verifier_actual_input_tokens": 0,
+            "translation_verifier_actual_output_tokens": 0,
+            "translation_verifier_actual_total_tokens": 0,
+            "translation_verifier_final_counts": {},
+        }
+
+    cache = _load_cache(cache_path)
+    records = frame.to_dict(orient="records")
+    candidates = [
+        index
+        for index, row in enumerate(records)
+        if str(row.get("relationship") or "") == "translation_adaptation"
+    ]
+
+    api_calls = 0
+    api_attempts = 0
+    cache_hits = 0
+    failures = 0
+    actual_input_tokens = 0
+    actual_output_tokens = 0
+    actual_total_tokens = 0
+
+    for position, record_index in enumerate(candidates, start=1):
+        if api_attempts >= max_calls:
+            break
+
+        row = records[record_index]
+        pair_id = str(row["pair_id"])
+        evidence_hash = _translation_evidence_hash(row)
+        cache_key = _translation_cache_key(
+            pair_id,
+            evidence_hash,
+            model,
+        )
+        cached = None if force else cache.get(cache_key)
+
+        verification: TranslationVerification | None = None
+        usage: dict[str, int | None] = {}
+        source = "cache"
+        if cached is not None:
+            cache_hits += 1
+            verification = TranslationVerification.model_validate(
+                cached["judgment"]
+            )
+            usage = cached.get("usage") or {}
+        else:
+            source = "api"
+            last_error: str | None = None
+            for attempt in range(retries + 1):
+                if api_attempts >= max_calls:
+                    break
+                api_attempts += 1
+                try:
+                    verification, usage = _call_translation_verifier(
+                        client,
+                        types,
+                        model=model,
+                        prompt=build_translation_verifier_prompt(row),
+                        max_output_tokens=max_output_tokens,
+                    )
+                    api_calls += 1
+                    break
+                except Exception as exc:
+                    last_error = f"{type(exc).__name__}: {exc}"
+                    if not _retryable_api_error(exc):
+                        break
+                    if attempt < retries and api_attempts < max_calls:
+                        wait = (
+                            retry_base_seconds * (2**attempt)
+                            + random.random()
+                        )
+                        time.sleep(wait)
+
+            if verification is None:
+                failures += 1
+                records[record_index]["translation_verifier_source"] = (
+                    "failed"
+                )
+                records[record_index]["translation_verifier_error"] = (
+                    last_error
+                )
+                continue
+
+            _append_jsonl(
+                cache_path,
+                {
+                    "status": "ok",
+                    "cache_key": cache_key,
+                    "pair_id": pair_id,
+                    "evidence_hash": evidence_hash,
+                    "model": model,
+                    "prompt_version": (
+                        TRANSLATION_VERIFIER_PROMPT_VERSION
+                    ),
+                    "judge_schema_version": (
+                        TRANSLATION_VERIFIER_SCHEMA_VERSION
+                    ),
+                    "judgment": verification.model_dump(),
+                    "usage": usage,
+                    "created_at": datetime.now(UTC).isoformat(),
+                },
+            )
+
+        updated = _apply_translation_verification(
+            row,
+            verification,
+            min_confidence=min_confidence,
+        )
+        updated["translation_verifier_source"] = source
+        records[record_index] = updated
+
+        if source == "api":
+            input_used = _number(usage.get("input_tokens"))
+            output_used = _number(usage.get("output_tokens"))
+            total_used = _number(usage.get("total_tokens"))
+            if input_used is not None:
+                actual_input_tokens += int(input_used)
+            if output_used is not None:
+                actual_output_tokens += int(output_used)
+            if total_used is not None:
+                actual_total_tokens += int(total_used)
+
+        print(
+            f"  [translation {position}/{len(candidates)}] "
+            f"{pair_id} {verification.central_idea_equivalence} "
+            f"conf={verification.confidence:.2f} source={source}",
+            flush=True,
+        )
+        if source == "api" and sleep_between:
+            time.sleep(sleep_between)
+
+    verified = pd.DataFrame(records)
+    final_counts = (
+        verified.loc[
+            verified["primary_relationship"].fillna("").eq(
+                "translation_adaptation"
+            )
+            if "primary_relationship" in verified.columns
+            else pd.Series(False, index=verified.index),
+            "relationship",
+        ]
+        .value_counts()
+        .to_dict()
+        if not verified.empty
+        else {}
+    )
+    report = {
+        "translation_verifier_candidates": len(candidates),
+        "translation_verifier_api_calls": api_calls,
+        "translation_verifier_api_attempts": api_attempts,
+        "translation_verifier_cache_hits": cache_hits,
+        "translation_verifier_failures": failures,
+        "translation_verifier_actual_input_tokens": actual_input_tokens,
+        "translation_verifier_actual_output_tokens": actual_output_tokens,
+        "translation_verifier_actual_total_tokens": actual_total_tokens,
+        "translation_verifier_final_counts": final_counts,
+        "translation_verifier_min_confidence": min_confidence,
+    }
+    return verified, report
 
 
 def _call_judge(
