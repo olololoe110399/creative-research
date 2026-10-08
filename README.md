@@ -371,7 +371,7 @@ The stage uses existing Vision evidence only. It does **not** send views, likes,
 Default safeguards:
 
 ```text
-model                         gemini-2.5-flash-lite
+model                         gemini-3.5-flash-lite
 max selected pairs            1,000
 max API call attempts         1,100
 max estimated input / pair    1,800 tokens
