@@ -876,6 +876,14 @@ class AIResearchService:
             "prompt_version": PROMPT_VERSION,
             "rubric_version": RUBRIC_VERSION,
             "review_question": REVIEW_QUESTIONS[source_type],
+            "family_members_considered": (
+                (packet.get("family_identity") or {}).get("member_post_refs", [])
+                if source_type == "family" else []
+            ),
+            "family_members_total": (
+                (packet.get("family_identity") or {}).get("member_count")
+                if source_type == "family" else None
+            ),
             "review_basis": (
                 "creative_family_identity" if source_type == "family"
                 else "strategy_hypothesis" if source_type == "hypothesis"
