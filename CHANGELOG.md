@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+- Add a verified operator registry backed by Python 3.11 TOML parsing.
+- Add `build-warehouse` to backfill operator/account/post/creative-analysis/sequence tables from the existing `creative_master` without scraping or rerunning Vision.
+- Reuse the Reference Workspace stable `POST-...` identity scheme for canonical post IDs.
+- Keep `creative_master` and the existing Reference Workspace backward compatible.
+
 ## 0.9.1 - 2026-10-07
 
 - Rename machine-selected account/group counts to **Suggested** so they are not confused with human Selected posts.

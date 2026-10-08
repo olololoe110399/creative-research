@@ -1,22 +1,21 @@
 # Creative Research
 
-Reusable evidence pipeline for reverse-engineering public creative/distribution systems.
+Reusable evidence and operator-intelligence pipeline for reverse-engineering public creative/distribution systems.
 
-This repository owns the **market evidence** side only:
+The repository keeps raw evidence immutable, preserves existing Vision analysis, and now adds an operator-aware warehouse foundation:
 
 ```text
-public accounts
+verified operator
+  -> public accounts
   -> raw evidence + media
   -> Vision interpretation
   -> validated creative_master
-  -> whole-system map
-  -> representative reference sample
-  -> inspect / compare / select
-  -> selected.json
-  -> downstream creative-bank
+  -> operator-aware canonical tables
+  -> whole-system map / reference workspace
+  -> later analytics, patterns, strategies, rules, lessons, templates, playbooks
 ```
 
-The goal is not to build a generic analytics dashboard. The generated UI is a working research surface for understanding an operator's whole content system before choosing examples to adapt downstream.
+The goal is not a generic analytics dashboard. It is a durable research base where conclusions can eventually be traced back to the posts and Vision evidence that support them.
 
 ## Requirements
 
@@ -48,6 +47,7 @@ vision-slides
 download-videos
 vision-videos
 build-master
+build-warehouse
 
 rank-posts
 extract-references
@@ -74,7 +74,7 @@ data/
 ├── 03_video_media/
 ├── 04_vision/slides/
 ├── 04_vision/videos/
-├── 05_master/                # canonical normalized evidence
+├── 05_master/                # creative_master + operator-aware canonical tables
 └── 07_exports/               # generated system/reference workspaces
 ```
 
@@ -148,7 +148,38 @@ uv run creative-research build-master \
 uv run creative-research validate
 ```
 
-`creative_master` remains the canonical normalized evidence interface.
+`creative_master` remains the backward-compatible normalized evidence interface.
+
+### 8. Backfill the operator-aware warehouse
+
+No TikTok scrape and no Gemini call are required. Create a local verified operator registry from the fake example, map every researched account to its manually verified operator, then backfill the existing master:
+
+```bash
+cp config/operators.example.toml config/operators.toml
+# edit config/operators.toml with your locally verified account ownership
+
+uv run creative-research build-warehouse \
+  data/05_master/creative_master.parquet \
+  --operators config/operators.toml \
+  --out data/05_master
+```
+
+This writes:
+
+```text
+data/05_master/
+├── creative_master.parquet       # unchanged compatibility interface
+├── operators.parquet
+├── accounts.parquet
+├── posts.parquet
+├── creative_analysis.parquet
+├── creative_sequence.parquet
+└── warehouse_report.json
+```
+
+`creative_sequence` normalizes existing slideshow `slides[]` and video `timeline[]` analysis so the old Vision work becomes reusable data instead of being rerun. Stable `POST-...` identifiers use the same identity scheme as the Reference Workspace.
+
+By default the command fails if an observed account is not present in the verified operator registry. Use `--allow-unmapped` only for intentionally exploratory datasets.
 
 ## System-first reference workflow
 
@@ -330,25 +361,21 @@ uv run creative-research group-references \
   data/07_exports/study-system/references.parquet
 ```
 
-## Boundaries
+## Scope and roadmap
 
-This repository ends at:
+The current implemented layers are:
 
 ```text
-market evidence
--> system understanding
--> curated reference handoff
+raw evidence
+-> Vision interpretation
+-> creative_master
+-> operator-aware canonical warehouse
+-> system/reference workspace
 ```
 
-It does **not** own:
+The operator warehouse is intentionally built before strategy inference. Future stages can derive cadence, relative performance, creative families, cross-account propagation, strategy periods, patterns, rules, lessons, templates, and playbooks from these canonical tables. Those future knowledge assets must retain evidence lineage instead of being unsupported LLM summaries.
 
-- downstream creative families;
-- briefs/variants;
-- first-party experiment results;
-- validated playbooks;
-- product decisions.
-
-Those belong in the downstream Creative Bank/project layer.
+Brief/variant production and first-party experiment outcomes remain downstream concerns.
 
 ## Test philosophy
 

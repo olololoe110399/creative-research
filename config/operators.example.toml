@@ -1,0 +1,27 @@
+schema_version = "operator-registry-v1"
+
+# Keep the real registry local as config/operators.toml.
+# This example is intentionally fake. One operator may own multiple public accounts.
+
+[[operators]]
+operator_id = "OP-001"
+name = "verified_operator_001"
+verified = true
+verification_method = "manual"
+verified_at = "2026-10-08"
+notes = "Manually verified as one operator."
+
+[[operators.accounts]]
+username = "creator_alpha"
+platform = "tiktok"
+role = "unknown"
+
+[[operators.accounts]]
+username = "creator_beta"
+platform = "tiktok"
+role = "unknown"
+
+[[operators.accounts]]
+username = "creator_gamma"
+platform = "tiktok"
+role = "unknown"
