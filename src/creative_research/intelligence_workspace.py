@@ -970,7 +970,10 @@ def write_intelligence_workspace(
             raise ValueError("Cannot safely replace unreadable old production data") from exc
         if not isinstance(old_kit, dict):
             raise ValueError("Cannot safely replace malformed old production data")
-        if old_kit.get("own_experiment_outcomes"):
+        if old_kit.get("own_experiment_outcomes") or any(
+            isinstance(asset,dict) and asset.get("rights_status")=="team_attested_licensed"
+            for asset in old_kit.get("asset_bank",[]) or []
+        ):
             OperatingStore(out_dir).migrate_embedded_legacy_results(old_kit)
     for filename, payload in payloads.items():
         (out_dir / filename).write_text(
