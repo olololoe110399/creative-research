@@ -145,16 +145,19 @@ requires same-origin loopback HTTP. A changed candidate snapshot is marked
 a silent reuse of changed research. --read-only Lab mode allows viewing but
 denies changes. No provider or Gemini token is needed to maintain this plan.
 
-## Optional AI: deliberately lazy
+## No manual AI calls or approvals in the Lab
 
-Opening Research Intelligence does NOT load the Copilot JavaScript and does NOT
-request `/api/ai/status`. Each source has a small optional
-"Investigate further with AI" action. Only after an explicit click does the
-browser check whether local AI was enabled; only when enabled does it download
-the AI UI and show an evidence-plan preview. A separate confirmation is
-required to spend tokens. No mandatory AI or human truth certification exists.
+The Lab directly presents already-materialized research and experiment
+candidates. It has **no "Investigate further with AI"** or AI Draft/Challenge
+buttons and no Copilot panel. Neither the Copilot JavaScript nor the model
+status endpoint is loaded by the default browser application.
 
-The old large Copilot card and Human Review queue are not part of v3.
+The canonical Vision, clustering and cached family-judge workflows remain
+independent *pipeline* stages, executed explicitly when building/updating
+research evidence rather than as review buttons. A machine quality flag is
+a reason for system-side further validation, not a task for the researcher
+to certify hidden facts. The private legacy research API is not part of the
+normal Lab user journey.
 
 ## 6. Rebuild/migrate (no scraping or Vision required)
 
