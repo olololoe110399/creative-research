@@ -29,13 +29,13 @@ DEFAULT_STRONG_COMBINED = 0.80
 DEFAULT_BRIDGE_COMBINED = 0.75
 DEFAULT_MIN_AI_CONFIDENCE = 0.80
 
-AI_POSITIVE_RELATIONSHIPS = {
+AI_STRONG_CORE_RELATIONSHIPS = {
     "exact_reuse",
     "translation_adaptation",
     "paraphrase",
     "hook_variant",
-    "execution_variant",
 }
+AI_DEFER_RELATIONSHIPS = {"execution_variant"}
 AI_NEGATIVE_RELATIONSHIPS = {"thematic_only", "unrelated"}
 
 SAME_LANGUAGE_STRONG_SEMANTIC = 0.35
@@ -223,9 +223,15 @@ def _ai_override(
 
     if (
         decision == "same_core_concept"
-        and relationship in AI_POSITIVE_RELATIONSHIPS
+        and relationship in AI_STRONG_CORE_RELATIONSHIPS
     ):
-        return "strong_ai_same"
+        return "strong_ai_core"
+
+    if (
+        decision == "same_core_concept"
+        and relationship in AI_DEFER_RELATIONSHIPS
+    ):
+        return "defer_ai_execution"
 
     return None
 
@@ -242,11 +248,13 @@ def _prepare_pairs(
     dict[str, set[str]],
     dict[str, set[str]],
     dict[str, int],
+    dict[str, int],
 ]:
     lookup: dict[tuple[str, str], dict[str, Any]] = {}
     strong_neighbors: dict[str, set[str]] = {}
     bridge_neighbors: dict[str, set[str]] = {}
     gate_counts: dict[str, int] = {}
+    ai_override_counts: dict[str, int] = {}
     ai_lookup = _ai_judgment_lookup(ai_judgments)
 
     required = {"left_post_uid", "right_post_uid", "combined_score"}
@@ -264,14 +272,21 @@ def _prepare_pairs(
             ai_lookup.get(_pair_key(left, right)),
             min_confidence=min_ai_confidence,
         )
+        if ai_gate is not None:
+            ai_override_counts[ai_gate] = (
+                ai_override_counts.get(ai_gate, 0) + 1
+            )
         if ai_gate == "reject_ai_different":
-            gate_counts[ai_gate] = gate_counts.get(ai_gate, 0) + 1
             continue
 
-        gate = ai_gate or classify_pair(
-            raw,
-            strong_combined=strong_combined,
-            bridge_combined=bridge_combined,
+        gate = (
+            ai_gate
+            if ai_gate == "strong_ai_core"
+            else classify_pair(
+                raw,
+                strong_combined=strong_combined,
+                bridge_combined=bridge_combined,
+            )
         )
         if gate is None:
             continue
@@ -284,7 +299,13 @@ def _prepare_pairs(
         target.setdefault(left, set()).add(right)
         target.setdefault(right, set()).add(left)
 
-    return lookup, strong_neighbors, bridge_neighbors, gate_counts
+    return (
+        lookup,
+        strong_neighbors,
+        bridge_neighbors,
+        gate_counts,
+        ai_override_counts,
+    )
 
 
 def _post_metadata(
@@ -361,7 +382,13 @@ def build_family_v2_preview(
     min_ai_confidence: float = DEFAULT_MIN_AI_CONFIDENCE,
 ) -> dict[str, pd.DataFrame | dict[str, Any]]:
     metadata = _post_metadata(posts, analysis)
-    pair_lookup, strong_neighbors, bridge_neighbors, gate_counts = _prepare_pairs(
+    (
+        pair_lookup,
+        strong_neighbors,
+        bridge_neighbors,
+        gate_counts,
+        ai_override_counts,
+    ) = _prepare_pairs(
         pairs,
         strong_combined=strong_combined,
         bridge_combined=bridge_combined,
@@ -623,6 +650,7 @@ def build_family_v2_preview(
         "cross_language_bridge_structure": CROSS_LANGUAGE_BRIDGE_STRUCTURE,
         "cross_language_bridge_semantic": CROSS_LANGUAGE_BRIDGE_SEMANTIC,
         "gate_counts": gate_counts,
+        "ai_override_counts": ai_override_counts,
         "notes": [
             "Preview only: production creative_families are not modified.",
             "New families are seeded only by strong pair edges.",
@@ -630,7 +658,9 @@ def build_family_v2_preview(
             "Cross-language gates compensate for lexical penalty but require very high structural similarity.",
             "Same-language gates additionally require hook coherence or strong topic plus production-score coherence.",
             "Same-current-family calibration pairs are retained as strong positive controls unless a high-confidence AI rejection overrides them.",
-            "High-confidence AI same-core judgments become strong edges; high-confidence different-core judgments reject an edge; uncertain/low-confidence judgments fall back to deterministic gates.",
+            "High-confidence AI exact reuse, translation, paraphrase, and hook-variant judgments become strong core-family edges.",
+            "AI execution_variant judgments are retained as semantic evidence but defer to deterministic core-family gates instead of seeding families.",
+            "High-confidence AI different-core judgments reject an edge; uncertain/low-confidence judgments fall back to deterministic gates.",
         ],
     }
 
