@@ -75,9 +75,10 @@ def main() -> None:
 
     workspace = _resolve(args.workspace)
     evidence = _load_json(workspace / "evidence.json")
+    families = _load_json(workspace / "families.json")
     kit = build_production_kit(
         evidence=evidence,
-        families=_load_json(workspace / "families.json"),
+        families=families,
         accounts=_load_json(workspace / "accounts.json"),
         lab=_load_json(workspace / "lab.json"),
         recipes_limit=args.recipes,
@@ -94,7 +95,9 @@ def main() -> None:
             kit, _load_csv(_resolve(args.own_results_csv))
         )
     audit = audit_production_kit(
-        kit, post_ids={p["post_uid"] for p in evidence["posts"]}
+        kit,
+        post_ids={p["post_uid"] for p in evidence["posts"]},
+        family_ids={f["family_id"] for f in families["families"]},
     )
     if audit["status"] != "pass":
         raise SystemExit("Production Kit quality failed:\n" + "\n".join(audit["errors"]))
