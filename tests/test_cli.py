@@ -20,6 +20,7 @@ def test_canonical_commands_exist() -> None:
         "build-warehouse",
         "analyze-performance",
         "analyze-cadence",
+        "build-families",
         "rank-posts",
         "extract-references",
         "query",
