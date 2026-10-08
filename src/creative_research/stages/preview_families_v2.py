@@ -23,7 +23,7 @@ import pandas as pd
 from creative_research.stages.build_families import _text_similarity
 from creative_research.validation import read_table
 
-PREVIEW_SCHEMA_VERSION = "creative-family-v2-preview-v3"
+PREVIEW_SCHEMA_VERSION = "creative-family-v2-preview-v4"
 
 DEFAULT_STRONG_COMBINED = 0.80
 DEFAULT_BRIDGE_COMBINED = 0.75
@@ -31,7 +31,6 @@ DEFAULT_MIN_AI_CONFIDENCE = 0.80
 
 AI_STRONG_CORE_RELATIONSHIPS = {
     "exact_reuse",
-    "translation_adaptation",
     "paraphrase",
     "hook_variant",
 }
@@ -221,6 +220,16 @@ def _ai_override(
     ):
         return "reject_ai_different"
 
+    if decision == "same_core_concept" and relationship == "translation_adaptation":
+        verifier_type = _clean(
+            judgment.get("translation_verifier_type")
+        )
+        if verifier_type == "direct_translation":
+            return "strong_ai_verified_translation"
+        if verifier_type == "localized_paraphrase":
+            return "defer_ai_localized_translation"
+        return "defer_ai_unverified_translation"
+
     if (
         decision == "same_core_concept"
         and relationship in AI_STRONG_CORE_RELATIONSHIPS
@@ -281,7 +290,7 @@ def _prepare_pairs(
 
         gate = (
             ai_gate
-            if ai_gate == "strong_ai_core"
+            if ai_gate is not None and ai_gate.startswith("strong_")
             else classify_pair(
                 raw,
                 strong_combined=strong_combined,
@@ -658,7 +667,9 @@ def build_family_v2_preview(
             "Cross-language gates compensate for lexical penalty but require very high structural similarity.",
             "Same-language gates additionally require hook coherence or strong topic plus production-score coherence.",
             "Same-current-family calibration pairs are retained as strong positive controls unless a high-confidence AI rejection overrides them.",
-            "High-confidence AI exact reuse, translation, paraphrase, and hook-variant judgments become strong core-family edges.",
+            "High-confidence AI exact reuse, paraphrase, and hook-variant judgments become strong core-family edges.",
+            "A translation_adaptation becomes a strong AI core-family edge only when the isolated translation verifier labels it direct_translation.",
+            "Verifier-localized paraphrases and unverified translations remain semantic evidence but defer to deterministic family gates.",
             "AI execution_variant judgments are retained as semantic evidence but defer to deterministic core-family gates instead of seeding families.",
             "High-confidence AI different-core judgments reject an edge; uncertain/low-confidence judgments fall back to deterministic gates.",
         ],

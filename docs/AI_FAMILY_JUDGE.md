@@ -343,3 +343,29 @@ data/06_analytics/family_ai/family_ai_translation_verifier_cache.jsonl
 ```
 
 The report records verifier candidates, API/cache counts, verifier token usage, verifier cost, and total new-run cost.
+
+
+## Translation-to-family precision policy
+
+The translation verifier has two positive classes:
+
+- `direct_translation`
+- `localized_paraphrase`
+
+For core creative families these are intentionally treated differently.
+
+```text
+direct_translation
+→ may create a strong AI core-family edge
+
+localized_paraphrase
+→ preserved as semantic evidence
+→ cannot seed a core family by itself
+→ defer to deterministic family gates
+
+missing/unverified translation result
+→ cannot seed a core family by itself
+→ defer to deterministic family gates
+```
+
+This policy favors precision over recall. Real verifier audit showed that direct translations were substantially cleaner, while the localized-paraphrase bucket still contained broader "same study-method promise" matches that are useful semantically but not always narrow enough for core-family identity.
