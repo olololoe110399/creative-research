@@ -932,7 +932,17 @@ def validate_intelligence_workspace(root: Path) -> list[str]:
     if "production.json" not in issues:
         try:
             kit = json.loads((root / "production.json").read_text(encoding="utf-8"))
-            quality = audit_production_kit(kit)
+            canonical_posts = json.loads(
+                (root / "evidence.json").read_text(encoding="utf-8")
+            )["posts"]
+            canonical_families = json.loads(
+                (root / "families.json").read_text(encoding="utf-8")
+            )["families"]
+            quality = audit_production_kit(
+                kit,
+                post_ids={str(p["post_uid"]) for p in canonical_posts},
+                family_ids={str(f["family_id"]) for f in canonical_families},
+            )
             if quality["status"] != "pass":
                 issues.append("production.json: evidence/rights audit failed")
         except (OSError, ValueError, TypeError, AttributeError, KeyError):
