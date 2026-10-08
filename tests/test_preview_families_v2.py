@@ -375,3 +375,108 @@ def test_ai_template_variant_rejects_core_family_edge() -> None:
     family_by_post = members.set_index("post_uid")["family_id"].to_dict()
     assert family_by_post["P1"] != family_by_post["P2"]
     assert result["report"]["ai_override_counts"]["reject_ai_different"] == 1
+
+
+def test_verified_direct_translation_can_seed_core_family() -> None:
+    pairs = _pairs().copy()
+    pairs.loc[
+        pairs["right_post_uid"].eq("P3"),
+        ["combined_score", "structure_score", "semantic_text_score"],
+    ] = [0.60, 0.60, 0.20]
+    judgments = pd.DataFrame(
+        [
+            {
+                "left_post_uid": "P1",
+                "right_post_uid": "P3",
+                "decision": "same_core_concept",
+                "relationship": "translation_adaptation",
+                "confidence": 0.95,
+                "translation_verifier_type": "direct_translation",
+            }
+        ]
+    )
+    result = build_family_v2_preview(
+        _posts(),
+        pairs,
+        _analysis(),
+        judgments,
+    )
+    members = result["members"]
+    assert isinstance(members, pd.DataFrame)
+    family_by_post = members.set_index("post_uid")["family_id"].to_dict()
+    assert family_by_post["P1"] == family_by_post["P3"]
+    assert (
+        result["report"]["gate_counts"]["strong_ai_verified_translation"]
+        == 1
+    )
+
+
+def test_localized_translation_does_not_seed_core_family() -> None:
+    pairs = _pairs().copy()
+    pairs.loc[
+        pairs["right_post_uid"].eq("P3"),
+        ["combined_score", "structure_score", "semantic_text_score"],
+    ] = [0.60, 0.60, 0.20]
+    judgments = pd.DataFrame(
+        [
+            {
+                "left_post_uid": "P1",
+                "right_post_uid": "P3",
+                "decision": "same_core_concept",
+                "relationship": "translation_adaptation",
+                "confidence": 0.95,
+                "translation_verifier_type": "localized_paraphrase",
+            }
+        ]
+    )
+    result = build_family_v2_preview(
+        _posts(),
+        pairs,
+        _analysis(),
+        judgments,
+    )
+    members = result["members"]
+    assert isinstance(members, pd.DataFrame)
+    family_by_post = members.set_index("post_uid")["family_id"].to_dict()
+    assert family_by_post["P1"] != family_by_post["P3"]
+    assert (
+        result["report"]["ai_override_counts"][
+            "defer_ai_localized_translation"
+        ]
+        == 1
+    )
+
+
+def test_unverified_translation_does_not_seed_core_family() -> None:
+    pairs = _pairs().copy()
+    pairs.loc[
+        pairs["right_post_uid"].eq("P3"),
+        ["combined_score", "structure_score", "semantic_text_score"],
+    ] = [0.60, 0.60, 0.20]
+    judgments = pd.DataFrame(
+        [
+            {
+                "left_post_uid": "P1",
+                "right_post_uid": "P3",
+                "decision": "same_core_concept",
+                "relationship": "translation_adaptation",
+                "confidence": 0.95,
+            }
+        ]
+    )
+    result = build_family_v2_preview(
+        _posts(),
+        pairs,
+        _analysis(),
+        judgments,
+    )
+    members = result["members"]
+    assert isinstance(members, pd.DataFrame)
+    family_by_post = members.set_index("post_uid")["family_id"].to_dict()
+    assert family_by_post["P1"] != family_by_post["P3"]
+    assert (
+        result["report"]["ai_override_counts"][
+            "defer_ai_unverified_translation"
+        ]
+        == 1
+    )
