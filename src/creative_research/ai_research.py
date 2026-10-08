@@ -677,7 +677,8 @@ _TEMPORAL_METRIC = re.compile(
     r"\b(?:view\s+velocity|views?\s+per\s+(?:hour|day)|"
     r"hourly\s+views?|daily\s+views?|"
     r"(?:24|48|72)\s*(?:h|hours?)\s+(?:views?|performance)|"
-    r"views?\s+(?:within|after|at)\s+\d+\s*(?:h|hours?|days?))\b",
+    r"views?\s+(?:within|after|at)\s+\d+\s*(?:h|hours?|days?)|"
+    r"(?:within|after|at|by)\s+\d+(?:\.\d+)?\s*(?:h|hours?|days?|hrs?))\b",
     flags=re.IGNORECASE,
 )
 
