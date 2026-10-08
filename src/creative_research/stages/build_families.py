@@ -818,8 +818,8 @@ def build_creative_family_tables(
 def main() -> None:
     parser = argparse.ArgumentParser(
         description=(
-            "Build deterministic creative-family candidates from canonical posts, "
-            "Vision analysis, and sequence evidence. No LLM call is performed."
+            "Build production creative families from canonical posts, Vision evidence, "
+            "and optional cached AI pair judgments. This stage never makes an LLM call."
         )
     )
     parser.add_argument(
@@ -840,6 +840,23 @@ def main() -> None:
         help="Optional performance analytics used only for family summaries/representative choice.",
     )
     parser.add_argument("--out", default="data/06_analytics")
+    parser.add_argument(
+        "--family-model",
+        choices=("v1", "v2"),
+        default="v2",
+        help="Production family model. v2 is calibrated hybrid core-family clustering; v1 is the legacy deterministic model.",
+    )
+    parser.add_argument(
+        "--ai-judgments",
+        default="data/06_analytics/family_ai/family_ai_judgments.parquet",
+        help="Optional precomputed AI pair judgments. Missing file is allowed and never triggers an API call.",
+    )
+    parser.add_argument(
+        "--calibration-max-pairs",
+        type=int,
+        default=50_000,
+        help="Maximum retained deterministic calibration pairs for family v2.",
+    )
     parser.add_argument("--threshold", type=float, default=DEFAULT_THRESHOLD)
     parser.add_argument("--bridge-floor", type=float, default=DEFAULT_BRIDGE_FLOOR)
     parser.add_argument(
@@ -854,6 +871,7 @@ def main() -> None:
     analysis_path = Path(args.analysis).expanduser().resolve()
     sequence_path = Path(args.sequence).expanduser().resolve()
     performance_path = Path(args.performance).expanduser().resolve()
+    ai_judgments_path = Path(args.ai_judgments).expanduser().resolve()
     out_dir = Path(args.out).expanduser().resolve()
     out_dir.mkdir(parents=True, exist_ok=True)
 
@@ -861,8 +879,14 @@ def main() -> None:
     analysis = read_table(analysis_path)
     sequence = read_table(sequence_path)
     performance = read_table(performance_path) if performance_path.exists() else None
+    ai_judgments = (
+        read_table(ai_judgments_path)
+        if ai_judgments_path.exists()
+        else None
+    )
 
     clustering_stats: dict[str, int] = {}
+    v2_meta: dict[str, Any] | None = None
 
     def progress(
         processed: int,
@@ -880,17 +904,42 @@ def main() -> None:
             flush=True,
         )
 
-    tables = build_creative_family_tables(
-        posts,
-        analysis,
-        sequence,
-        performance,
-        threshold=args.threshold,
-        bridge_floor=args.bridge_floor,
-        clustering_stats=clustering_stats,
-        progress_every=max(0, args.progress_every),
-        progress_callback=progress,
-    )
+    if args.family_model == "v2":
+        from creative_research.stages.build_families_v2 import (
+            build_creative_family_tables_v2,
+        )
+
+        print(
+            "Family v2: rebuilding legacy positive controls, blocked calibration "
+            "candidates, and hybrid core families (no AI API calls).",
+            flush=True,
+        )
+        tables, v2_meta = build_creative_family_tables_v2(
+            posts,
+            analysis,
+            sequence,
+            performance,
+            ai_judgments,
+            calibration_max_pairs=max(1, args.calibration_max_pairs),
+            legacy_threshold=args.threshold,
+            legacy_bridge_floor=args.bridge_floor,
+        )
+        clustering_stats = {
+            "family_model": "v2",
+            "calibration_max_pairs": max(1, args.calibration_max_pairs),
+        }
+    else:
+        tables = build_creative_family_tables(
+            posts,
+            analysis,
+            sequence,
+            performance,
+            threshold=args.threshold,
+            bridge_floor=args.bridge_floor,
+            clustering_stats=clustering_stats,
+            progress_every=max(0, args.progress_every),
+            progress_callback=progress,
+        )
 
     outputs: dict[str, str] = {}
     for name, table in tables.items():
@@ -913,26 +962,46 @@ def main() -> None:
 
     report = {
         "analytics_schema_version": ANALYTICS_SCHEMA_VERSION,
-        "family_schema_version": FAMILY_SCHEMA_VERSION,
+        "family_schema_version": (
+            "creative-family-v2"
+            if args.family_model == "v2"
+            else FAMILY_SCHEMA_VERSION
+        ),
+        "family_model": args.family_model,
         "generated_at": datetime.now(UTC).isoformat(),
         "posts_source": str(posts_path),
         "analysis_source": str(analysis_path),
         "sequence_source": str(sequence_path),
         "performance_source": str(performance_path) if performance is not None else None,
+        "ai_judgments_source": (
+            str(ai_judgments_path)
+            if ai_judgments is not None
+            else None
+        ),
         "posts": int(len(posts)),
         "families": int(len(families)),
         "multi_post_families": multi_post_families,
         "cross_account_families": cross_account_families,
         "family_members": int(len(members)),
-        "threshold": args.threshold,
-        "bridge_floor": args.bridge_floor,
+        "threshold": (
+            v2_meta.get("strong_combined")
+            if v2_meta is not None
+            else args.threshold
+        ),
+        "bridge_floor": (
+            v2_meta.get("bridge_combined")
+            if v2_meta is not None
+            else args.bridge_floor
+        ),
         "clustering_stats": clustering_stats,
+        "v2_meta": v2_meta,
         "outputs": outputs,
         "notes": [
             "No scrape was performed.",
             "No LLM/Vision call was performed.",
-            "Families are deterministic candidates, not causal or strategic claims.",
-            "Every assignment retains similarity evidence and stable post_uid lineage.",
+            "Family v2 may consume precomputed AI judgments as durable inferred evidence but never calls an AI API.",
+            "Families are evidence-backed core-concept candidates, not causal or strategic claims.",
+            "Every assignment retains stable post_uid lineage plus deterministic/AI gate provenance.",
         ],
     }
     (out_dir / "creative_families_report.json").write_text(
