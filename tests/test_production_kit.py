@@ -268,3 +268,57 @@ def test_orphan_reference_and_false_rights_fail_quality_gate() -> None:
     assert "unlicensed_asset_marked_publishable" in "|".join(
         audit_production_kit(kit)["errors"]
     )
+
+
+
+def test_raw_enrichment_covers_unselected_posts_and_keeps_music_unlicensed(
+    tmp_path: Path,
+) -> None:
+    """Full observed bank ≠ only best-family/source-post audio."""
+    evidence, families, accounts = _fixture()
+    kit = build_production_kit(
+        evidence=evidence, families=families, accounts=accounts,
+        recipes_limit=1, calendar_days=3,
+    )
+    assert len(kit["recipes"]) == 1
+    raw_dir = tmp_path / "raw" / "raw"
+    raw_dir.mkdir(parents=True)
+    rows = [
+        {
+            "id": "111", "input": "alpha", "text": "Study plans caption",
+            "hashtags": [{"name": "study"}],
+            "musicMeta": {
+                "musicId": "SND1", "musicName": "Instrumental A",
+                "musicAuthor": "Artist A",
+            },
+        },
+        {
+            "id": "333", "input": "alpha", "text": "Revision approach",
+            "hashtags": [{"name": "revision"}],
+            "musicMeta": {
+                "musicId": "SND2", "musicName": "Instrumental B",
+                "musicAuthor": "Artist B",
+            },
+        },
+    ]
+    (raw_dir/"all_items.jsonl").write_text(
+        "".join(json.dumps(row)+"\n" for row in rows),
+        encoding="utf-8",
+    )
+    enriched = enrich_production_kit_from_raw(
+        kit, tmp_path/"raw", evidence_posts=evidence["posts"],
+    )
+    assert enriched["quality"]["raw_posts_expected"] == 3
+    assert enriched["quality"]["raw_posts_matched"] == 2
+    assert {row["music_id"] for row in enriched["music_bank"]} == {"SND1", "SND2"}
+    assert len(enriched["caption_bank"]) == 2
+    assert {row["hashtag"] for row in enriched["hashtag_bank"]} == {"study", "revision"}
+    assert all(row["usable_as_commercial_sound"] is False for row in enriched["music_bank"])
+    assert all(row["rights_status"] == "not_verified" for row in enriched["asset_bank"])
+    assert enriched["quality"]["ready_to_publish"] == 0
+    artifacts = write_production_kit(enriched, workspace=tmp_path)
+    assert artifacts["quality"]["status"] == "pass"
+    with zipfile.ZipFile(tmp_path/"production-kit.zip") as z:
+        assert "Instrumental B" in z.read("SOUND_BANK.csv").decode("utf-8-sig")
+        assert "Revision approach" in z.read("CAPTION_BANK.csv").decode("utf-8-sig")
+        assert "revision" in z.read("HASHTAG_BANK.csv").decode("utf-8-sig")
