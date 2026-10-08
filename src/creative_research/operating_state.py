@@ -218,6 +218,7 @@ class OperatingStore:
                 raise OperatingError("operating_state_wrong_operator_or_schema")
             doc.setdefault("source_migrations",[])
             doc.setdefault("legacy_results",[])
+            doc.setdefault("legacy_asset_clearance",[])
             return doc
         return {
             "schema_version": SCHEMA,
@@ -231,6 +232,7 @@ class OperatingStore:
             "outcomes": {},
             "legacy_experiments": self._legacy(operator_id),
             "legacy_results": [],
+            "legacy_asset_clearance": [],
             "source_migrations": [],
             "migration": "legacy_read_only_experiment_history_imported_once",
         }
@@ -359,6 +361,7 @@ class OperatingStore:
             ),
             "legacy_experiments": state["legacy_experiments"],
             "legacy_results": state["legacy_results"],
+            "legacy_asset_clearance": state["legacy_asset_clearance"],
             "source_migrations_count": len(state["source_migrations"]),
             "stale_work": stale,
             "stale_count": stale_count,
@@ -885,15 +888,20 @@ class OperatingStore:
 
 
     def migrate_embedded_legacy_results(self, old_kit: dict[str, Any]) -> int:
-        """Pre-rebuild preservation of v1 result CSV embedded in production.json.
+        """Capture embedded v1 user results AND asset attestations before rebuild.
 
-        Existing historical records were not necessarily time-normalized or
-        attached to a publishing task: keep them read-only, not in canonical
-        first-party results. Never drop them during a workspace refresh.
+        Older kits may hold team-entered outcome CSV data or rights evidence.
+        Neither may be deleted just because research is regenerated. Historical
+        outcomes keep unverified status; rights may migrate to rights_checked
+        only if complete, attributable to the SAME source family signature.
         """
         operator_id=str(old_kit.get("operator_id") or "")
         embedded=old_kit.get("own_experiment_outcomes") or []
-        if not embedded:
+        assets=[
+            row for row in old_kit.get("asset_bank",[]) or []
+            if isinstance(row,dict) and row.get("rights_status")=="team_attested_licensed"
+        ]
+        if not embedded and not assets:
             return 0
         if not operator_id or not isinstance(embedded,list):
             raise OperatingError("invalid_legacy_embedded_results")
@@ -901,23 +909,80 @@ class OperatingStore:
         for item in embedded:
             if not isinstance(item,dict):
                 raise OperatingError("invalid_legacy_embedded_result_row")
-            entry={
+            prepared.append({
                 **item,
                 "legacy_outcome_key":_hash(item)[:25],
                 "migrated_from":"creator-production-kit-v1-json",
                 "evidence_origin":"historical_user_csv_unverified_age",
                 "not_causal_proof":True,
+            })
+        recipes_by_id={
+            row["recipe_id"]:row
+            for row in old_kit.get("recipes",[]) or []
+            if isinstance(row,dict) and row.get("recipe_id")
+        }
+        historic_assets=[]
+        prepared_assets={}
+        for asset in assets:
+            rid=asset.get("recipe_id")
+            recipe=recipes_by_id.get(rid)
+            note={
+                **asset,
+                "migrated_from":"creator-production-kit-v1-json",
+                "legacy_asset_key":_hash(asset)[:25],
+                "requires_recheck":True,
+                "no_automatic_publication_rights":True,
             }
-            prepared.append(entry)
+            historic_assets.append(note)
+            if not recipe:
+                continue
+            location=str(asset.get("file_or_licensed_source_url") or "").strip()
+            evidence=str(asset.get("license_evidence_url") or "").strip()
+            scope=str(asset.get("license_scope") or "").strip()
+            reviewer=str(asset.get("verified_by") or "").strip()
+            if not all((location,evidence,scope,reviewer)) or "tiktok" not in scope.casefold():
+                continue
+            family=_family_id(recipe)
+            key=_asset_key(asset,family)
+            prepared_assets[key]={
+                "asset_key":key,
+                "asset_id":asset["asset_id"],
+                "source_signature":_recipe_signature(recipe),
+                "state":"rights_checked",
+                "location":location,
+                "license_evidence":evidence,
+                "license_scope":scope,
+                "rights_checked_by":reviewer,
+                "editorial_checked_by":"",
+                "notes":"Migrated team rights attestation, editorial check pending.",
+                "updated_at":_now(),
+                "verified_by_team_not_independent_license_counsel":True,
+            }
         with self.lock:
             state=self._load(operator_id)
             existing={item.get("legacy_outcome_key") for item in state["legacy_results"]}
+            asset_keys={
+                item.get("legacy_asset_key") for item in state["legacy_asset_clearance"]
+            }
             additions=[
                 row for row in prepared if row["legacy_outcome_key"] not in existing
             ]
+            new_asset_history=[
+                row for row in historic_assets if row["legacy_asset_key"] not in asset_keys
+            ]
+            changed=False
             if additions:
                 state["legacy_results"].extend(additions)
+                changed=True
+            if new_asset_history:
+                state["legacy_asset_clearance"].extend(new_asset_history)
+                changed=True
+            for key,item in prepared_assets.items():
+                if key not in state["assets"]:
+                    state["assets"][key]=item
+                    changed=True
+            if changed:
                 state["revision"] += 1
                 state["updated_at"]=_now()
                 self._save(operator_id,state)
-            return len(additions)
+            return len(additions)+len(new_asset_history)
