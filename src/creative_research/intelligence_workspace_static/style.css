@@ -149,3 +149,35 @@ a{color:var(--brand)}
 .toast{background:#111827;color:#fff;border-radius:10px;padding:11px 14px;box-shadow:var(--shadow);max-width:380px}
 @media(max-width:1100px){.metric-grid{grid-template-columns:repeat(3,1fr)}.grid,.account-role-list,.edge-list{grid-template-columns:repeat(2,1fr)}.hero{grid-template-columns:1fr}.hero-side{align-items:flex-start;text-align:left;gap:16px}}
 @media(max-width:720px){.topbar{padding:0 14px}.research-meta{display:none}.primary-nav{padding:8px 12px;top:72px}main{padding:22px 14px 60px}.page-head{align-items:start;flex-direction:column}.page-head h1{font-size:27px}.hero{padding:22px;border-radius:18px}.hero h2{font-size:28px}.metric-grid{grid-template-columns:repeat(2,1fr)}.grid,.grid.two,.claims,.account-role-list,.edge-list{grid-template-columns:1fr}.network-svg{height:600px}.toolbar{align-items:stretch;flex-direction:column}.toolbar select{width:100%}.drawer dl{grid-template-columns:1fr}.review-actions{grid-template-columns:1fr}.family-preview{height:130px}.family-preview img{height:130px}}
+
+
+/* Evidence-to-decision surfaces: content and trust must stay legible together. */
+.claim-icon.info{background:var(--brand2);color:var(--brand)}
+.method-note{padding:10px 12px;background:var(--amber-bg);color:#805600!important;border-radius:10px;font-size:13px}
+.playbook-intro{background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:22px;margin-bottom:16px}
+.playbook-intro h2{margin:0;font-size:22px}
+.playbook-intro p{color:var(--muted);max-width:920px}
+.playbook-intro .hero-link{background:var(--text);color:#fff}
+.playbook-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+.playbook-step{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:22px}
+.playbook-step h2{margin:10px 0;font-size:21px}
+.playbook-step h3{margin:15px 0 5px;font-size:14px}
+.playbook-step p{color:#4b5563;margin:5px 0 10px}
+.playbook-step .link-list{margin-top:16px}
+.playbook-step .link-button{font-size:12px}
+.role-evidence{display:grid;gap:12px}
+.flow-section{border:1px solid var(--line);border-radius:12px;padding:12px}
+.flow-section summary{cursor:pointer;font-weight:700}
+.flow-list{display:grid;gap:9px;margin-top:12px}
+.flow-family{border:1px solid var(--line);border-radius:10px;background:var(--panel2);padding:10px}
+.flow-header{display:flex;gap:6px;align-items:center;justify-content:space-between;margin-bottom:8px}
+.flow-record{padding:10px 0;border-top:1px solid var(--line)}
+.flow-record p{margin:2px 0 6px}
+.flow-record small,.panel small{display:block;color:var(--muted);margin-top:5px}
+.flow-posts{display:flex;gap:7px;margin:8px 0}
+.flow-posts .link-button{flex:1;font-size:12px}
+.review-confirm{display:flex;align-items:flex-start;gap:9px;font-size:12px;color:#3b4250;cursor:pointer}
+.review-confirm input{width:auto!important;margin-top:3px}
+button:focus-visible,summary:focus-visible{outline:3px solid #8ab4ff;outline-offset:2px}
+@media(max-width:900px){.playbook-grid{grid-template-columns:1fr}}
+@media(max-width:600px){.playbook-intro,.playbook-step{padding:16px}.flow-posts{flex-direction:column}.playbook-intro .row{align-items:start;flex-direction:column}}
