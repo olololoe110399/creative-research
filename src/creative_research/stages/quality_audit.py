@@ -9,6 +9,11 @@ from typing import Any
 
 import pandas as pd
 
+from creative_research.intelligence_pipeline import (
+    PipelineConfig,
+    build_stage_specs,
+    stage_freshness,
+)
 from creative_research.intelligence_workspace import validate_intelligence_workspace
 from creative_research.validation import read_table
 
@@ -121,6 +126,7 @@ def build_quality_report(
     knowledge_source_links: pd.DataFrame | None,
     knowledge_evidence_links: pd.DataFrame | None,
     workspace_missing_files: list[str] | None = None,
+    stage_freshness_map: dict[str, dict[str, str]] | None = None,
 ) -> dict[str, Any]:
     issues: list[dict[str, Any]] = []
 
@@ -441,6 +447,22 @@ def build_quality_report(
         )
 
     workspace_missing = workspace_missing_files or []
+    freshness = stage_freshness_map or {}
+    stale_stages = {
+        name: value
+        for name, value in freshness.items()
+        if value.get("action") in {"run", "blocked"}
+    }
+    for name, value in stale_stages.items():
+        action = value.get("action")
+        _issue(
+            issues,
+            level="fail",
+            code=f"freshness.{name}",
+            message=f"Stage {name} is {action}: {value.get('reason')}",
+            metric=action,
+        )
+
     if workspace_missing:
         _issue(
             issues,
@@ -463,6 +485,8 @@ def build_quality_report(
         "duplicate_counts": duplicate_counts,
         "knowledge_status_counts": status_counts,
         "workspace_missing_files": workspace_missing,
+        "stage_freshness": freshness,
+        "stale_stages": stale_stages,
         "issue_counts": {
             "fail": fail_count,
             "warn": warn_count,
@@ -484,6 +508,17 @@ def main() -> None:
         )
     )
     parser.add_argument("--root", default=".")
+    parser.add_argument(
+        "--operators",
+        default="config/operators.toml",
+        help="Operator registry used for freshness auditing.",
+    )
+    parser.add_argument(
+        "--reviews",
+        default=None,
+        help="Optional knowledge review TOML used for freshness auditing.",
+    )
+    parser.add_argument("--timezone", default="UTC")
     parser.add_argument(
         "--workspace",
         default="data/07_exports/operator-intelligence",
@@ -510,6 +545,31 @@ def main() -> None:
     master = root / "data/05_master"
     analytics = root / "data/06_analytics"
     knowledge = root / "data/07_knowledge"
+
+    operators_path = Path(args.operators).expanduser()
+    if not operators_path.is_absolute():
+        operators_path = (root / operators_path).resolve()
+    reviews_path = Path(args.reviews).expanduser() if args.reviews else None
+    if reviews_path is not None and not reviews_path.is_absolute():
+        reviews_path = (root / reviews_path).resolve()
+
+    config = PipelineConfig(
+        root=root,
+        operators=operators_path,
+        reviews=reviews_path,
+        timezone=args.timezone,
+        workspace_out=workspace,
+        quality_out=out,
+    )
+    freshness: dict[str, dict[str, str]] = {}
+    for spec in build_stage_specs(config):
+        if spec.name == "audit":
+            continue
+        action, reason = stage_freshness(spec)
+        freshness[spec.name] = {
+            "action": action,
+            "reason": reason,
+        }
 
     frames = {
         "operators": _read_optional(master / "operators.parquet"),
@@ -541,6 +601,7 @@ def main() -> None:
     report = build_quality_report(
         **frames,
         workspace_missing_files=validate_intelligence_workspace(workspace),
+        stage_freshness_map=freshness,
     )
     report["generated_at"] = datetime.now(UTC).isoformat()
     report["root"] = str(root)
