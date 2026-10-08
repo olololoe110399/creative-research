@@ -454,6 +454,74 @@ def select_candidate_pairs(
     return selected, report
 
 
+def merge_judgment_frames(
+    existing: pd.DataFrame | None,
+    batch: pd.DataFrame,
+    *,
+    model: str,
+) -> tuple[pd.DataFrame, dict[str, int]]:
+    if existing is None or existing.empty:
+        compatible = pd.DataFrame()
+        incompatible_rows = 0
+    else:
+        work = existing.copy()
+        required_version_columns = {
+            "model",
+            "prompt_version",
+            "judge_schema_version",
+        }
+        if required_version_columns.issubset(work.columns):
+            mask = (
+                work["model"].astype(str).eq(model)
+                & work["prompt_version"].astype(str).eq(PROMPT_VERSION)
+                & work["judge_schema_version"]
+                .astype(str)
+                .eq(JUDGE_SCHEMA_VERSION)
+            )
+            compatible = work.loc[mask].copy()
+            incompatible_rows = int((~mask).sum())
+        else:
+            compatible = pd.DataFrame()
+            incompatible_rows = int(len(work))
+
+    existing_rows = int(len(compatible))
+    batch_rows = int(len(batch))
+
+    frames = [
+        frame
+        for frame in (compatible, batch)
+        if frame is not None and not frame.empty
+    ]
+    if not frames:
+        merged = pd.DataFrame()
+    else:
+        merged = pd.concat(frames, ignore_index=True, sort=False)
+        if "pair_id" not in merged.columns:
+            raise ValueError("AI judgment output missing pair_id")
+        merged = (
+            merged.drop_duplicates(subset=["pair_id"], keep="last")
+            .sort_values("pair_id", kind="mergesort")
+            .reset_index(drop=True)
+        )
+
+    stats = {
+        "existing_compatible_rows": existing_rows,
+        "existing_incompatible_rows_ignored": incompatible_rows,
+        "batch_judged_rows": batch_rows,
+        "cumulative_judged_rows": int(len(merged)),
+        "new_or_replaced_pairs": (
+            int(
+                len(
+                    set(batch["pair_id"].astype(str))
+                    if not batch.empty and "pair_id" in batch.columns
+                    else set()
+                )
+            )
+        ),
+    }
+    return merged, stats
+
+
 def _load_cache(path: Path) -> dict[str, dict[str, Any]]:
     if not path.exists():
         return {}
@@ -1082,9 +1150,20 @@ def main() -> None:
     review_path = out_dir / "family_ai_review.csv"
     report_path = out_dir / "family_ai_report.json"
 
-    judgments.to_parquet(judgments_path, index=False)
+    existing_judgments = (
+        read_table(judgments_path)
+        if judgments_path.exists()
+        else None
+    )
+    cumulative_judgments, merge_stats = merge_judgment_frames(
+        existing_judgments,
+        judgments,
+        model=args.model,
+    )
+
+    cumulative_judgments.to_parquet(judgments_path, index=False)
     with jsonl_path.open("w", encoding="utf-8") as handle:
-        for row in judgments.to_dict(orient="records"):
+        for row in cumulative_judgments.to_dict(orient="records"):
             handle.write(json.dumps(row, ensure_ascii=False, default=str) + "\n")
 
     review_columns = [
@@ -1112,9 +1191,11 @@ def main() -> None:
         "judgment_source",
     ]
     available_review_columns = [
-        column for column in review_columns if column in judgments.columns
+        column
+        for column in review_columns
+        if column in cumulative_judgments.columns
     ]
-    judgments.loc[:, available_review_columns].to_csv(
+    cumulative_judgments.loc[:, available_review_columns].to_csv(
         review_path,
         index=False,
         encoding="utf-8-sig",
@@ -1137,6 +1218,19 @@ def main() -> None:
     report = {
         **plan,
         **execution,
+        **merge_stats,
+        "cumulative_decision_counts": (
+            cumulative_judgments["decision"].value_counts().to_dict()
+            if not cumulative_judgments.empty
+            and "decision" in cumulative_judgments.columns
+            else {}
+        ),
+        "cumulative_relationship_counts": (
+            cumulative_judgments["relationship"].value_counts().to_dict()
+            if not cumulative_judgments.empty
+            and "relationship" in cumulative_judgments.columns
+            else {}
+        ),
         "actual_cost_usd_estimate": actual_cost,
         "outputs": {
             "plan": str(plan_path),
@@ -1152,6 +1246,7 @@ def main() -> None:
             "Performance metrics were not included in AI prompts.",
             "AI judgments are inferred evidence and do not mutate production families.",
             "Cache identity includes pair, evidence hash, model, prompt version, and judge schema version.",
+            "Judgment outputs are cumulative upserts by pair_id across compatible model/prompt/schema runs; incompatible historical rows are ignored.",
         ],
     }
     report_path.write_text(

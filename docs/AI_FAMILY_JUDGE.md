@@ -238,3 +238,18 @@ Real preview review showed that treating every `execution_variant` as a strong f
 Therefore `execution_variant` is not allowed to seed a core creative family by itself. The judgment remains valuable evidence for later template/pattern analysis, while core-family membership still requires an independent deterministic gate.
 
 `family_ai_review.csv` exposes both post hooks/topics plus the AI decision, relationship, confidence, concept, and reason for manual auditing without opening Parquet.
+
+
+## Cumulative judgment output
+
+`family_ai_judgments.parquet`, JSONL, and review CSV are cumulative outputs.
+
+Each new batch is upserted by `pair_id` into compatible historical judgments that use the same:
+
+- model;
+- prompt version;
+- judge schema version.
+
+Pairs not selected in the new batch remain in the cumulative output. If a selected pair is judged again, the new row replaces the previous row for that pair. Historical rows from incompatible model/prompt/schema versions are ignored rather than mixed into the active judgment set.
+
+The report distinguishes batch counts from cumulative counts.
