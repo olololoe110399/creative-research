@@ -90,14 +90,14 @@ for(const filename of scripts){
   assert.match(intelligence,/Observed/);
   assert.match(intelligence,/Inferred/);
   assert.match(intelligence,/Unknown/);
-  assert.match(intelligence,/Semantic|semantic_uncertain/);
+  assert.match(intelligence,/semantic flags|semantic uncertain/i);
   assert.doesNotMatch(intelligence,/Approve|Human Review/);
 
   vm.runInContext('tab="playbook";render();',context);
   const playbook=one('#main').innerHTML;
   assert.match(playbook,/Add to My Experiment Plan/);
   assert.match(playbook,/NOT proof|not proven|not proof/i);
-  assert.doesNotMatch(playbook,/human-approved|Approve / Hold/);
+  assert.doesNotMatch(playbook,/human-approved|Approve\s*\/\s*Hold/);
 
   vm.runInContext('tab="experiments";render();',context);
   const plan=one('#main').innerHTML;
