@@ -7,7 +7,7 @@
 function playbookView(){
   const p=data.lab.playbook||{}, steps=p.steps||[];
   const trusted=p.trusted_catalog_playbooks||[];
-  const status=p.status==='human_reviewed'?'Human-reviewed source steps':'Research draft · not validated';
+  const status=p.status==='core_reviewed'?'Core operating model reviewed · other steps may be provisional':'Research draft · not validated';
   const cards=steps.map(function(s,i){
     const blocked=s.trust_status==='hold'||s.trust_status==='rejected';
     const cls=s.trust_status==='approved'?'good':blocked?'bad':'warn';
@@ -31,7 +31,7 @@ function playbookView(){
   }).join('');
   const guardrails=(p.guardrails||[]).map(function(x){return '<li>'+esc(x)+'</li>';}).join('');
   return pageHead('Operator playbook','From observations to decisions','An evidence-linked plan to TEST, not a claim that the operator follows a proven formula.')+
-    '<section class="playbook-intro"><div class="row"><h2>'+esc(status)+'</h2>'+badge((p.approved_source_steps||0)+' of '+(p.observational_source_steps||0)+' observational steps approved',p.status==='human_reviewed'?'good':'warn')+'</div>'+
+    '<section class="playbook-intro"><div class="row"><h2>'+esc(status)+'</h2>'+badge((p.approved_core_steps||0)+' of '+(p.core_step_count||3)+' core claims approved',p.status==='core_reviewed'?'good':'warn')+'</div>'+
     '<p>Research exercises stay provisional until their source claims are reviewed. Automated promotion is not human approval. Review can hold/reject a step without changing historical observations.</p>'+
     '<button class="hero-link" data-go="review">Review operating-model claims</button></section>'+
     '<section class="playbook-grid">'+(cards||'<div class="empty-state">No decision steps could be derived from this operator.</div>')+'</section>'+
