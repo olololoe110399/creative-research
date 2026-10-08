@@ -705,3 +705,516 @@ def build_production_kit(
             "readiness": "TEAM_BRIEF_DRAFT_not_auto_publishable",
         },
     }
+
+
+
+def enrich_production_kit_from_raw(
+    kit: dict[str, Any],
+    raw_root: Path,
+    *,
+    max_files: int = 300,
+    max_rows: int = 200_000,
+) -> dict[str, Any]:
+    """Recover observed captions, hashtags and real music identifiers where possible.
+
+    Reads LOCAL exported Apify/selected JSONL only. No downloads, API calls,
+    screenshots or inference. All sounds remain unlicensed references.
+    """
+    if not raw_root.is_dir():
+        raise ValueError(f"raw_root does not exist: {raw_root}")
+    expected: dict[tuple[str, str], tuple[str, str]] = {}
+    for recipe in kit["recipes"]:
+        for post in recipe["observed_source_posts"]:
+            handle = _text(post.get("account")).casefold().lstrip("@")
+            pid = _text(post.get("post_id"))
+            if handle and pid:
+                expected[(handle, pid)] = (recipe["recipe_id"], _text(post["post_uid"]))
+    located: dict[tuple[str, str], dict[str, Any]] = {}
+    files = sorted({
+        *raw_root.rglob("all_items.jsonl"),
+        *raw_root.rglob("posts.jsonl"),
+    })[:max_files]
+    scanned = 0
+    for path in files:
+        if scanned >= max_rows or len(located) == len(expected):
+            break
+        try:
+            stream = path.open("r", encoding="utf-8-sig")
+        except OSError:
+            continue
+        with stream:
+            for line in stream:
+                if scanned >= max_rows or len(located) == len(expected):
+                    break
+                if not line.strip():
+                    continue
+                scanned += 1
+                try:
+                    raw = json.loads(line)
+                except ValueError:
+                    continue
+                if not isinstance(raw, dict):
+                    continue
+                pid = _text(
+                    raw.get("post_id") or raw.get("id") or raw.get("idStr")
+                    or raw.get("postId") or raw.get("awemeId")
+                )
+                author = raw.get("authorMeta") or raw.get("author") or {}
+                if not isinstance(author, dict):
+                    author = {}
+                handle = _text(
+                    raw.get("input") or raw.get("account")
+                    or author.get("name") or author.get("uniqueId")
+                ).casefold().lstrip("@").split("?")[0].split("/")[-1]
+                key = (handle, pid)
+                if key not in expected or key in located:
+                    continue
+                meta = raw.get("musicMeta") or raw.get("music") or {}
+                if not isinstance(meta, dict):
+                    meta = {}
+                hashtags = raw.get("hashtags") or []
+                if isinstance(hashtags, str):
+                    hashtags = [part for part in re.split(r"[,| ]+", hashtags) if part]
+                clean_tags = []
+                if isinstance(hashtags, list):
+                    for tag in hashtags[:30]:
+                        if isinstance(tag, dict):
+                            name = tag.get("name") or tag.get("hashtagName")
+                        else:
+                            name = str(tag)
+                        if name:
+                            clean_tags.append(str(name).lstrip("#")[:60])
+                located[key] = {
+                    "caption": _clean_copy(
+                        raw.get("text") or raw.get("caption") or raw.get("desc"), 500
+                    ),
+                    "hashtags": clean_tags,
+                    "music_id": _text(
+                        meta.get("musicId") or meta.get("id")
+                        or raw.get("music_id")
+                    ),
+                    "music_name": _text(
+                        meta.get("musicName") or meta.get("title")
+                        or raw.get("music_name")
+                    ),
+                    "music_author": _text(
+                        meta.get("musicAuthor") or meta.get("authorName")
+                        or raw.get("music_author")
+                    ),
+                }
+    music_map: dict[str, dict[str, Any]] = {}
+    caption_count = 0
+    sound_count = 0
+    for recipe in kit["recipes"]:
+        for source in recipe["observed_source_posts"]:
+            key = (_text(source.get("account")).casefold(), _text(source.get("post_id")))
+            meta = located.get(key)
+            if meta is None:
+                continue
+            source["observed_caption_reference_only"] = meta["caption"]
+            source["observed_hashtags_reference_only"] = meta["hashtags"]
+            if meta["caption"]:
+                caption_count += 1
+            if meta["music_id"] or meta["music_name"]:
+                sound_count += 1
+                sound_key = (
+                    meta["music_id"] or
+                    f"name:{_slug(meta['music_name'])}:{_slug(meta['music_author'])}"
+                )
+                candidate = music_map.setdefault(sound_key, {
+                    "sound_key": sound_key,
+                    "music_id": meta["music_id"] or None,
+                    "music_name": meta["music_name"] or None,
+                    "music_author": meta["music_author"] or None,
+                    "source_post_uids": [],
+                    "source_urls": [],
+                    "license_status": "not_verified",
+                    "rights_scope": "reference_only",
+                    "usable_as_commercial_sound": False,
+                    "source": "raw_scrape_metadata",
+                })
+                if source["post_uid"] not in candidate["source_post_uids"]:
+                    candidate["source_post_uids"].append(source["post_uid"])
+                    if source.get("url"):
+                        candidate["source_urls"].append(source["url"])
+                if (
+                    source["post_uid"]
+                    == recipe["evidence"]["selected_representative_uid"]
+                ):
+                    for asset in kit["asset_bank"]:
+                        if (
+                            asset["recipe_id"] == recipe["recipe_id"]
+                            and asset["kind"] == "music"
+                        ):
+                            asset["observed_sound_key"] = sound_key
+                            asset["production_status"] = "sound_found_but_license_not_verified"
+    kit["music_bank"] = sorted(music_map.values(), key=lambda x: x["sound_key"])
+    kit["quality"]["raw_enrichment"] = "scanned_public_local_archive"
+    kit["quality"]["raw_files_scanned"] = len(files)
+    kit["quality"]["raw_rows_scanned"] = scanned
+    kit["quality"]["raw_selected_posts_matched"] = len(located)
+    kit["quality"]["observed_caption_count"] = caption_count
+    kit["quality"]["observed_sound_post_count"] = sound_count
+    kit["quality"]["sound_metadata_coverage"] = (
+        round(sound_count / len(expected), 4) if expected else 0
+    )
+    return kit
+
+
+def apply_team_asset_clearance(
+    kit: dict[str, Any], rows: list[dict[str, str]]
+) -> dict[str, Any]:
+    """Record team attestations, not automatic legal/third-party verification."""
+    assets_by_id = {row["asset_id"]: row for row in kit["asset_bank"]}
+    seen: set[str] = set()
+    for row in rows:
+        aid = _text(row.get("asset_id"))
+        if aid not in assets_by_id or aid in seen:
+            raise ValueError(f"Unknown/duplicate asset ID in clearance CSV: {aid}")
+        seen.add(aid)
+        asset = assets_by_id[aid]
+        status = _text(row.get("rights_status"))
+        if status not in {"not_verified", "team_attested_licensed"}:
+            raise ValueError(f"Invalid asset rights_status for {aid}")
+        if status == "team_attested_licensed":
+            location = _text(row.get("file_or_licensed_source_url"))
+            evidence_url = _text(row.get("license_evidence_url"))
+            verifier = _text(row.get("verified_by"))
+            scope = _text(row.get("license_scope"))
+            if not all((location, evidence_url, verifier, scope)):
+                raise ValueError(f"Asset {aid} lacks evidence, ownership, or license scope")
+            if "tiktok" not in scope.casefold():
+                raise ValueError(f"Asset {aid} not licensed for target platform TikTok")
+            asset.update({
+                "file_or_licensed_source_url": location,
+                "license_evidence_url": evidence_url,
+                "license_scope": scope,
+                "rights_status": status,
+                "production_status": "team_attested_rights_editorial_review_pending",
+                # Attestation of rights is not proof that copy, claims, partner
+                # disclosures, brand policy and TikTok terms have been checked.
+                "safe_to_publish": False,
+                "verified_by": verifier,
+                "rights_verified_at": _text(row.get("verified_at")),
+            })
+    kit["quality"]["assets_with_verified_rights"] = sum(
+        asset["rights_status"] == "team_attested_licensed"
+        for asset in kit["asset_bank"]
+    )
+    kit["quality"]["ready_to_publish"] = 0
+    return kit
+
+
+def attach_own_experiment_outcomes(
+    kit: dict[str, Any], rows: list[dict[str, str]]
+) -> dict[str, Any]:
+    """Track actual first-party results with provenance, including failures."""
+    valid_recipes = {r["recipe_id"] for r in kit["recipes"]}
+    outcome_rows: list[dict[str, Any]] = []
+    for index, row in enumerate(rows, 1):
+        recipe_id = _text(row.get("recipe_id"))
+        if recipe_id not in valid_recipes:
+            raise ValueError(f"Outcome row {index}: unknown recipe_id {recipe_id!r}")
+        views = _num(row.get("views"))
+        baseline = _num(row.get("account_median_views"))
+        saves = _num(row.get("saves"))
+        shares = _num(row.get("shares"))
+        if views is not None and views < 0:
+            raise ValueError(f"Outcome row {index}: negative views")
+        if baseline is not None and baseline <= 0:
+            raise ValueError(f"Outcome row {index}: baseline must be > 0")
+        if any(v is not None and v < 0 for v in (saves, shares)):
+            raise ValueError(f"Outcome row {index}: negative interaction count")
+        comparison = round(views / baseline, 3) if views is not None and baseline else None
+        outcome_rows.append({
+            "recipe_id": recipe_id,
+            "account_slot": _text(row.get("account_slot")),
+            "published_url": _text(row.get("published_url")),
+            "posted_at": _text(row.get("posted_at")),
+            "measurement_age_hours": _num(row.get("measurement_age_hours")),
+            "views": views, "saves": saves, "shares": shares,
+            "account_median_views": baseline,
+            "views_vs_account_median": comparison,
+            "saves_per_view": round(saves / views, 6) if views and saves is not None else None,
+            "shares_per_view": round(shares / views, 6) if views and shares is not None else None,
+            "editorial_notes": _clean_copy(row.get("notes"), 800),
+            "evidence_origin": "first_party_team_reported_not_scraped_operator",
+            "causal_claim": False,
+        })
+    kit["own_experiment_outcomes"] = outcome_rows
+    kit["quality"]["first_party_results_recorded"] = len(outcome_rows)
+    return kit
+
+
+def audit_production_kit(
+    kit: dict[str, Any], post_ids: set[str] | None = None
+) -> dict[str, Any]:
+    errors: list[str] = []
+    recipe_rows = kit.get("recipes") or []
+    recipe_ids = [r.get("recipe_id") for r in recipe_rows]
+    if not recipe_ids or len(recipe_ids) != len(set(recipe_ids)):
+        errors.append("empty_or_duplicate_recipe_ids")
+    asset_rows = kit.get("asset_bank") or []
+    asset_ids = [a.get("asset_id") for a in asset_rows]
+    if len(asset_ids) != len(set(asset_ids)):
+        errors.append("duplicate_asset_ids")
+    for recipe in recipe_rows:
+        rid = recipe.get("recipe_id")
+        if not recipe.get("observed_source_posts"):
+            errors.append(f"{rid}:missing_source_posts")
+        if not recipe.get("slides"):
+            errors.append(f"{rid}:no_production_slides")
+        if recipe.get("is_proven_to_work_for_user") is not False:
+            errors.append(f"{rid}:unjustified_success_claim")
+        if recipe.get("readiness") != "draft_requires_copy_fact_check_and_asset_clearance":
+            errors.append(f"{rid}:missing_readiness_warning")
+        for post in recipe.get("observed_source_posts", []):
+            if not post.get("post_uid") or not post.get("url"):
+                errors.append(f"{rid}:untraceable_post")
+            if post_ids is not None and post.get("post_uid") not in post_ids:
+                errors.append(f"{rid}:orphan_post_reference")
+        for slide in recipe.get("slides", []):
+            if slide.get("asset_id") not in asset_ids:
+                errors.append(f"{rid}:slide_without_asset")
+    for asset in asset_rows:
+        if asset.get("recipe_id") not in recipe_ids:
+            errors.append(f"{asset.get('asset_id')}:orphan_asset_recipe")
+        if asset.get("rights_status") != "team_attested_licensed" and asset.get("safe_to_publish"):
+            errors.append(f"{asset.get('asset_id')}:unlicensed_asset_marked_publishable")
+    for calendar in kit.get("calendar", []):
+        if calendar.get("recipe_id") not in recipe_ids:
+            errors.append(f"{calendar.get('slot_id')}:orphan_calendar_recipe")
+        if calendar.get("publish_gate") != "blocked_until_rights_and_copy_review":
+            errors.append(f"{calendar.get('slot_id')}:unsafe_publish_gate")
+        if calendar.get("tracking") != "new_tracking_required":
+            errors.append(f"{calendar.get('slot_id')}:unsupported_existing_tracking_claim")
+    return {
+        "status": "pass" if not errors else "fail",
+        "errors": errors,
+        "schema_version": SCHEMA_VERSION,
+        "recipes_checked": len(recipe_rows),
+        "calendar_slots_checked": len(kit.get("calendar", [])),
+        "asset_candidates_checked": len(asset_rows),
+        "meaning": (
+            "Lineage, honesty and handoff contract check; not external "
+            "copyright verification, creative accuracy, or proven outcomes."
+        ),
+    }
+
+
+def _csv_bytes(rows: list[dict[str, Any]], columns: list[str]) -> bytes:
+    stream = io.StringIO(newline="")
+    writer = csv.DictWriter(stream, fieldnames=columns, extrasaction="ignore")
+    writer.writeheader()
+    for row in rows:
+        writer.writerow({
+            column: (
+                json.dumps(row.get(column), ensure_ascii=False)
+                if isinstance(row.get(column), (dict, list))
+                else row.get(column)
+            )
+            for column in columns
+        })
+    return stream.getvalue().encode("utf-8-sig")
+
+
+def _source_markdown(recipe: dict[str, Any]) -> str:
+    source_links = "\n".join(
+        f"- {p['post_uid']} / @{p.get('account')}: {p.get('url')} "
+        f"(views {p.get('views')}, own-account percentile "
+        f"{p.get('account_relative_views_percentile')})"
+        for p in recipe["observed_source_posts"]
+    )
+    slides = "\n".join(
+        f"### Slide/scene {s['slide_number']} — {s['role']}\n\n"
+        f"New Vietnamese draft: {s['new_draft_text_vi']}\n\n"
+        f"Make original visual: {s['production_visual_brief']}\n\n"
+        f"Reference-only text: {s['source_text_reference_only']}\n\n"
+        f"Search prompt: {s['visual_search_query']} | asset {s['asset_id']}\n"
+        for s in recipe["slides"]
+    )
+    return (
+        f"# {recipe['recipe_id']} — {recipe['title']}\n\n"
+        "STATUS: Draft for editorial fact-check and LICENSED/ORIGINAL ASSETS. "
+        "Not approved for publication as-is.\n\n"
+        f"Evidence grade: {recipe['evidence_grade']}\n\n"
+        f"Creative structure: {recipe['hook_mechanism_reference']}\n\n"
+        f"New hook: {recipe['new_hook_draft_vi']}\n\n"
+        f"Original operator hook (EVIDENCE ONLY): "
+        f"{recipe['observed_original_hook_reference_only']}\n\n"
+        f"Observed evidence: {json.dumps(recipe['evidence'],ensure_ascii=False,indent=2)}\n\n"
+        "## Research source links\n\n"+source_links+"\n\n"
+        "## Production storyboard\n\n"+slides+"\n\n"
+        f"## Caption draft\n\n{recipe['new_caption_draft_vi']}\n\n"
+        f"Proposed hashtags: {' '.join(recipe['proposed_hashtags'])}\n\n"
+        f"Sound to source: {recipe['suggested_music_asset_id']}; rights NOT verified.\n\n"
+        "## Do not publish before\n\n"+
+        "\n".join(f"- [ ] {check}" for check in recipe["editorial_checks"])+"\n"
+    )
+
+
+def _summary_md(kit: dict[str, Any]) -> str:
+    q = kit["quality"]
+    return (
+        "# Production Handoff — START HERE\n\n"
+        f"Operator reference: {kit['operator_id']} "
+        "(public posts, researcher-declared account grouping)\n\n"
+        f"Source: {kit['source_post_count']} posts; "
+        f"{kit['source_family_count']} family candidates; "
+        f"{kit['source_account_count']} accounts.\n\n"
+        f"Prepared: {q['recipes_generated']} recipes, {q['slides_drafted']} "
+        f"slides/scenes, {q['calendar_slots']} planned posts and "
+        f"{q['asset_candidates']} required asset candidates.\n\n"
+        "## Team handoff order\n\n"
+        "1. Read ACCOUNT_BLUEPRINTS.md and own the pilot account identities.\n"
+        "2. Open CONTENT_PLAN.csv. Each slot points to one numbered recipe.\n"
+        "3. Open briefs/REC-xxx.md for new overlay copy, per-slide visual "
+        "directions, caption draft and source TikTok links.\n"
+        "4. Work through ASSET_BANK.csv: photograph/create original images, "
+        "document file and permission source, then verify TikTok-appropriate "
+        "music rights. Pinterest references are NOT licensed assets.\n"
+        "5. Record brand factual/claims review and any promotion disclosures. "
+        "Only then mark a calendar slot ready in your own production tracker.\n"
+        "6. Record your own post URLs, 24h/72h/7d metrics in "
+        "OWN_RESULTS_TEMPLATE.csv. Re-export to get evidence-labelled learnings.\n\n"
+        "## NON-NEGOTIABLE EVIDENCE LIMITS\n\n"
+        "- The operator's internal test/scale workflow has NOT been proven.\n"
+        "- The source hooks/media are references only; draft text must be "
+        "fact-checked and edited in the team's own voice.\n"
+        "- No asset here is automatically licensed, and no content is "
+        "automatically marked ready to publish.\n"
+        "- Publishing times/2-account pilot structure are proposed "
+        "experiments, NOT statistically validated operator advice.\n"
+        "- Individual historical high views do not predict your own outcomes.\n\n"
+        f"Raw caption/music enrichment: {q['raw_enrichment']}. "
+        f"Music references found: {len(kit['music_bank'])}; "
+        f"team-attested assets: {q['assets_with_verified_rights']}.\n"
+    )
+
+
+def production_kit_artifacts(kit: dict[str, Any]) -> dict[str, bytes]:
+    """All team files; stable path names, no external media or credentials."""
+    audit = audit_production_kit(kit)
+    if audit["status"] != "pass":
+        raise ValueError("Invalid production kit: "+", ".join(audit["errors"][:12]))
+    accounts_md = "# Original-account launch blueprint (proposals, not observed intent)\n\n"
+    for a in kit["account_blueprints"]:
+        accounts_md += (
+            f"## {a['slot_id']}: {a['positioning']}\n\n"
+            f"Audience: {a['audience']}\n\n"
+            f"Handle pattern: {a['suggested_handle_pattern']}\n\n"
+            f"Bio draft: {a['bio_draft']}\n\n"
+            f"Avatar: {a['avatar_brief']}\n\n"
+            f"Pilot cadence: {a['proposed_cadence']} at "
+            f"{a['proposed_local_time']} {a['time_zone']} "
+            "(UNVALIDATED EXPERIMENT TIME)\n\n"
+            "Setup checklist:\n"+
+            "\n".join(f"- [ ] {s}" for s in a["setup_checklist"])+
+            "\n\nObserved reference accounts: "+
+            ", ".join(str(s["handle"]) for s in a["source_account_observations"])+
+            "\n\n"
+        )
+    result: dict[str, bytes] = {
+        "START_HERE.md": _summary_md(kit).encode("utf-8"),
+        "ACCOUNT_BLUEPRINTS.md": accounts_md.encode("utf-8"),
+        "PRODUCTION.json": json.dumps(kit,ensure_ascii=False,indent=2,default=str).encode("utf-8"),
+        "CONTENT_PLAN.csv": _csv_bytes(kit["calendar"], [
+            "day", "slot_id", "pilot_account", "recipe_id", "family_id",
+            "variant", "test_dimension", "planned_local_time", "timezone",
+            "time_basis", "content_type", "work_status", "publish_gate",
+            "tracking", "primary_metric", "secondary_metrics",
+            "post_url", "owner", "asset_clearance",
+        ]),
+        "ASSET_BANK.csv": _csv_bytes(kit["asset_bank"], [
+            "asset_id", "recipe_id", "kind", "role", "search_query",
+            "reference_post_uid", "reference_post_url",
+            "observed_sound_key", "file_or_licensed_source_url",
+            "license_evidence_url", "license_scope", "rights_status",
+            "production_status", "safe_to_publish", "verified_by", "note",
+        ]),
+        "SOUND_BANK.csv": _csv_bytes(kit["music_bank"], [
+            "sound_key", "music_id", "music_name", "music_author",
+            "source_post_uids", "source_urls", "license_status",
+            "rights_scope", "usable_as_commercial_sound", "source",
+        ]),
+        "SOURCE_EVIDENCE.csv": _csv_bytes([
+            {"recipe_id": r["recipe_id"], "family_id": r["family_id"],
+             **p, "evidence_grade": r["evidence_grade"]}
+            for r in kit["recipes"] for p in r["observed_source_posts"]
+        ], [
+            "recipe_id", "family_id", "post_uid", "account", "post_id", "url",
+            "views", "account_relative_views_percentile", "saves",
+            "created_at", "hook_reference", "evidence_grade",
+            "observed_caption_reference_only", "observed_hashtags_reference_only",
+        ]),
+        "SUSPECTED_FALSE_SPLITS.csv": _csv_bytes(kit["suspected_false_splits"], [
+            "family_a", "family_b", "post_a", "post_b", "url_a", "url_b",
+            "accounts", "shared_hook_reference", "matching_sequence_roles",
+            "shared_product_family", "finding", "validated_same_concept",
+        ]),
+        "ASSET_CLEARANCE_TEMPLATE.csv": _csv_bytes([], [
+            "asset_id", "rights_status", "file_or_licensed_source_url",
+            "license_evidence_url", "license_scope", "verified_by", "verified_at",
+        ]),
+        "OWN_RESULTS_TEMPLATE.csv": _csv_bytes([], [
+            "recipe_id", "account_slot", "published_url", "posted_at",
+            "measurement_age_hours", "views", "saves", "shares",
+            "account_median_views", "notes",
+        ]),
+        "OWN_EXPERIMENT_RESULTS.csv": _csv_bytes(
+            kit.get("own_experiment_outcomes", []), [
+                "recipe_id", "account_slot", "published_url", "posted_at",
+                "measurement_age_hours", "views", "saves", "shares",
+                "account_median_views", "views_vs_account_median",
+                "saves_per_view", "shares_per_view",
+                "editorial_notes", "evidence_origin",
+            ],
+        ),
+        "QUALITY_REPORT.json": json.dumps(audit, ensure_ascii=False, indent=2).encode("utf-8"),
+        "LESSONS.md": (
+            "# Evidence-bound lessons, not operator intent\n\n"+
+            "\n\n".join(
+                f"## {l['id']} ({l['kind']})\n\n"
+                f"Observation: {l['statement']}\n\n"
+                f"Trial: {l['action']}\n\n"
+                f"Limit: {l['qualification']}\n\n"
+                for l in kit["lessons"]
+            )
+        ).encode("utf-8"),
+    }
+    for recipe in kit["recipes"]:
+        result[f"briefs/{recipe['recipe_id']}.md"] = _source_markdown(recipe).encode("utf-8")
+    return result
+
+
+def write_production_kit(
+    kit: dict[str, Any],
+    *,
+    workspace: Path,
+) -> dict[str, Any]:
+    workspace.mkdir(parents=True, exist_ok=True)
+    audit = audit_production_kit(kit)
+    if audit["status"] != "pass":
+        raise ValueError("Production Kit fails evidence quality gate: "+str(audit["errors"][:10]))
+    artifacts = production_kit_artifacts(kit)
+    archive = io.BytesIO()
+    with zipfile.ZipFile(archive, "w", compression=zipfile.ZIP_DEFLATED,
+                         compresslevel=6) as package:
+        for name, content in sorted(artifacts.items()):
+            package.writestr(name, content)
+    production = workspace / "production.json"
+    handoff = workspace / "production-kit.zip"
+    # Avoid partially writing the public entry-point JSON if package build fails.
+    handoff.write_bytes(archive.getvalue())
+    production.write_text(
+        json.dumps(kit, ensure_ascii=False, indent=2, default=str),
+        encoding="utf-8",
+    )
+    return {
+        "workspace": str(workspace),
+        "production_json": str(production),
+        "handoff_zip": str(handoff),
+        "handoff_bytes": len(archive.getvalue()),
+        "entries": len(artifacts),
+        "quality": audit,
+    }
