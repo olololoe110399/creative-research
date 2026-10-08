@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 MASTER_SCHEMA_VERSION = "creative-master-v1"
+WAREHOUSE_SCHEMA_VERSION = "operator-warehouse-v1"
 
 WORKSPACE_DIRS = (
     "data/00_raw/apify",
