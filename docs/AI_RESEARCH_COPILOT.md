@@ -5,8 +5,8 @@ The original design exposed manual **AI Investigate**, **AI Challenge**,
 retired in favor of **automatically materialized research**.
 
 **Important:** The Operator Intelligence Lab no longer exposes any Copilot
-buttons, even optional ones. It never loads the old \`ai_ui.js\` module,
-checks \`/api/ai/status\`, or starts a Gemini request when the researcher
+buttons, even optional ones. It never loads the old `ai_ui.js` module,
+checks `/api/ai/status`, or starts a Gemini request when the researcher
 navigates Research Intelligence, Creative Library or Operator Playbook.
 
 ## Active workflow
@@ -24,16 +24,16 @@ Read [RESEARCH_INTELLIGENCE_V3.md](RESEARCH_INTELLIGENCE_V3.md).
 ## Historical technical implementation
 
 The repository still contains the private/local, opt-in
-\`creative_research.ai_research\` engine and guarded \`/api/ai/*\` endpoints as
+`creative_research.ai_research` engine and guarded `/api/ai/*` endpoints as
 **legacy developer-only infrastructure**. They are not wired to the Lab UI.
 They are not necessary to use the Lab, do not run in the standard
-\`lab --open\` invocation, and must not be presented as a normal product
+`lab --open` invocation, and must not be presented as a normal product
 workflow.
 
 That engine uses deterministic JSON evidence packets, strict source ID
 validation, operator scoping, a bounded allowlist of models, output schemas,
 a per-process call cap, and private cached proposal reports. Historic
-reports stay under \`data/07_knowledge/ai_research\` and are not promoted
+reports stay under `data/07_knowledge/ai_research` and are not promoted
 to observed facts or trusted knowledge.
 
 The producer still treats captions/creative descriptions as untrusted
@@ -47,9 +47,9 @@ upstream calibrated family-judge stage, not a button shown to the researcher.
 
 ## Quality gate
 
-- No \`Investigate further with AI (optional)\` or \`Explore playbook
-  further with AI\` buttons in generated HTML, research cards or drawers.
-- No \`ai_ui.js\` in the generated workspace or Python wheel.
+- No `Investigate further with AI (optional)` or `Explore playbook
+  further with AI` buttons in generated HTML, research cards or drawers.
+- No `ai_ui.js` in the generated workspace or Python wheel.
 - No AI status, model or report requests during ordinary Lab navigation.
 - The retired module is removed from older exported workspaces on rebuild.
 - Tests enforce these invariants alongside Python source-lineage checks.
