@@ -392,14 +392,42 @@ def cluster_features(
     *,
     threshold: float = DEFAULT_THRESHOLD,
     bridge_floor: float = DEFAULT_BRIDGE_FLOOR,
+    stats: dict[str, int] | None = None,
+    progress_every: int = 0,
+    progress_callback: Callable[[int, int, int, dict[str, int]], None] | None = None,
 ) -> tuple[list[FamilyState], list[dict[str, Any]]]:
     if not 0 <= bridge_floor <= threshold <= 1:
         raise ValueError("Require 0 <= bridge_floor <= threshold <= 1")
 
+    metrics = stats if stats is not None else {}
+    metrics.clear()
+    metrics.update(
+        {
+            "upper_bound_checks": 0,
+            "full_comparisons": 0,
+            "anchor_pruned": 0,
+            "member_pruned": 0,
+        }
+    )
+
     families_by_scope: dict[str, list[FamilyState]] = {}
     assignments: list[dict[str, Any]] = []
+    total = len(features)
 
-    for feature in features:
+    def emit_progress(processed: int) -> None:
+        if (
+            progress_callback is None
+            or progress_every <= 0
+            or (
+                processed % progress_every != 0
+                and processed != total
+            )
+        ):
+            return
+        family_count = sum(len(items) for items in families_by_scope.values())
+        progress_callback(processed, total, family_count, metrics)
+
+    for processed, feature in enumerate(features, start=1):
         scope_families = families_by_scope.setdefault(feature.operator_scope, [])
         best_family: FamilyState | None = None
         best_assignment_score = -1.0
@@ -409,12 +437,37 @@ def cluster_features(
         best_components: dict[str, float | None] = {}
 
         for family in scope_families:
-            anchor_score, _ = compare_features(feature, family.anchor)
-            nearest_score = -1.0
-            nearest: CreativeFeature | None = None
-            nearest_components: dict[str, float | None] = {}
-            for member in family.members:
+            metrics["upper_bound_checks"] += 1
+            anchor_upper = compare_features_upper_bound(feature, family.anchor)
+            if anchor_upper < bridge_floor:
+                metrics["anchor_pruned"] += 1
+                continue
+
+            anchor_score, anchor_components = compare_features(
+                feature,
+                family.anchor,
+            )
+            metrics["full_comparisons"] += 1
+            if anchor_score < bridge_floor:
+                metrics["anchor_pruned"] += 1
+                continue
+
+            # The anchor is also the first family member. Initializing nearest
+            # with it preserves the old first-match tie behavior while avoiding
+            # a duplicate full comparison.
+            nearest_score = anchor_score
+            nearest: CreativeFeature | None = family.anchor
+            nearest_components = anchor_components
+
+            for member in family.members[1:]:
+                metrics["upper_bound_checks"] += 1
+                member_upper = compare_features_upper_bound(feature, member)
+                if member_upper <= nearest_score:
+                    metrics["member_pruned"] += 1
+                    continue
+
                 score, components = compare_features(feature, member)
+                metrics["full_comparisons"] += 1
                 if score > nearest_score:
                     nearest_score = score
                     nearest = member
@@ -422,7 +475,7 @@ def cluster_features(
 
             eligible = (
                 anchor_score >= threshold
-                or (nearest_score >= threshold and anchor_score >= bridge_floor)
+                or nearest_score >= threshold
             )
             if not eligible:
                 continue
@@ -437,7 +490,10 @@ def cluster_features(
                 best_components = nearest_components
 
         if best_family is None:
-            family = FamilyState(operator_scope=feature.operator_scope, anchor=feature)
+            family = FamilyState(
+                operator_scope=feature.operator_scope,
+                anchor=feature,
+            )
             scope_families.append(family)
             assignments.append(
                 {
@@ -459,6 +515,7 @@ def cluster_features(
                     "is_origin": True,
                 }
             )
+            emit_progress(processed)
             continue
 
         best_family.members.append(feature)
@@ -469,7 +526,9 @@ def cluster_features(
                 "anchor_score": best_anchor_score,
                 "nearest_score": best_nearest_score,
                 "nearest_post_uid": (
-                    best_nearest.post_uid if best_nearest is not None else best_family.anchor.post_uid
+                    best_nearest.post_uid
+                    if best_nearest is not None
+                    else best_family.anchor.post_uid
                 ),
                 "match_reason_json": _reason_json(
                     best_components,
@@ -479,12 +538,15 @@ def cluster_features(
                 "is_origin": False,
             }
         )
+        emit_progress(processed)
 
     families = [
         family
         for scope in sorted(families_by_scope)
         for family in families_by_scope[scope]
     ]
+    metrics["features"] = total
+    metrics["families"] = len(families)
     return families, assignments
 
 
