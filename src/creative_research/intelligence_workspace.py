@@ -16,6 +16,12 @@ from creative_research.operator_product import (
     strategy_role_lineage,
 )
 from creative_research.research_intelligence import build_research_intelligence
+from creative_research.production_kit import (
+    build_production_kit,
+    write_production_kit,
+    enrich_production_kit_from_raw,
+    audit_production_kit,
+)
 from creative_research.reference_media import (
     local_media_sources_for_post,
     preview_media_for_post,
@@ -23,7 +29,7 @@ from creative_research.reference_media import (
 from creative_research.stages.review_knowledge import build_review_queue
 
 WORKSPACE_SCHEMA_VERSION = "operator-intelligence-lab-v3"
-STATIC_FILES = ("index.html", "app.js", "product_ui.js", "research_ui.js", "style.css", "favicon.svg")
+STATIC_FILES = ("index.html", "app.js", "product_ui.js", "research_ui.js", "production_ui.js", "style.css", "favicon.svg")
 REQUIRED_DATA_FILES = (
     "workspace.json",
     "overview.json",
@@ -35,6 +41,8 @@ REQUIRED_DATA_FILES = (
     "knowledge.json",
     "evidence.json",
     "lab.json",
+    "production.json",
+    "production-kit.zip",
 )
 
 
@@ -921,6 +929,24 @@ def validate_intelligence_workspace(root: Path) -> list[str]:
                 issues.append("lab.json: missing Research Intelligence v3")
         except (OSError, ValueError, AttributeError):
             issues.append("lab.json: unreadable research data")
+    if "production.json" not in issues:
+        try:
+            kit = json.loads((root / "production.json").read_text(encoding="utf-8"))
+            canonical_posts = json.loads(
+                (root / "evidence.json").read_text(encoding="utf-8")
+            )["posts"]
+            canonical_families = json.loads(
+                (root / "families.json").read_text(encoding="utf-8")
+            )["families"]
+            quality = audit_production_kit(
+                kit,
+                post_ids={str(p["post_uid"]) for p in canonical_posts},
+                family_ids={str(f["family_id"]) for f in canonical_families},
+            )
+            if quality["status"] != "pass":
+                issues.append("production.json: evidence/rights audit failed")
+        except (OSError, ValueError, TypeError, AttributeError, KeyError):
+            issues.append("production.json: unreadable production handoff")
     return issues
 
 
@@ -928,6 +954,7 @@ def write_intelligence_workspace(
     *,
     out_dir: Path,
     sources: dict[str, str],
+    raw_root: Path | None = None,
     **frames: pd.DataFrame | None,
 ) -> dict[str, Any]:
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -937,6 +964,17 @@ def write_intelligence_workspace(
             json.dumps(payload, ensure_ascii=False, indent=2, default=str),
             encoding="utf-8",
         )
+    kit = build_production_kit(
+        evidence=payloads["evidence.json"],
+        families=payloads["families.json"],
+        accounts=payloads["accounts.json"],
+        lab=payloads["lab.json"],
+    )
+    if raw_root is not None and raw_root.is_dir():
+        enrich_production_kit_from_raw(
+            kit, raw_root, evidence_posts=payloads["evidence.json"]["posts"]
+        )
+    production_report = write_production_kit(kit, workspace=out_dir)
 
     manifest = {
         "workspace_schema_version": WORKSPACE_SCHEMA_VERSION,
@@ -947,6 +985,7 @@ def write_intelligence_workspace(
             "network",
             "families",
             "intelligence",
+            "production",
             "playbook",
             "experiments",
             "advanced",
@@ -956,6 +995,8 @@ def write_intelligence_workspace(
             "This lab is a generated research surface, not a new source of truth.",
             "It does not rerun scraping, Vision, analytics, strategy inference, or knowledge promotion.",
             "Historic knowledge-review statuses are annotations, not a required Research Intelligence approval workflow.",
+            "Production Kit is a team brief: no generated media/music rights are presumed.",
+            "Each planned publishing slot stays blocked until editorial and asset clearance.",
         ],
     }
     (out_dir / "workspace.json").write_text(
@@ -968,5 +1009,6 @@ def write_intelligence_workspace(
         "out": str(out_dir),
         "data_files": len(payloads) + 1,
         "static_files": static_files,
+        "production": production_report,
         "counts": manifest["counts"],
     }

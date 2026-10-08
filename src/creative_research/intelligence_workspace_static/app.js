@@ -10,7 +10,7 @@ const json = function(v){ try{return JSON.stringify(v,null,2);}catch(e){return S
 const clamp = function(v,a,b){ return Math.max(a,Math.min(b,v)); };
 
 let data = {};
-let tab = 'brief';
+let tab = 'production';
 let query = '';
 let familyFilter = 'all';
 let advancedMode = 'strategies';
@@ -283,11 +283,13 @@ function wire(){
   const search=$('#search'); if(search)search.oninput=function(){query=search.value;render();};
   const ff=$('#family-filter'); if(ff)ff.onchange=function(){familyFilter=ff.value;render();};
   wireResearchControls();
+  wireProductionControls();
 }
 
 function render(){
   document.querySelectorAll('.primary-nav button').forEach(function(b){b.classList.toggle('active',b.dataset.tab===tab);});
   const views={brief:briefView,network:networkView,families:familiesView,
+    production:productionView,
     intelligence:researchIntelligenceView,playbook:researchPlaybookView,
     experiments:experimentPlanView,advanced:advancedView};
   $('#main').innerHTML=views[tab]();
@@ -308,10 +310,13 @@ Promise.all([
   fetch('strategies.json',{cache:'no-store'}).then(function(r){return r.json();}),
   fetch('knowledge.json',{cache:'no-store'}).then(function(r){return r.json();}),
   fetch('evidence.json',{cache:'no-store'}).then(function(r){return r.json();}),
-  fetch('lab.json',{cache:'no-store'}).then(function(r){return r.json();})
+  fetch('lab.json',{cache:'no-store'}).then(function(r){return r.json();}),
+  fetch('production.json',{cache:'no-store'}).then(function(r){return r.json();})
 ]).then(function(values){
   if(values[0].workspace_schema_version!=='operator-intelligence-lab-v3'||
-     !values[9]||!values[9].research_intelligence){
+     !values[9]||!values[9].research_intelligence||
+     !values[10]||values[10].schema_version!=='creator-production-kit-v1'){
+
     throw new Error('Old workspace detected. Run intelligence-build --from-stage workspace --force, then restart Lab.');
   }
   data.manifest=values[0];
@@ -324,6 +329,7 @@ Promise.all([
   data.knowledge=values[7];
   data.evidence=values[8];
   data.lab=values[9];
+  data.production=values[10];
   initMaps();
   setHeader();
   render();

@@ -21,6 +21,45 @@ verified operator
 
 The goal is not a generic analytics dashboard. It is a durable research base where conclusions can eventually be traced back to the posts and Vision evidence that support them.
 
+## Production Kit: give the research to a creator team
+
+The primary Lab view now opens directly to the **Production Kit**: an
+evidence-linked 30-day creator pilot with two account blueprints, production
+briefs with *new* Vietnamese overlay copy for each slide, original-image
+search briefs, source TikTok links, a descriptive sound/caption/hashtag bank,
+and first-party measurement templates. Each recipe has visible evidence
+samples and a clear license/editorial gate.
+
+No manual AI/Copilot buttons and no need to human-approve another
+operator's internal intentions. The canonical scraper/Vision/analytics remain
+the research inputs. The creator team receives a ready-to-work **BRIEF**,
+not automatically licensed photos, sounds or a guaranteed winning formula.
+
+After an existing research build:
+
+\`\`\`bash
+uv run creative-research intelligence-build \\
+  --operators config/operators.toml --from-stage workspace --force
+uv run creative-research lab --open
+\`\`\`
+
+Download the team ZIP in the Production Kit view, or get it directly:
+
+\`\`\`text
+data/07_exports/operator-intelligence/production-kit.zip
+\`\`\`
+
+Optional: recover observed music IDs, captions and hashtags from the
+original public scrape JSONL when it still exists:
+
+\`\`\`bash
+uv run creative-research production-kit \\
+  --raw-root data/00_raw/apify --recipes 24 --days 30
+\`\`\`
+
+Read **[Operator Production Kit](docs/OPERATOR_PRODUCTION_KIT.md)** for
+production roles, references, asset rights checks and importing results.
+
 ## Research Intelligence v3 — no approval queue
 
 The researcher confirms a same-operator group **once before scraping**.

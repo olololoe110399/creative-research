@@ -8,6 +8,7 @@ from pathlib import Path
 import pandas as pd
 
 from creative_research.intelligence_workspace import write_intelligence_workspace
+from creative_research.pathing import project_root
 from creative_research.validation import read_table
 
 DEFAULTS = {
@@ -56,6 +57,10 @@ def main() -> None:
         "--out",
         default="data/07_exports/operator-intelligence",
     )
+    parser.add_argument(
+        "--raw-root", default=None,
+        help="Optional public TikTok scrape archive for recovering real music/caption/hashtag metadata; auto-detects data/00_raw/apify.",
+    )
     args = parser.parse_args()
 
     frames: dict[str, pd.DataFrame | None] = {}
@@ -76,6 +81,11 @@ def main() -> None:
     report = write_intelligence_workspace(
         out_dir=Path(args.out).expanduser().resolve(),
         sources=sources,
+        raw_root=(
+            Path(args.raw_root).expanduser().resolve()
+            if args.raw_root is not None
+            else project_root() / "data/00_raw/apify"
+        ),
         **frames,
     )
     print(json.dumps(report, ensure_ascii=False, indent=2))

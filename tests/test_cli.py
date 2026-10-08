@@ -32,6 +32,7 @@ def test_canonical_commands_exist() -> None:
         "promote-knowledge",
         "review-knowledge",
         "build-intelligence-workspace",
+        "production-kit",
         "intelligence",
         "lab",
         "intelligence-build",

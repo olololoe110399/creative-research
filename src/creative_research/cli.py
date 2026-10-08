@@ -37,6 +37,7 @@ COMMANDS = {
     "promote-knowledge": "creative_research.stages.promote_knowledge",
     "review-knowledge": "creative_research.stages.review_knowledge",
     "build-intelligence-workspace": "creative_research.stages.build_intelligence_workspace",
+    "production-kit": "creative_research.stages.production_kit",
     "intelligence": "creative_research.stages.intelligence",
     "lab": "creative_research.stages.intelligence",
     "intelligence-build": "creative_research.stages.intelligence_build",
@@ -82,6 +83,7 @@ Canonical evidence pipeline:
   promote-knowledge   Build strategies/rules/lessons/templates/playbooks bank
   review-knowledge    Build/apply a prioritized human review queue
   build-intelligence-workspace Build static operator intelligence workspace
+  production-kit     Export content recipes, account blueprint, assets and team handoff ZIP
   intelligence       Serve the generated Operator Intelligence Lab
   lab                Friendly alias for the Operator Intelligence Lab
   intelligence-build Build/reuse the full deterministic intelligence pipeline
@@ -114,6 +116,7 @@ Examples:
   uv run creative-research vision-slides data/03_manifests/slides/full_manifest.csv --out data/04_vision/slides
   uv run creative-research build-master --slides data/04_vision/slides/creative_study_v2.parquet --videos data/04_vision/videos/creative_video_study.parquet
   uv run creative-research build-warehouse --operators config/operators.toml
+  uv run creative-research production-kit --workspace data/07_exports/operator-intelligence
   uv run creative-research analyze-performance
   uv run creative-research analyze-cadence --timezone UTC
   uv run creative-research build-families

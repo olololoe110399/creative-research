@@ -56,7 +56,7 @@ const lab={
 };
 const payloads={
   'workspace.json':{workspace_schema_version:'operator-intelligence-lab-v3',
-    views:['brief','network','families','intelligence','playbook','experiments','advanced']},
+    views:['brief','network','families','intelligence','production','playbook','experiments','advanced']},
   'overview.json':{counts:{}},
   'accounts.json':{accounts:[]},
   'timeline.json':{operator_windows:[],account_windows:[],comparisons:[]},
@@ -67,6 +67,46 @@ const payloads={
   'knowledge.json':{knowledge:[]},
   'evidence.json':{posts:[]},
   'lab.json':lab,
+  'production.json':{
+    schema_version:'creator-production-kit-v1',operator_id:'OP1',
+    quality:{recipes_generated:1,slides_drafted:2,calendar_slots:1,
+      ready_to_publish:0,asset_candidates:2,assets_with_verified_rights:0},
+    recipes:[{recipe_id:'REC-001',family_id:'F1',
+      title:'Original study routine',new_hook_draft_vi:'My own study plan',
+      content_type:'slideshow',creative_kind:'schedule',
+      evidence_grade:'observed_multi_account_structure',
+      evidence:{family_member_count:2,distinct_accounts:2,
+        median_account_relative_views_percentile:.5,
+        under_account_p35_examples:1},
+      hook_mechanism_reference:'Persona-specific study schedule',
+      new_caption_draft_vi:'What study routine fits your day?',
+      proposed_hashtags:['#study'],
+      observed_source_posts:[{post_uid:'P1',account:'alpha',views:100,
+        url:'https://www.tiktok.com/@alpha/video/111'}],
+      slides:[{slide_number:1,role:'hook',asset_id:'AST-001-01',
+        new_draft_text_vi:'Different learning needs, different plans',
+        production_visual_brief:'Make original desk photo',
+        visual_search_query:'original study desk',source_text_reference_only:'source hook'},
+        {slide_number:2,role:'body',asset_id:'AST-001-02',
+        new_draft_text_vi:'Make a plan for your own needs',
+        production_visual_brief:'Make original planner',
+        visual_search_query:'planner',source_text_reference_only:'source body'}]
+    }],
+    calendar:[{day:1,slot_id:'PUB-001',pilot_account:'PILOT-A',
+      recipe_id:'REC-001',family_id:'F1',variant:'A',
+      test_dimension:'hook wording',planned_local_time:'19:00',
+      timezone:'Asia/Ho_Chi_Minh'}],
+    account_blueprints:[{slot_id:'PILOT-A',positioning:'Study tips',
+      audience:'Students',suggested_handle_pattern:'study.topic.brand',
+      bio_draft:'Study notes',avatar_brief:'Original photo',
+      content_pillars:['study'],proposed_cadence:'Every two days',
+      proposed_local_time:'19:00',time_zone:'Asia/Ho_Chi_Minh',
+      setup_checklist:[],source_account_observations:[]}],
+    asset_bank:[{asset_id:'AST-001-01',recipe_id:'REC-001',
+      kind:'image',search_query:'desk image',
+      reference_post_uid:'P1',rights_status:'not_verified'}],
+    music_bank:[],suspected_false_splits:[],lessons:[]
+  },
   '/api/experiments':{entries:[],selected_keys:[],selected_count:0}
 };
 const documentMock={
@@ -88,13 +128,22 @@ const context=vm.createContext({
   window:{location:{reload(){}}}
 });
 const scripts=Array.from(markup.matchAll(/<script src="([^"]+)"[^>]*><\/script>/g),match=>match[1]);
-assert.deepEqual(scripts,['product_ui.js','research_ui.js','app.js']);
+assert.deepEqual(scripts,['product_ui.js','research_ui.js','production_ui.js','app.js']);
 for(const filename of scripts){
   vm.runInContext(fs.readFileSync(path.join(base,filename),'utf8'),
     context,{filename});
 }
 (async()=>{
   await new Promise(resolve=>setTimeout(resolve,25));
+  assert.equal(vm.runInContext('tab',context),'production');
+  assert.match(one('#main').innerHTML,/Download team handoff ZIP/);
+  assert.match(one('#main').innerHTML,/30-day calendar/);
+  vm.runInContext('productionMode="recipes";tab="production";render();',context);
+  assert.match(one('#main').innerHTML,/Original study routine/);
+  vm.runInContext('drawer=function(title,body){window.lastDrawer={title,body};};openProductionRecipe("REC-001");',context);
+  assert.match(context.window.lastDrawer.body,/My own study plan/);
+  assert.match(context.window.lastDrawer.body,/DRAFT · not publishable/);
+  assert.match(context.window.lastDrawer.body,/https:\/\/www.tiktok.com\/\@alpha\/video\/111/);
   vm.runInContext('tab="intelligence";render();',context);
   const intelligence=one('#main').innerHTML;
   assert.match(intelligence,/What we know, infer and cannot know/);
@@ -120,7 +169,7 @@ for(const filename of scripts){
 
   // No AI URLs or scripts should be reachable from the ordinary Lab navigation.
   assert.equal(requested.filter(url=>url.startsWith('/api/ai/')).length,0);
-  assert.deepEqual(scripts,['product_ui.js','research_ui.js','app.js']);
+  assert.deepEqual(scripts,['product_ui.js','research_ui.js','production_ui.js','app.js']);
   assert.doesNotMatch(fs.readFileSync(path.join(base,'research_ui.js'),'utf8'),/optionalAiButton|launchOptionalAI|\/api\/ai\/|ai_ui\.js/);
   assert.doesNotMatch(fs.readFileSync(path.join(base,'app.js'),'utf8'),/optionalAiButton|launchOptionalAI|aiControlsMarkup/);
   console.log('Research Intelligence / Playbook / My Experiments with NO AI buttons: PASS');
