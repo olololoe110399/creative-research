@@ -1,8 +1,10 @@
 # AI Research Copilot (opt-in; proposal only)
 
 This adds **AI-assisted evidence investigation** to the Operator Intelligence Lab.
-It does not replace deterministic analytics, creative families, hypotheses or
-human-approved knowledge.
+In v3 the default user workflow is Research Intelligence (Observed / Inferred /
+Unknown) and My Experiments, not signing off on machine hypotheses.
+AI reports remain optional source-level research assessments and do not
+replace deterministic analytics, creative families or first-party outcomes.
 
 ## Run locally
 
@@ -30,10 +32,13 @@ with data you cannot send to Gemini. Protect local credentials and datasets.
 
 ## Research actions
 
-**Insight Review:** Open a review source (hypothesis, family or playbook bundle).
+**Research Intelligence / Creative Library:** Open a materialized hypothesis
+or family (or legacy bundle for compatibility). The machine assesses evidence;
+you do not need to approve a hidden operator claim.
 
 - AI Investigate: interpret what the source supports and does not support,
-  inspect counterexamples, and SUGGEST approve / hold / reject.
+  inspect counterexamples, and expose an assessment (supported / uncertain /
+  contradicted), not a truth-certification request.
 - AI Challenge: examine evidence against the claim, weaker family matches,
   counterexamples and plausible alternative explanations.
 
@@ -110,8 +115,10 @@ or tool execution is available to the model. Public captions and creative
 descriptions are explicitly treated as untrusted prompt material.
 
 The output is a research PROPOSAL. It must keep uncertainty and alternatives,
-cannot silently promote rejected/held knowledge into guidance, and cannot
-write or bypass review decisions.
+cannot silently turn historical annotations into facts and cannot
+write canonical operator data. Its internal legacy decision field may be
+mapped to a source-evidence assessment for compatibility; there is no default
+Human Review approval UX in v3.
 
 ## Report history and provenance
 
@@ -131,10 +138,12 @@ Older reports created with operator-ai-research-v1 remain accessible but
 become STALE after the v2 rubric migration. Stale reports are not allowed
 to populate an editable Human Review note; run new AI research instead.
 
-In Insight Review, **Return to Human Review** copies the AI suggestion into
-an editable, clearly UNVERIFIED note. The human still inspects source posts,
-records an independent rationale, checks the evidence-inspected confirmation,
-and explicitly chooses Approve / Hold / Reject. AI never does so automatically.
+In Research Intelligence the machine's answer is an *evidence assessment*,
+not a request for the researcher to certify hidden intentions. Use the
+source links to inspect assumptions and counterexamples. For your own
+decisions, visit Operator Playbook → Add to My Experiment Plan. That writes
+only your chosen experiment and optional first-party measured outcome;
+it does not label any operator claim approved.
 
 ## Security/cost controls
 
@@ -160,9 +169,9 @@ After rebuilding the current Lab, run:
 
     uv run creative-research ai-research-audit --strict
 
-No API key or Gemini call is required. It checks every pending/reviewed review
-source plus the operator playbook modes for input packet bounds and resolvable
-original/receiving post references. It produces:
+No API key or Gemini call is required. It checks **all materialized strategy
+hypotheses and repeated families**, plus legacy bundle sources and operator
+playbook modes, for input bounds and resolvable evidence references. It produces:
 
     data/07_exports/operator-intelligence/ai_research_readiness.json
 
