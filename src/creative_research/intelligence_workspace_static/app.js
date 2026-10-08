@@ -130,7 +130,7 @@ function familyThumbs(f){
   if(!ids.length)return '<div class="preview-placeholder">No preview</div>';
   return ids.map(function(id){
     const p=data.postById.get(String(id))||{}, prev=p.preview||{}, src=prev.thumbnail_url||prev.thumbnail_path;
-    return src?'<img src="'+esc(src)+'" loading="lazy" alt="">':'<div class="preview-placeholder">'+esc(p.account||'post')+'</div>';
+    return src?'<img class="lab-media" src="'+esc(src)+'" loading="lazy" alt="">':'<div class="preview-placeholder">'+esc(p.account||'post')+'</div>';
   }).join('');
 }
 
@@ -249,9 +249,10 @@ function openKnowledge(id){
 
 function openPost(id){
   const p=data.postById.get(String(id)); if(!p)return;
-  const c=p.creative||{}, perf=p.performance||{}, fam=p.family||{}, prev=p.preview||{}, src=prev.thumbnail_url||prev.thumbnail_path;
+  const c=p.creative||{}, perf=p.performance||{}, fam=p.family||{}, prev=p.preview||{}, src=prev.thumbnail_url||prev.thumbnail_path, video=prev.video_url||prev.video_path;
   const seq=(p.sequence||[]).map(function(s){return '<div><b>'+num(s.position)+' · '+esc(label(s.role))+'</b><p>'+esc(s.primary_text||s.overlay_text||s.spoken_summary||'')+'</p><small>'+esc(label(s.visual_type))+'</small></div>';}).join('');
-  drawer('@'+(p.account||'')+' · '+(c.hook_text||p.post_uid),(src?'<img class="post-preview-large" src="'+esc(src)+'" alt="">':'')+'<div class="badges">'+badge(c.content_angle)+badge(c.hook_technique)+badge(fam.family_id)+'</div><dl><dt>Date</dt><dd>'+date(p.created_at)+'</dd><dt>Views</dt><dd>'+num(p.views)+'</dd><dt>Account percentile</dt><dd>'+pct(perf.views_percentile_account)+'</dd><dt>Topic</dt><dd>'+esc(c.topic||'—')+'</dd><dt>Creative formula</dt><dd>'+esc(c.creative_formula||'—')+'</dd></dl>'+(p.url?'<p><a href="'+esc(p.url)+'" target="_blank" rel="noopener">Open original TikTok ↗</a></p>':'')+'<h3>Sequence</h3><div class="sequence">'+seq+'</div>');
+  const media=video?'<video class="post-preview-large lab-media" controls preload="metadata" '+(src?'poster="'+esc(src)+'"':'')+'><source src="'+esc(video)+'"></video>':src?'<img class="post-preview-large lab-media" src="'+esc(src)+'" alt="">':'<div class="empty-state">Archived media is unavailable for this post.</div>';
+  drawer('@'+(p.account||'')+' · '+(c.hook_text||p.post_uid),media+'<div class="badges">'+badge(c.content_angle)+badge(c.hook_technique)+badge(fam.family_id)+(prev.thumbnail_source?badge(prev.thumbnail_source,'info'):'')+'</div><dl><dt>Date</dt><dd>'+date(p.created_at)+'</dd><dt>Views</dt><dd>'+num(p.views)+'</dd><dt>Account percentile</dt><dd>'+pct(perf.views_percentile_account)+'</dd><dt>Topic</dt><dd>'+esc(c.topic||'—')+'</dd><dt>Creative formula</dt><dd>'+esc(c.creative_formula||'—')+'</dd></dl>'+(p.url?'<p><a href="'+esc(p.url)+'" target="_blank" rel="noopener">Open original TikTok ↗</a></p>':'')+'<h3>Sequence</h3><div class="sequence">'+seq+'</div>');
 }
 
 function openEdge(key){
@@ -290,6 +291,14 @@ async function submitReview(key,decision){
 }
 
 function wire(){
+  document.querySelectorAll('.lab-media').forEach(function(media){
+    media.addEventListener('error',function(){
+      const placeholder=document.createElement('div');
+      placeholder.className='preview-placeholder';
+      placeholder.textContent='Media unavailable';
+      media.replaceWith(placeholder);
+    },{once:true});
+  });
   document.querySelectorAll('[data-go]').forEach(function(b){b.onclick=function(){tab=b.dataset.go;query='';render();};});
   document.querySelectorAll('[data-strategy]').forEach(function(b){b.onclick=function(){openStrategy(b.dataset.strategy);};});
   document.querySelectorAll('[data-pattern]').forEach(function(b){b.onclick=function(){openPattern(b.dataset.pattern);};});

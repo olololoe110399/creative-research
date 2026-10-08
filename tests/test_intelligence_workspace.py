@@ -433,3 +433,44 @@ def test_write_workspace_copies_static_and_required_data(tmp_path: Path) -> None
         "advanced",
     ]
     assert (tmp_path / "lab.json").is_file()
+
+
+
+def test_workspace_prefers_local_archived_media_urls(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    monkeypatch.setenv(
+        "CREATIVE_RESEARCH_PROJECT_ROOT",
+        str(tmp_path),
+    )
+    archive = tmp_path / "data/02_media/tiktok/alpha/1"
+    archive.mkdir(parents=True)
+    (archive / "cover.jpg").write_bytes(b"cover")
+
+    video_dir = tmp_path / "data/03_video_media/beta/2"
+    video_dir.mkdir(parents=True)
+    (video_dir / "video.mp4").write_bytes(b"video")
+
+    frames = _frames()
+    frames["posts"].loc[
+        frames["posts"]["post_uid"].eq("P2"),
+        "source_media_path",
+    ] = "data/03_video_media/beta/2"
+
+    payloads = build_workspace_payloads(**frames)
+    posts = {
+        row["post_uid"]: row
+        for row in payloads["evidence.json"]["posts"]
+    }
+
+    assert posts["P1"]["preview"]["thumbnail_url"] == (
+        "/api/media/thumbnail/P1"
+    )
+    assert posts["P1"]["preview"]["thumbnail_source"] == (
+        "local_archive"
+    )
+    assert posts["P2"]["preview"]["video_url"] == (
+        "/api/media/video/P2"
+    )
+    assert posts["P2"]["preview"]["video_source"] == "local_archive"

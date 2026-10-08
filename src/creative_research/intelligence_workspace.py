@@ -8,7 +8,10 @@ from typing import Any
 
 import pandas as pd
 
-from creative_research.reference_media import preview_media_for_post
+from creative_research.reference_media import (
+    local_media_sources_for_post,
+    preview_media_for_post,
+)
 from creative_research.stages.review_knowledge import build_review_queue
 
 WORKSPACE_SCHEMA_VERSION = "operator-intelligence-lab-v1"
@@ -677,6 +680,17 @@ def _evidence_payload(
         post_uid = str(post.get("post_uid") or "")
         creative = analysis_by_post.get(post_uid, {})
         preview = preview_media_for_post(post)
+        local_media = local_media_sources_for_post(post)
+        if "thumbnail" in local_media:
+            preview["thumbnail_url"] = (
+                f"/api/media/thumbnail/{post_uid}"
+            )
+            preview["thumbnail_source"] = "local_archive"
+        elif preview.get("thumbnail_url"):
+            preview["thumbnail_source"] = "remote_fallback"
+        if "video" in local_media:
+            preview["video_url"] = f"/api/media/video/{post_uid}"
+            preview["video_source"] = "local_archive"
         rows.append(
             {
                 **post,

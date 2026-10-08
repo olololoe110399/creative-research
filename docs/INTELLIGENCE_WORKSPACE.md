@@ -170,3 +170,21 @@ when the research surface should be browse-only.
 ## Product boundary
 
 The Lab does not invent new findings in the browser. `lab.json` is a productized projection of existing operator/account/family/strategy/knowledge evidence. Statements remain traceable to strategy hypotheses and canonical evidence.
+
+
+## Durable local media
+
+The Lab does not rely on TikTok CDN URLs as durable evidence media.
+
+TikTok slideshow/cover/video URLs are commonly signed and expire. When archived media exists, generated post previews point to local Lab endpoints:
+
+```text
+/api/media/thumbnail/<post_uid>
+/api/media/video/<post_uid>
+```
+
+The Lab server resolves those endpoints back to the existing archives under `data/02_media/tiktok` and `data/03_video_media`. Videos support HTTP byte ranges so browser playback/seeking works without copying the entire video archive into `data/07_exports`.
+
+Remote CDN URLs are fallback only. Signed URLs whose expiry is already reached (or within the safety margin) are not emitted as preview URLs.
+
+If an archived file and a usable remote fallback are both missing, the UI shows a graceful “Media unavailable” placeholder while retaining the post/evidence metadata.
