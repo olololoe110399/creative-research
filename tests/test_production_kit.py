@@ -13,6 +13,7 @@ from creative_research.production_kit import (
     build_production_kit,
     enrich_production_kit_from_raw,
     write_production_kit,
+    _editorial_spec,
 )
 
 
@@ -322,3 +323,65 @@ def test_raw_enrichment_covers_unselected_posts_and_keeps_music_unlicensed(
         assert "Instrumental B" in z.read("SOUND_BANK.csv").decode("utf-8-sig")
         assert "Revision approach" in z.read("CAPTION_BANK.csv").decode("utf-8-sig")
         assert "revision" in z.read("HASHTAG_BANK.csv").decode("utf-8-sig")
+
+
+
+def test_operator_specific_creative_archetypes_draft_distinct_team_briefs() -> None:
+    cases = [
+        ("student_personas",
+         "study schedules for different student types",
+         "Study schedules for different students",
+         "Categorize common user personas facing a challenge"),
+        ("schedule_myth",
+         "perfect study schedule and study app recommendation",
+         "El horario de estudio perfecto no existe",
+         "Challenge a common belief and offer an alternative"),
+        ("subject_techniques",
+         "best study techniques for each subject and app recommendation",
+         "How to study for different subjects",
+         "Subject-by-subject tip list"),
+        ("tips_wish_sooner",
+         "study techniques",
+         "Study tips I wish I knew sooner",
+         "Regret hook and per-subject advice"),
+        ("knowledge_habits",
+         "how to become educated and knowledgeable across any topic",
+         "Cómo estar ridículamente educado",
+         "Daily learning habits"),
+        ("clinical_study",
+         "medication calculations every nursing student must know",
+         "5 Medication Calculations",
+         "Number + Topic + Audience"),
+    ]
+    results = []
+    for expected, topic, hook, formula in cases:
+        subtype, title, body = _editorial_spec(
+            "study_method", topic=topic, hook=hook, formula=formula
+        )
+        assert subtype == expected
+        assert title and len(body) >= 4
+        results.append((title, tuple(body)))
+    assert len({x[0] for x in results}) == len(cases)
+    assert "Không dùng bài đăng hoặc AI thay hướng dẫn tính liều" in (
+        " ".join(results[-1][1])
+    )
+
+
+def test_calendar_contains_distinct_hook_variants_and_no_proven_best_time() -> None:
+    evidence, families, accounts = _fixture()
+    kit = build_production_kit(
+        evidence=evidence, families=families, accounts=accounts,
+        recipes_limit=2, calendar_days=4,
+    )
+    plan = kit["calendar"]
+    assert len(plan) == 4
+    for recipe in kit["recipes"]:
+        slots = [row for row in plan if row["recipe_id"] == recipe["recipe_id"]]
+        assert len(slots) == 2
+        assert {row["variant"] for row in slots} == {"A", "B"}
+        assert len({row["hook_to_publish_draft_vi"] for row in slots}) == 2
+        assert len({row["pilot_account"] for row in slots}) == 1
+        assert len({row["planned_local_time"] for row in slots}) == 1
+        assert all(row["time_basis"] == "proposed_experiment_not_validated_best_time" for row in slots)
+        assert all(row["publish_gate"] == "blocked_until_rights_and_copy_review" for row in slots)
+        assert all(row["tracking"] == "new_tracking_required" for row in slots)
