@@ -654,6 +654,13 @@ def test_rebuild_preserves_previous_embedded_team_results_in_private_state(
     )
     kit_path=workspace / "production.json"
     old=json.loads(kit_path.read_text(encoding="utf-8"))
+    old["asset_bank"][0].update({
+        "rights_status":"team_attested_licensed",
+        "file_or_licensed_source_url":"owned/asset.png",
+        "license_evidence_url":"team-photo-rights-log",
+        "license_scope":"TikTok organic and commercial",
+        "verified_by":"team-editor",
+    })
     old["own_experiment_outcomes"]=[{
         "recipe_id":old["recipes"][0]["recipe_id"],
         "account_slot":"PILOT-A",
