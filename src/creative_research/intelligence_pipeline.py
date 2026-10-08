@@ -18,6 +18,7 @@ PIPELINE_STAGE_NAMES = (
     "knowledge",
     "workspace",
     "audit",
+    "outcome",
 )
 
 
@@ -545,6 +546,24 @@ def build_stage_specs(config: PipelineConfig) -> tuple[StageSpec, ...]:
                     if config.reviews is not None
                     else []
                 )
+            ),
+        ),
+        StageSpec(
+            name="outcome",
+            module="creative_research.stages.outcome_audit",
+            inputs=tuple(workspace / name for name in (
+                "lab.json",
+                "families.json",
+                "strategies.json",
+                "knowledge.json",
+                "evidence.json",
+            )) + (config.quality_out.resolve(),),
+            outputs=(workspace / "outcome_acceptance_report.json",),
+            args=(
+                "--workspace",
+                str(workspace),
+                "--out",
+                str(workspace / "outcome_acceptance_report.json"),
             ),
         ),
     )
