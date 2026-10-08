@@ -293,6 +293,33 @@ Every post remains represented. Posts without a sufficiently similar sibling bec
 
 A family therefore means **deterministic candidate for a shared creative concept**, not “proven strategy.” The next stages can use family origin, chronology, cross-account reuse, and relative performance to study propagation and operator behavior.
 
+#### Calibrate family discovery before loosening thresholds
+
+For multilingual or heavily paraphrased datasets, do not blindly lower the production threshold. Run the diagnostic calibration stage:
+
+```bash
+uv run creative-research calibrate-families
+```
+
+It writes:
+
+```text
+data/06_analytics/family_calibration/
+├── family_calibration_pairs.parquet
+├── family_calibration_review.csv
+└── family_calibration_report.json
+```
+
+The calibration layer does **not** change current family assignments. It separates:
+
+- language-independent structure similarity from fixed Vision taxonomy + sequence roles/visual types;
+- descriptive-text similarity from existing Vision topic/pain/outcome/formula/visual descriptions;
+- the current production family score.
+
+The report counts high-scoring cross-language/cross-account pairs that the production family layer currently leaves split. The review CSV provides a small stratified set of candidate pairs for human inspection before changing the production family model.
+
+See `docs/FAMILY_CALIBRATION.md` for the scoring contract.
+
 ### 12. Analyze cross-account propagation
 
 After families exist, derive how each family appears across the manually verified accounts of the same operator:
