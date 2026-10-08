@@ -70,7 +70,7 @@ def _creative_kind(topic: str, angle: str, hook: str) -> str:
         return "specialist"
     if any(x in t for x in ("note", "flashcard", "mindmap", "mind map")):
         return "notes"
-    if any(x in t for x in ("tool", "app", "ai", "product")):
+    if re.search(r"\b(?:tool|app|ai|product|software)\b", t):
         return "tool"
     if any(x in t for x in ("motiv", "burnout", "tired", "procrastinat")):
         return "motivation"
