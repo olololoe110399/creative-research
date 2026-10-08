@@ -68,6 +68,17 @@ def audit_outcome(
         issue("brief_count_mismatch", "Post count does not match canonical evidence.")
     if not family_rows or not posts:
         issue("empty_research", "No canonical posts or families available for research validation.")
+    source_operator_ids = {
+        str(post.get("operator_id"))
+        for post in posts.values()
+        if post.get("operator_id")
+    }
+    if len(source_operator_ids) > 1:
+        issue(
+            "mixed_operator_scope",
+            "The Lab merges multiple operators into one Research Brief. "
+            "Scope one operator before interpreting this product.",
+        )
 
     blocked_sources = {
         str(row.get("review_source_id"))
@@ -251,14 +262,29 @@ def audit_outcome(
 
     if playbook.get("approved_source_steps") != approved_step_count:
         issue("approval_count_mismatch", "Playbook source approvals disagree with steps.")
+    core_steps = [
+        step for step in steps if step.get("key") in {"explore", "select", "distribute"}
+    ]
+    approved_core_steps = sum(
+        step.get("trust_status") == "approved" for step in core_steps
+    )
+    if playbook.get("approved_core_steps") != approved_core_steps:
+        issue("core_review_count_mismatch", "Playbook core approvals disagree with steps.")
+    if playbook.get("core_step_count") != len(core_steps):
+        issue("core_review_count_mismatch", "Playbook core step denominator is wrong.")
+    if playbook.get("status") == "core_reviewed" and approved_core_steps != 3:
+        issue("unearned_core_review", "Core model marked reviewed without 3 approved core steps.")
 
     for row in knowledge.get("active", []):
         if row.get("knowledge_status") not in {"approved", "promoted"}:
             issue("blocked_active_knowledge", "Held/rejected/unreviewed knowledge appears active.")
 
+    operator_id = str(brief.get("operator", {}).get("operator_id") or "")
     catalog_playbooks = [
-        row for row in knowledge_rows if row.get("knowledge_type") == "playbook"
-        and row.get("knowledge_status") in {"approved", "promoted"}
+        row for row in knowledge_rows
+        if row.get("knowledge_type") == "playbook"
+        and row.get("knowledge_status") == "approved"
+        and str(row.get("operator_id") or "") == operator_id
     ]
     if not catalog_playbooks:
         issue(
@@ -266,10 +292,19 @@ def audit_outcome(
             "No approved/auto-promoted catalog playbook; the Lab draft remains provisional.",
             fatal=False,
         )
-    if approved_step_count < 4:
+    if approved_core_steps < 3:
         issue(
             "human_review_pending",
-            f"Only {approved_step_count}/4 observational playbook steps have approved sources.",
+            f"Only {approved_core_steps}/3 core operating-model steps are human-approved.",
+            fatal=False,
+        )
+    if any(
+        step.get("key") == "adapt" and step.get("trust_status") != "approved"
+        for step in steps
+    ):
+        issue(
+            "adaptation_not_reviewed",
+            "Adaptation remains a provisional experiment, not a trusted operator rule.",
             fatal=False,
         )
     issue(
@@ -281,7 +316,7 @@ def audit_outcome(
         "schema_version": "research-outcome-audit-v1",
         "status": "fail" if failures else (
             "ready_for_usability_test"
-            if catalog_playbooks and approved_step_count == 4
+            if catalog_playbooks and approved_core_steps == 3
             else "conditional_pass"
         ),
         "counts": dict(checked),
