@@ -513,6 +513,12 @@ class OperatingStore:
                 if requested == "published":
                     if not _valid_tiktok_post(url) or not when:
                         raise OperatingError("published_requires_tiktok_url_and_date")
+                    try:
+                        parsed = datetime.fromisoformat(when.replace("Z","+00:00"))
+                    except ValueError as exc:
+                        raise OperatingError("published_requires_iso_timestamp") from exc
+                    if parsed.tzinfo is None:
+                        raise OperatingError("published_requires_timezone")
                 state["slots"][name] = {
                     "slot_id": name,"family_id": family,
                     "source_signature": signature,
