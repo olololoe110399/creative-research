@@ -636,7 +636,15 @@ class AIResearchService:
             raise ResearchValidationError("gemini_key_missing")
         from google import genai
         from google.genai import types
-        client = genai.Client(api_key=api_key)
+        # SDK retry defaults may issue up to five HTTP requests. Disable
+        # retries explicitly so one confirmed click means at most one request.
+        client = genai.Client(
+            api_key=api_key,
+            http_options=types.HttpOptions(
+                timeout=90_000,
+                retry_options=types.HttpRetryOptions(attempts=1),
+            ),
+        )
         response = client.models.generate_content(
             model=self.model,
             contents=prompt,
