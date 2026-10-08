@@ -41,16 +41,16 @@ and prints:
 - hard pair/API-call caps;
 - selection reasons.
 
-The default model is `gemini-2.5-flash-lite`.
+The default model is `gemini-3.5-flash-lite`.
 
 The built-in standard-price estimate is verified against Google Gemini Developer API pricing on 2026-10-08:
 
 ```text
-input:  $0.10 / 1M tokens
-output: $0.40 / 1M tokens
+input:  $0.30 / 1M tokens
+output: $2.50 / 1M tokens
 ```
 
-Pricing can change. Override the estimates with:
+Gemini 3.5 Flash-Lite is GA and GenerateContent remains supported. Pricing can change; override the estimates with:
 
 ```bash
 --input-usd-per-million <rate>
@@ -204,3 +204,10 @@ uncertain or confidence < 0.80
 ```
 
 This keeps AI as an auditable adjudication layer rather than an unrestricted family generator.
+
+
+## Retry policy
+
+Permanent client/configuration errors such as HTTP 400/401/403/404 fail immediately.
+
+Only transient classes such as 408/409/429 and 5xx responses are retried. This prevents retired/invalid model IDs from consuming retry attempts or sleeping between identical failures.
