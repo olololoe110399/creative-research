@@ -19,6 +19,7 @@
 - Add opt-in `judge-family-candidates` with deterministic candidate selection, structured Gemini semantic judgments, pair/evidence/model cache keys, dry-run token/cost planning, hard pair/API-call/output caps, and actual usage reporting.
 - Let `preview-families-v2` consume confidence-gated AI judgments: high-confidence same-core edges are strong, high-confidence different/thematic-only edges are rejected, and uncertain/low-confidence judgments fall back to deterministic gates.
 - Update the AI family judge default to GA `gemini-3.5-flash-lite`, refresh pricing estimates, and fail fast on non-retryable 4xx model/configuration errors instead of sleeping through retries.
+- Raise the AI family structured-output cap to 768 tokens, explicitly use minimal Gemini thinking, remove unsupported Gemini-3 sampling tuning, and constrain response verbosity after real responses were truncated at 320 tokens.
 - Add `analyze-propagation` to derive family account entries, cross-account propagation events, origin/sequence account edges, creative-dimension changes, and descriptive account-role evidence.
 - Keep propagation chronology explicitly non-causal and defer testing/scaling/conversion strategy labels to later inference.
 - Add `analyze-timeline` for monthly/weekly operator/account strategy windows and deterministic adjacent-window change points.
