@@ -20,6 +20,7 @@ from typing import Any
 
 import pandas as pd
 
+from creative_research.stages.build_families import _text_similarity
 from creative_research.validation import read_table
 
 PREVIEW_SCHEMA_VERSION = "creative-family-v2-preview-v1"
@@ -28,7 +29,11 @@ DEFAULT_STRONG_COMBINED = 0.80
 DEFAULT_BRIDGE_COMBINED = 0.75
 
 SAME_LANGUAGE_STRONG_SEMANTIC = 0.35
+SAME_LANGUAGE_STRONG_HOOK = 0.28
+SAME_LANGUAGE_STRONG_TOPIC = 0.70
+SAME_LANGUAGE_STRONG_TOPIC_PRODUCTION = 0.60
 SAME_LANGUAGE_BRIDGE_SEMANTIC = 0.48
+SAME_LANGUAGE_BRIDGE_HOOK = 0.40
 CROSS_LANGUAGE_STRONG_STRUCTURE = 0.94
 CROSS_LANGUAGE_STRONG_SEMANTIC = 0.28
 CROSS_LANGUAGE_BRIDGE_STRUCTURE = 0.92
@@ -125,15 +130,39 @@ def classify_pair(
             return "bridge_cross_language"
         return None
 
-    if combined >= strong_combined and (
-        (semantic is not None and semantic >= SAME_LANGUAGE_STRONG_SEMANTIC)
-        or (production is not None and production >= 0.68)
+    hook_similarity = _text_similarity(
+        row.get("left_hook_text"),
+        row.get("right_hook_text"),
+    )
+    topic_similarity = _text_similarity(
+        row.get("left_topic"),
+        row.get("right_topic"),
+    )
+    strong_concept_coherence = (
+        (
+            hook_similarity is not None
+            and hook_similarity >= SAME_LANGUAGE_STRONG_HOOK
+        )
+        or (
+            topic_similarity is not None
+            and topic_similarity >= SAME_LANGUAGE_STRONG_TOPIC
+            and production is not None
+            and production >= SAME_LANGUAGE_STRONG_TOPIC_PRODUCTION
+        )
+    )
+    if (
+        combined >= strong_combined
+        and semantic is not None
+        and semantic >= SAME_LANGUAGE_STRONG_SEMANTIC
+        and strong_concept_coherence
     ):
         return "strong_same_language"
     if (
         combined >= bridge_combined
         and semantic is not None
         and semantic >= SAME_LANGUAGE_BRIDGE_SEMANTIC
+        and hook_similarity is not None
+        and hook_similarity >= SAME_LANGUAGE_BRIDGE_HOOK
     ):
         return "bridge_same_language"
     return None
@@ -510,6 +539,7 @@ def build_family_v2_preview(
             "New families are seeded only by strong pair edges.",
             "Bridge edges can satisfy the anchor constraint but cannot seed a family on their own.",
             "Cross-language gates compensate for lexical penalty but require very high structural similarity.",
+            "Same-language gates additionally require hook coherence or strong topic plus production-score coherence.",
             "Same-current-family calibration pairs are retained as strong positive controls.",
         ],
     }
