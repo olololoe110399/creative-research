@@ -197,6 +197,8 @@ def _base_item(
     valid_to: str | None,
     review: KnowledgeReview | None,
     payload: dict[str, Any],
+    review_source_type: str | None = None,
+    review_source_id: str | None = None,
 ) -> dict[str, Any]:
     return {
         "analytics_schema_version": ANALYTICS_SCHEMA_VERSION,
@@ -227,6 +229,17 @@ def _base_item(
         "counter_evidence_json": _json(counter_evidence),
         "valid_from": valid_from,
         "valid_to": valid_to,
+        "review_source_type": (
+            review_source_type or source_type
+        ),
+        "review_source_id": (
+            review_source_id
+            or (
+                source_ids[0]
+                if len(source_ids) == 1
+                else None
+            )
+        ),
         "review_decision": review.decision if review else None,
         "review_note": review.note if review else None,
         "reviewed_by": review.reviewed_by if review else None,
@@ -701,6 +714,8 @@ def _template_items(
                 valid_to=_clean(row.get("last_seen")),
                 review=review,
                 payload=payload,
+                review_source_type="family",
+                review_source_id=family_id,
             )
         )
     return rows
@@ -924,6 +939,8 @@ def _playbook_items(
                 valid_from=None,
                 valid_to=None,
                 review=review,
+                review_source_type="playbook_sources",
+                review_source_id=source_key,
                 payload={
                     "steps": steps,
                     "origin_accounts": origin_accounts,

@@ -29,6 +29,7 @@ def test_canonical_commands_exist() -> None:
         "discover-patterns",
         "infer-strategies",
         "promote-knowledge",
+        "review-knowledge",
         "build-intelligence-workspace",
         "intelligence",
         "intelligence-build",

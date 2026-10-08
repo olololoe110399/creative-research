@@ -136,25 +136,44 @@ The current playbook can combine:
 
 Automatic promotion requires stronger evidence than a single strategy item. Otherwise it remains a review candidate.
 
-## Manual review
+## Human review workflow
 
-Example:
+Generate a prioritized source-level review queue:
 
-```toml
-schema_version = "knowledge-review-v1"
-
-[[reviews]]
-source_type = "hypothesis"
-source_id = "STR-..."
-decision = "approve"
-note = "Checked supporting/counter posts."
-
-[[reviews]]
-source_type = "family"
-source_id = "FAM-..."
-decision = "reject"
-note = "Family grouping is not coherent enough."
+```bash
+uv run creative-research review-knowledge queue
 ```
+
+This collapses duplicate knowledge representations back to the review source, so one hypothesis that produced both a strategy and lesson is reviewed once.
+
+Review packet and editable decisions are written to:
+
+```text
+data/07_knowledge/review/
+├── knowledge_review_queue.csv
+├── knowledge_review_decisions.csv
+├── knowledge_review_packet.md
+└── knowledge_review_report.json
+```
+
+Apply one decision:
+
+```bash
+uv run creative-research review-knowledge decide \
+  hypothesis STR-... \
+  --decision approve \
+  --note "Checked supporting/counter evidence." \
+  --reviewed-by researcher
+```
+
+Or edit the decisions CSV and apply all non-empty rows:
+
+```bash
+uv run creative-research review-knowledge apply \
+  --reviewed-by researcher
+```
+
+Decisions are stored locally in `config/knowledge_reviews.toml` and remain gitignored.
 
 Allowed decisions:
 
@@ -163,6 +182,17 @@ approve
 reject
 hold
 ```
+
+After review, rebuild only the trust-dependent layers:
+
+```bash
+uv run creative-research intelligence-build \
+  --from-stage knowledge \
+  --force \
+  --reviews config/knowledge_reviews.toml
+```
+
+See `docs/KNOWLEDGE_REVIEW.md` for priority tiers and review discipline.
 
 ## Lineage
 

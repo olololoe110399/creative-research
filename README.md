@@ -579,16 +579,34 @@ uv run creative-research promote-knowledge \
   --out data/07_knowledge
 ```
 
-Optional manual review:
+Human review workflow:
 
 ```bash
-cp config/knowledge_reviews.example.toml config/knowledge_reviews.toml
-# edit local decisions, then:
-uv run creative-research promote-knowledge \
+# Build a prioritized source-level queue + editable decisions CSV.
+uv run creative-research review-knowledge queue
+
+# Review one source directly:
+uv run creative-research review-knowledge decide \
+  hypothesis STR-... \
+  --decision approve \
+  --note "Checked supporting/counter evidence." \
+  --reviewed-by researcher
+
+# Or edit data/07_knowledge/review/knowledge_review_decisions.csv,
+# then apply all non-empty decisions:
+uv run creative-research review-knowledge apply \
+  --reviewed-by researcher
+
+# Rebuild only knowledge/workspace/audit with those local decisions.
+uv run creative-research intelligence-build \
+  --from-stage knowledge \
+  --force \
   --reviews config/knowledge_reviews.toml
 ```
 
-The real review file is local/ignored. Review decisions can approve, reject, or hold a hypothesis/family source without editing generated datasets.
+The queue is source-level: strategy + lesson rows from the same hypothesis are reviewed once. The real review file is local/ignored. Review decisions can approve, reject, or hold a hypothesis/family/playbook source without editing generated datasets.
+
+See `docs/KNOWLEDGE_REVIEW.md`.
 
 The knowledge bank writes both Parquet and JSONL:
 

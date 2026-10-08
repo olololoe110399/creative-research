@@ -1,6 +1,9 @@
 schema_version = "knowledge-review-v1"
 
 # Keep real review decisions local as config/knowledge_reviews.toml.
+# Prefer generating/editing decisions through:
+#   uv run creative-research review-knowledge queue
+#   uv run creative-research review-knowledge apply
 # Source types currently supported:
 # - hypothesis
 # - family
