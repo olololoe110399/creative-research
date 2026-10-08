@@ -16,6 +16,7 @@ from creative_research.operator_product import (
     strategy_role_lineage,
 )
 from creative_research.research_intelligence import build_research_intelligence
+from creative_research.operating_state import OperatingStore
 from creative_research.production_kit import (
     build_production_kit,
     write_production_kit,
@@ -959,6 +960,18 @@ def write_intelligence_workspace(
 ) -> dict[str, Any]:
     out_dir.mkdir(parents=True, exist_ok=True)
     payloads = build_workspace_payloads(**frames)
+    # Recover older user-entered CSV outcomes BEFORE replacing the old
+    # generated production.json. The new store lives outside this directory.
+    old_kit_path = out_dir / "production.json"
+    if old_kit_path.is_file():
+        try:
+            old_kit = json.loads(old_kit_path.read_text(encoding="utf-8"))
+        except (OSError, ValueError) as exc:
+            raise ValueError("Cannot safely replace unreadable old production data") from exc
+        if not isinstance(old_kit, dict):
+            raise ValueError("Cannot safely replace malformed old production data")
+        if old_kit.get("own_experiment_outcomes"):
+            OperatingStore(out_dir).migrate_embedded_legacy_results(old_kit)
     for filename, payload in payloads.items():
         (out_dir / filename).write_text(
             json.dumps(payload, ensure_ascii=False, indent=2, default=str),
