@@ -163,6 +163,10 @@ The AI preflight samples supporting and skeptical evidence without calling
 the provider; a separate confirmation performs one bounded Gemini call only
 when the local Lab has been started with --ai-enabled.
 
+AI is not loaded during the default page load. The optional deeper-investigation
+dialog is fetched only after a researcher explicitly clicks its small
+source-level action; it is not an automatic Copilot panel or approval workflow.
+
 AI findings and experiment proposals link to canonical post/family/pattern/
 hypothesis/knowledge IDs. Unknown citations are rejected. Results are saved
 outside the static Lab export and remain provisional. The default Lab does not
