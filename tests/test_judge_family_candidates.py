@@ -150,7 +150,9 @@ def test_prompt_uses_creative_evidence_and_excludes_performance() -> None:
     assert "999999" not in prompt
     assert '"views"' not in prompt
     assert '"likes"' not in prompt
-    assert "broad shared category is NOT enough" in prompt
+    assert "same app/product" in prompt
+    assert "template_variant" in prompt
+    assert "language difference alone is never enough" in prompt
 
 
 def test_candidate_selection_prioritizes_preview_gate_and_budget() -> None:
@@ -241,8 +243,8 @@ def test_merge_judgment_frames_preserves_unselected_existing_pairs() -> None:
             {
                 "pair_id": "AIP-1",
                 "model": "gemini-3.5-flash-lite",
-                "prompt_version": "family-ai-judge-prompt-v1",
-                "judge_schema_version": "family-ai-judge-v1",
+                "prompt_version": "family-ai-judge-prompt-v2",
+                "judge_schema_version": "family-ai-judge-v2",
                 "decision": "same_core_concept",
                 "relationship": "translation_adaptation",
                 "confidence": 0.95,
@@ -250,8 +252,8 @@ def test_merge_judgment_frames_preserves_unselected_existing_pairs() -> None:
             {
                 "pair_id": "AIP-2",
                 "model": "gemini-3.5-flash-lite",
-                "prompt_version": "family-ai-judge-prompt-v1",
-                "judge_schema_version": "family-ai-judge-v1",
+                "prompt_version": "family-ai-judge-prompt-v2",
+                "judge_schema_version": "family-ai-judge-v2",
                 "decision": "different_core_concept",
                 "relationship": "thematic_only",
                 "confidence": 0.92,
@@ -263,8 +265,8 @@ def test_merge_judgment_frames_preserves_unselected_existing_pairs() -> None:
             {
                 "pair_id": "AIP-3",
                 "model": "gemini-3.5-flash-lite",
-                "prompt_version": "family-ai-judge-prompt-v1",
-                "judge_schema_version": "family-ai-judge-v1",
+                "prompt_version": "family-ai-judge-prompt-v2",
+                "judge_schema_version": "family-ai-judge-v2",
                 "decision": "same_core_concept",
                 "relationship": "paraphrase",
                 "confidence": 0.90,
@@ -288,8 +290,8 @@ def test_merge_judgment_frames_replaces_same_pair_and_ignores_stale_versions() -
             {
                 "pair_id": "AIP-1",
                 "model": "gemini-3.5-flash-lite",
-                "prompt_version": "family-ai-judge-prompt-v1",
-                "judge_schema_version": "family-ai-judge-v1",
+                "prompt_version": "family-ai-judge-prompt-v2",
+                "judge_schema_version": "family-ai-judge-v2",
                 "decision": "same_core_concept",
                 "relationship": "paraphrase",
                 "confidence": 0.70,
@@ -310,8 +312,8 @@ def test_merge_judgment_frames_replaces_same_pair_and_ignores_stale_versions() -
             {
                 "pair_id": "AIP-1",
                 "model": "gemini-3.5-flash-lite",
-                "prompt_version": "family-ai-judge-prompt-v1",
-                "judge_schema_version": "family-ai-judge-v1",
+                "prompt_version": "family-ai-judge-prompt-v2",
+                "judge_schema_version": "family-ai-judge-v2",
                 "decision": "different_core_concept",
                 "relationship": "thematic_only",
                 "confidence": 0.96,
@@ -327,3 +329,44 @@ def test_merge_judgment_frames_replaces_same_pair_and_ignores_stale_versions() -
     assert merged.iloc[0]["decision"] == "different_core_concept"
     assert stats["existing_incompatible_rows_ignored"] == 1
     assert stats["cumulative_judged_rows"] == 1
+
+
+def test_judgment_schema_enforces_core_relationship_mapping() -> None:
+    same = FamilyPairJudgment(
+        decision="same_core_concept",
+        relationship="translation_adaptation",
+        core_concept="same study schedule concept",
+        confidence=0.95,
+        reason="Same central promise across languages.",
+    )
+    assert same.relationship == "translation_adaptation"
+
+    different = FamilyPairJudgment(
+        decision="different_core_concept",
+        relationship="template_variant",
+        core_concept=None,
+        confidence=0.95,
+        reason="Same app funnel but different central topics.",
+    )
+    assert different.relationship == "template_variant"
+
+
+def test_judgment_schema_rejects_template_variant_as_same_core() -> None:
+    import pytest
+
+    with pytest.raises(ValueError):
+        FamilyPairJudgment(
+            decision="same_core_concept",
+            relationship="template_variant",
+            core_concept="shared template",
+            confidence=0.95,
+            reason="Same template only.",
+        )
+
+
+def test_prompt_explicitly_rejects_template_only_translation() -> None:
+    lookup = build_evidence_lookup(_analysis(), _sequence())
+    prompt = build_prompt("P1", "P2", lookup["P1"], lookup["P2"])
+    assert "Electrolytes vs MRI Essentials" in prompt
+    assert "same app funnel must be template_variant" in prompt
+    assert "require semantic equivalence of the CENTRAL idea" in prompt
