@@ -159,7 +159,7 @@ def test_raw_music_enrichment_retains_provenance_but_never_grants_rights(tmp_pat
         },
     }) + "\n", encoding="utf-8")
     enriched = enrich_production_kit_from_raw(kit, tmp_path/"scraped")
-    assert enriched["quality"]["raw_selected_posts_matched"] == 1
+    assert enriched["quality"]["raw_posts_matched"] == 1
     assert enriched["quality"]["observed_sound_post_count"] == 1
     assert enriched["music_bank"][0]["music_id"] == "SOUND777"
     assert enriched["music_bank"][0]["license_status"] == "not_verified"
