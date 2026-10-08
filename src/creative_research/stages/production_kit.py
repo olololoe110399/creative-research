@@ -84,7 +84,9 @@ def main() -> None:
         calendar_days=args.days,
     )
     if args.raw_root:
-        enrich_production_kit_from_raw(kit, _resolve(args.raw_root))
+        enrich_production_kit_from_raw(
+            kit, _resolve(args.raw_root), evidence_posts=evidence["posts"]
+        )
     if args.clearance_csv:
         apply_team_asset_clearance(kit, _load_csv(_resolve(args.clearance_csv)))
     if args.own_results_csv:
