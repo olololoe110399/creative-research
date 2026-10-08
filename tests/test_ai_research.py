@@ -204,7 +204,7 @@ def test_ai_plan_is_free_and_cached_validated_report_is_immutable(tmp_path: Path
     service = AIResearchService(path, enabled=True, generator=fake_model, max_calls=1)
     _plan, meta = service.plan("investigate", "hypothesis", "STR1")
     assert meta["source_count"] > 4
-    assert meta["estimated_input_tokens_upper_bound"] > 0
+    assert meta["estimated_input_tokens_approx"] > 0
     assert service.call_count == 0
     one = service.run("investigate", "hypothesis", "STR1")
     assert one["ai_status"] == "proposal_only"
