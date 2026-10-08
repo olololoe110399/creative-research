@@ -474,13 +474,24 @@ def build_stage_specs(config: PipelineConfig) -> tuple[StageSpec, ...]:
             module="creative_research.stages.quality_audit",
             inputs=tuple(audit_inputs),
             outputs=(config.quality_out.resolve(),),
-            args=(
-                "--root",
-                str(root),
-                "--workspace",
-                str(workspace),
-                "--out",
-                str(config.quality_out.resolve()),
+            args=tuple(
+                [
+                    "--root",
+                    str(root),
+                    "--operators",
+                    str(config.operators.resolve()),
+                    "--timezone",
+                    config.timezone,
+                    "--workspace",
+                    str(workspace),
+                    "--out",
+                    str(config.quality_out.resolve()),
+                ]
+                + (
+                    ["--reviews", str(config.reviews.resolve())]
+                    if config.reviews is not None
+                    else []
+                )
             ),
         ),
     )
