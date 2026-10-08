@@ -385,3 +385,63 @@ def test_calendar_contains_distinct_hook_variants_and_no_proven_best_time() -> N
         assert all(row["time_basis"] == "proposed_experiment_not_validated_best_time" for row in slots)
         assert all(row["publish_gate"] == "blocked_until_rights_and_copy_review" for row in slots)
         assert all(row["tracking"] == "new_tracking_required" for row in slots)
+
+
+
+def test_canonical_source_asset_index_is_reused_and_invalidated_on_raw_change(
+    tmp_path: Path,
+) -> None:
+    import stat
+
+    evidence, families, accounts = _fixture()
+    raw = tmp_path / "raw" / "posts.jsonl"
+    raw.parent.mkdir(parents=True)
+    raw.write_text(
+        json.dumps({
+            "id":"111","input":"alpha",
+            "text":"Original public caption A",
+            "hashtags":[{"name":"studytok"}],
+            "musicMeta":{"musicId":"SND1","musicName":"Study melody"},
+            "secret_unused_source_field":"DO_NOT_INDEX",
+        })+"\n",
+        encoding="utf-8",
+    )
+    cache = tmp_path / "data/05_master/source_asset_index.json"
+    def fresh_kit():
+        return build_production_kit(
+            evidence=evidence,families=families,accounts=accounts,
+            recipes_limit=2,calendar_days=4,
+        )
+    first = enrich_production_kit_from_raw(
+        fresh_kit(),raw.parent,
+        evidence_posts=evidence["posts"],cache_path=cache,
+    )
+    assert first["quality"]["raw_metadata_cache_hit"] is False
+    assert cache.exists()
+    assert stat.S_IMODE(cache.stat().st_mode)==0o600
+    cached=json.loads(cache.read_text(encoding="utf-8"))
+    assert "DO_NOT_INDEX" not in json.dumps(cached)
+    assert cached["license_scope"]=="reference_only_not_copyright_clearance"
+
+    next_kit=enrich_production_kit_from_raw(
+        fresh_kit(),raw.parent,
+        evidence_posts=evidence["posts"],cache_path=cache,
+    )
+    assert next_kit["quality"]["raw_metadata_cache_hit"] is True
+    assert next_kit["music_bank"]==first["music_bank"]
+    assert next_kit["caption_bank"]==first["caption_bank"]
+
+    with raw.open("a",encoding="utf-8") as f:
+        f.write(json.dumps({
+            "id":"333","input":"alpha",
+            "text":"Additional original public caption",
+            "musicMeta":{"musicId":"SND2","musicName":"Other sound"},
+        })+"\n")
+    newest=enrich_production_kit_from_raw(
+        fresh_kit(),raw.parent,
+        evidence_posts=evidence["posts"],cache_path=cache,
+    )
+    assert newest["quality"]["raw_metadata_cache_hit"] is False
+    assert len(newest["music_bank"])==2
+    assert newest["quality"]["raw_posts_matched"]==2
+    assert all(sound["usable_as_commercial_sound"] is False for sound in newest["music_bank"])
