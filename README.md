@@ -21,6 +21,25 @@ verified operator
 
 The goal is not a generic analytics dashboard. It is a durable research base where conclusions can eventually be traced back to the posts and Vision evidence that support them.
 
+## Optional: AI Research Copilot
+
+The Operator Intelligence Lab can investigate a hypothesis, challenge its
+counter-evidence, draft a provisional playbook and stress-test application
+ideas. AI reports remain **unreviewed proposals**; every cited source ID is
+validated against the materialized research data. AI cannot approve knowledge.
+
+Model calls are **opt-in** and require your own Gemini API key:
+
+```bash
+export GEMINI_API_KEY="..."
+uv run creative-research lab --open --ai-enabled --ai-max-calls 12
+```
+
+Every call shows a free evidence/cost-budget preflight. Reports are saved in
+the gitignored local data directory with prompt/model/snapshot provenance.
+See [AI Research Copilot](docs/AI_RESEARCH_COPILOT.md) for safeguards,
+offline tests and what still needs real-dataset acceptance.
+
 ## Requirements
 
 - Python 3.11+
