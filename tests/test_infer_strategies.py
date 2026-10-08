@@ -324,3 +324,35 @@ def test_low_evidence_account_flow_does_not_become_role_hypothesis() -> None:
     hypotheses = build_strategy_hypothesis_tables(patterns)["strategy_hypotheses"]
     c_rows = hypotheses.loc[hypotheses["scope_id"].astype(str).eq("C")]
     assert c_rows.empty
+
+
+def test_small_cross_account_sample_does_not_become_role_hypothesis() -> None:
+    patterns = _patterns()
+    extra = _pattern(
+        "PAT-D-SMALL",
+        "account_flow_profile",
+        scope_type="account",
+        scope_id="D",
+        sample_size=4,
+        evidence_strength="medium",
+        metrics={
+            "cross_account_flow_observations": 4,
+            "cross_account_origin_rate": 0.0,
+            "cross_account_import_rate": 1.0,
+            "originator_signal": 0.0,
+            "receiver_signal": 1.0,
+            "amplifier_signal": 0.1,
+        },
+    )
+    patterns = pd.concat(
+        [patterns, pd.DataFrame([extra])],
+        ignore_index=True,
+    )
+
+    hypotheses = build_strategy_hypothesis_tables(
+        patterns
+    )["strategy_hypotheses"]
+    d_rows = hypotheses.loc[
+        hypotheses["scope_id"].astype(str).eq("D")
+    ]
+    assert d_rows.empty
