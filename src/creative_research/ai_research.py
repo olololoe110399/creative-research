@@ -367,7 +367,24 @@ class LabCorpus:
             ]
             for family in sorted(singletons, key=lambda f: f["family_id"])[:2]:
                 family_ids.add(family["family_id"])
-        for family_id in sorted(family_ids)[:12]:
+        primary_families = list(dict.fromkeys(
+            [flow["family_id"] for flow in picked]
+            + ([source_id] if source_type == "family" else [])
+        ))
+        if playbook_mode:
+            primary_families.extend(
+                f["family_id"] for f in sorted(
+                    (
+                        f for f in self.family_index.values()
+                        if int(f.get("member_count") or 0) == 1
+                    ),
+                    key=lambda row: row["family_id"],
+                )[:2]
+            )
+        selected_family_ids = list(dict.fromkeys(
+            primary_families + sorted(family_ids)
+        ))[:12]
+        for family_id in selected_family_ids:
             family = self.family_index[family_id]
             registry.put("family", family_id, _select(family, (
                 "member_count", "accounts_count", "cross_account", "core_topic",
@@ -397,7 +414,16 @@ class LabCorpus:
             }
             for flow in picked[:MAX_FLOW_PAIRS]
         ]
-        for post_id in sorted(post_ids)[:26]:
+        priority_posts = list(dict.fromkeys(
+            value for flow in picked
+            for value in (
+                flow.get("family_origin_post_uid"),
+                flow.get("target_first_post_uid"),
+            )
+            if value in self.post_index
+        ))
+        ordered_posts = list(dict.fromkeys(priority_posts + sorted(post_ids)))[:20]
+        for post_id in ordered_posts:
             post = self.post_index.get(post_id)
             if not post:
                 continue
