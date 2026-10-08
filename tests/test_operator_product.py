@@ -232,3 +232,34 @@ def test_outcome_audit_fails_mismatched_role_denominator() -> None:
     assert "role_denominator_mismatch" in {
         row["code"] for row in audit_outcome(**payloads)["failures"]
     }
+
+
+
+def test_core_review_can_pass_without_approving_weak_adaptation() -> None:
+    sources = _strategies()
+    knowledge = _knowledge({"S1": "approved", "S2": "approved", "S3": "hold"})
+    playbook = build_provisional_playbook(sources, knowledge, operator_id="OP1")
+    assert playbook["status"] == "core_reviewed"
+    assert playbook["approved_core_steps"] == 3
+    assert playbook["approved_source_steps"] == 3
+    assert playbook["steps"][2]["trust_status"] == "hold"
+
+    payloads = _payloads()
+    payloads["lab"]["playbook"] = playbook
+    payloads["strategies"]["strategies"].extend(sources[1:3])
+    knowledge.append({
+        "operator_id": "OP1",
+        "knowledge_id": "KPLAY",
+        "knowledge_type": "playbook",
+        "knowledge_status": "approved",
+    })
+    payloads["knowledge"]["knowledge"] = knowledge
+    payloads["knowledge"]["active"] = [
+        row for row in knowledge if row["knowledge_status"] == "approved"
+    ]
+    report = audit_outcome(**payloads)
+    assert report["failures"] == []
+    assert report["status"] == "ready_for_usability_test"
+    assert "adaptation_not_reviewed" in {
+        issue["code"] for issue in report["warnings"]
+    }
