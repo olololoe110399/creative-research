@@ -25,6 +25,7 @@ def test_canonical_commands_exist() -> None:
         "analyze-timeline",
         "discover-patterns",
         "infer-strategies",
+        "promote-knowledge",
         "rank-posts",
         "extract-references",
         "query",
