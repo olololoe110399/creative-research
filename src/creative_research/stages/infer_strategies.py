@@ -390,9 +390,14 @@ def _account_role_hypotheses(
         originator = _numeric(metrics.get("originator_signal"))
         receiver = _numeric(metrics.get("receiver_signal"))
         amplifier = _numeric(metrics.get("amplifier_signal"))
+        flow_observations = _int(
+            metrics.get("cross_account_flow_observations")
+        )
         account_id = str(pattern.get("scope_id"))
         operator_id = _clean(pattern.get("operator_id"))
         if originator is None or receiver is None or operator_id is None:
+            continue
+        if flow_observations and flow_observations < 5:
             continue
 
         if originator >= 0.65 and originator - receiver >= 0.25:
