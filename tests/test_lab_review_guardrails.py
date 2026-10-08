@@ -91,3 +91,25 @@ def test_lab_review_endpoint_enforces_proof_before_persisting(tmp_path: Path) ->
         server.shutdown()
         server.server_close()
         thread.join(timeout=5)
+
+
+def test_review_allowlist_includes_reviewed_history_but_not_unknown(
+    tmp_path: Path,
+) -> None:
+    (tmp_path / "lab.json").write_text(
+        json.dumps({
+            "review": {
+                "items": [],
+                "reviewed_items": [
+                    {
+                        "review_source_type": "hypothesis",
+                        "review_source_id": "APPROVED-SOURCE",
+                        "existing_review_decision": "approve",
+                    }
+                ],
+            }
+        }),
+        encoding="utf-8",
+    )
+    assert review_source_in_queue(tmp_path, "hypothesis", "APPROVED-SOURCE")
+    assert not review_source_in_queue(tmp_path, "hypothesis", "FAKE")
