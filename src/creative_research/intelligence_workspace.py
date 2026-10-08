@@ -23,7 +23,7 @@ from creative_research.reference_media import (
 from creative_research.stages.review_knowledge import build_review_queue
 
 WORKSPACE_SCHEMA_VERSION = "operator-intelligence-lab-v3"
-STATIC_FILES = ("index.html", "app.js", "product_ui.js", "ai_ui.js", "research_ui.js", "style.css", "favicon.svg")
+STATIC_FILES = ("index.html", "app.js", "product_ui.js", "research_ui.js", "style.css", "favicon.svg")
 REQUIRED_DATA_FILES = (
     "workspace.json",
     "overview.json",
