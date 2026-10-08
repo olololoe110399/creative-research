@@ -424,13 +424,14 @@ def test_write_workspace_copies_static_and_required_data(tmp_path: Path) -> None
     assert validate_intelligence_workspace(tmp_path) == []
 
     workspace = json.loads((tmp_path / "workspace.json").read_text(encoding="utf-8"))
-    assert workspace["workspace_schema_version"] == "operator-intelligence-lab-v2"
+    assert workspace["workspace_schema_version"] == "operator-intelligence-lab-v3"
     assert workspace["views"] == [
         "brief",
         "network",
         "families",
-        "review",
+        "intelligence",
         "playbook",
+        "experiments",
         "advanced",
     ]
     assert (tmp_path / "lab.json").is_file()
