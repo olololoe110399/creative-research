@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import argparse
-import functools
 import http.server
 import json
 import subprocess
@@ -75,12 +74,7 @@ def _make_handler(
     reviews_path: Path,
     read_only: bool,
 ) -> type[http.server.SimpleHTTPRequestHandler]:
-    base = functools.partial(
-        http.server.SimpleHTTPRequestHandler,
-        directory=str(root),
-    )
-
-    class LabHandler(base.func):  # type: ignore[misc,valid-type]
+    class LabHandler(http.server.SimpleHTTPRequestHandler):
         def __init__(self, *args: Any, **kwargs: Any) -> None:
             super().__init__(*args, directory=str(root), **kwargs)
 
