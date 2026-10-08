@@ -135,13 +135,14 @@ The static intelligence assets are bundled in the Python wheel and checked in CI
 
 The Lab deliberately leads with research value instead of implementation stages:
 
-1. **Research Brief** — operating model, most useful findings, repeated-concept statistics, explicit claim guardrails, top creative families, and account roles.
-2. **Account Network** — visual origin → receiver chronology with evidence-gated role labels and strongest cross-account flows.
-3. **Creative Library** — repeated concepts shown as visual executions with thumbnails, member/account coverage, chronology, and post-level drill-down.
-4. **Research Intelligence** — Observed / Inferred / Unknown, with source links and automatic multilingual family diagnostics; no mandatory Approve/Hold/Reject workflow.
-5. **Operator Playbook** — automatic evidence-linked experiments with metrics and stop/recheck conditions. Human hypothesis approval is not a prerequisite.
-6. **My Experiments** — first-party selection, progress, observed outcomes and stale-evidence warnings; these actions are not truth certifications.
-7. **Advanced** — raw strategy hypotheses, patterns, legacy knowledge and timeline for expert inspection.
+1. **Production** — original account blueprint, new content recipes, storyboard and planned publishing slots; all operational edits are durable.
+2. **Asset Library** — image/sound/caption/hashtag references, actual team-sourced files, license evidence and editorial clearance states.
+3. **Results & Learnings** — your own TikTok post URLs, age-matched views/saves/shares, learnings, imported legacy records and live handoff export.
+4. **Evidence Explorer** — Research Brief, Creative Families, Account Network, Observed/Inferred/Unknown and raw lineage (nested views, not separate main tabs).
+
+The former UI tabs **Operator Playbook** and **My Experiments** were folded into
+Production and Results & Learnings. Historical hypothesis-level selections
+remain as read-only migrated records; no experiments or sources are silently erased.
 
 **Evidence-to-decision acceptance:** see [RESEARCH_OUTCOME_ACCEPTANCE.md](RESEARCH_OUTCOME_ACCEPTANCE.md) and run creative-research outcome-audit.
 
@@ -153,9 +154,9 @@ Pipeline stages, schema versions, and generated artifacts remain implementation 
 
 Research Intelligence is built from canonical evidence: reconciled
 observations, evidence-linked inferences, unresolved unknowns and
-machine-owned family-quality diagnostics. Operator Playbook turns these
-into provisional experiment candidates, with a separate first-party
-experiment plan.
+machine-owned family-quality diagnostics. Production Kit turns this
+into recipe briefs; all team actions use a **single first-party state**,
+not a duplicate hypothesis review or experiment plan.
 
 The Lab interface deliberately has **no AI Copilot controls, no manual
 "Investigate further with AI" action and no Human Review queue**. It does
@@ -171,8 +172,9 @@ review registries are retained for audit/compatibility. The old POST /api/review
 returns HTTP 410 by default; explicitly pass --enable-legacy-review-actions
 only when intentionally using that old workflow.
 
-My Experiments is the supported human decision workflow. It writes a local
-operator-scoped plan without changing knowledge or public research evidence.
+The supported team workflow is Production → Asset Library → Results &
+Learnings. Operating state is stored outside the static workspace, is
+operator-scoped and is never treated as proof of operator intent.
 
 Use:
 
