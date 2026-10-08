@@ -234,7 +234,7 @@ def test_high_confidence_ai_reject_blocks_deterministic_edge() -> None:
     assert isinstance(members, pd.DataFrame)
     family_by_post = members.set_index("post_uid")["family_id"].to_dict()
     assert family_by_post["P1"] != family_by_post["P2"]
-    assert result["report"]["gate_counts"]["reject_ai_different"] == 1
+    assert result["report"]["ai_override_counts"]["reject_ai_different"] == 1
 
 
 def test_high_confidence_ai_accept_can_create_strong_edge() -> None:
@@ -264,7 +264,7 @@ def test_high_confidence_ai_accept_can_create_strong_edge() -> None:
     assert isinstance(members, pd.DataFrame)
     family_by_post = members.set_index("post_uid")["family_id"].to_dict()
     assert family_by_post["P1"] == family_by_post["P3"]
-    assert result["report"]["gate_counts"]["strong_ai_same"] == 1
+    assert result["report"]["gate_counts"]["strong_ai_core"] == 1
 
 
 def test_low_confidence_ai_falls_back_to_deterministic_gate() -> None:
@@ -289,3 +289,64 @@ def test_low_confidence_ai_falls_back_to_deterministic_gate() -> None:
     assert isinstance(members, pd.DataFrame)
     family_by_post = members.set_index("post_uid")["family_id"].to_dict()
     assert family_by_post["P1"] == family_by_post["P2"]
+
+
+def test_ai_execution_variant_does_not_seed_core_family() -> None:
+    pairs = _pairs().copy()
+    pairs.loc[
+        pairs["right_post_uid"].eq("P3"),
+        ["combined_score", "structure_score", "semantic_text_score"],
+    ] = [0.60, 0.60, 0.20]
+    judgments = pd.DataFrame(
+        [
+            {
+                "left_post_uid": "P1",
+                "right_post_uid": "P3",
+                "decision": "same_core_concept",
+                "relationship": "execution_variant",
+                "confidence": 0.95,
+            }
+        ]
+    )
+    result = build_family_v2_preview(
+        _posts(),
+        pairs,
+        _analysis(),
+        judgments,
+    )
+    members = result["members"]
+    assert isinstance(members, pd.DataFrame)
+    family_by_post = members.set_index("post_uid")["family_id"].to_dict()
+    assert family_by_post["P1"] != family_by_post["P3"]
+    assert (
+        result["report"]["ai_override_counts"]["defer_ai_execution"]
+        == 1
+    )
+
+
+def test_ai_execution_variant_can_fall_back_to_deterministic_edge() -> None:
+    judgments = pd.DataFrame(
+        [
+            {
+                "left_post_uid": "P1",
+                "right_post_uid": "P2",
+                "decision": "same_core_concept",
+                "relationship": "execution_variant",
+                "confidence": 0.95,
+            }
+        ]
+    )
+    result = build_family_v2_preview(
+        _posts(),
+        _pairs(),
+        _analysis(),
+        judgments,
+    )
+    members = result["members"]
+    assert isinstance(members, pd.DataFrame)
+    family_by_post = members.set_index("post_uid")["family_id"].to_dict()
+    assert family_by_post["P1"] == family_by_post["P2"]
+    assert (
+        result["report"]["ai_override_counts"]["defer_ai_execution"]
+        == 1
+    )

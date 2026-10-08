@@ -843,6 +843,16 @@ def execute_judgments(
                 ),
                 "cross_language": _truthy(candidate.get("cross_language")),
                 "cross_account": _truthy(candidate.get("cross_account")),
+                "left_account": _clean(candidate.get("left_account")),
+                "right_account": _clean(candidate.get("right_account")),
+                "left_language": _clean(candidate.get("left_language")),
+                "right_language": _clean(candidate.get("right_language")),
+                "left_hook_text": _clean(candidate.get("left_hook_text")),
+                "right_hook_text": _clean(candidate.get("right_hook_text")),
+                "left_topic": _clean(candidate.get("left_topic")),
+                "right_topic": _clean(candidate.get("right_topic")),
+                "left_angle": _clean(candidate.get("left_angle")),
+                "right_angle": _clean(candidate.get("right_angle")),
                 "model": model,
                 "evidence_hash": evidence_hash,
                 "cache_key": cache_key,
@@ -1069,12 +1079,46 @@ def main() -> None:
 
     judgments_path = out_dir / "family_ai_judgments.parquet"
     jsonl_path = out_dir / "family_ai_judgments.jsonl"
+    review_path = out_dir / "family_ai_review.csv"
     report_path = out_dir / "family_ai_report.json"
 
     judgments.to_parquet(judgments_path, index=False)
     with jsonl_path.open("w", encoding="utf-8") as handle:
         for row in judgments.to_dict(orient="records"):
             handle.write(json.dumps(row, ensure_ascii=False, default=str) + "\n")
+
+    review_columns = [
+        "pair_id",
+        "left_account",
+        "right_account",
+        "left_language",
+        "right_language",
+        "cross_language",
+        "left_angle",
+        "right_angle",
+        "left_hook_text",
+        "right_hook_text",
+        "left_topic",
+        "right_topic",
+        "combined_score",
+        "structure_score",
+        "semantic_text_score",
+        "decision",
+        "relationship",
+        "confidence",
+        "core_concept",
+        "reason",
+        "candidate_reason",
+        "judgment_source",
+    ]
+    available_review_columns = [
+        column for column in review_columns if column in judgments.columns
+    ]
+    judgments.loc[:, available_review_columns].to_csv(
+        review_path,
+        index=False,
+        encoding="utf-8-sig",
+    )
 
     input_rate = _number(plan.get("input_usd_per_million"))
     output_rate = _number(plan.get("output_usd_per_million"))
@@ -1098,6 +1142,7 @@ def main() -> None:
             "plan": str(plan_path),
             "judgments": str(judgments_path),
             "judgments_jsonl": str(jsonl_path),
+            "review_csv": str(review_path),
             "cache": str(cache_path),
             "report": str(report_path),
         },

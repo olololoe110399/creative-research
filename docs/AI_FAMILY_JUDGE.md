@@ -167,6 +167,7 @@ data/06_analytics/family_ai/
 ├── family_ai_cache.jsonl
 ├── family_ai_judgments.parquet
 ├── family_ai_judgments.jsonl
+├── family_ai_review.csv
 └── family_ai_report.json
 ```
 
@@ -192,8 +193,12 @@ High-confidence AI decisions behave as follows:
 
 ```text
 same_core_concept
-+ allowed same-concept relationship
-→ strong AI edge
++ exact_reuse / translation_adaptation / paraphrase / hook_variant
+→ strong core-family AI edge
+
+same_core_concept
++ execution_variant
+→ retain as semantic/template evidence, but defer to deterministic core-family gate
 
 different_core_concept
 or thematic_only / unrelated
@@ -224,3 +229,12 @@ The default is now 768 output tokens per pair, while the prompt constrains:
 - counter-evidence to at most two items.
 
 This keeps structured responses complete without allowing unconstrained prose.
+
+
+## Core concept vs execution template
+
+Real preview review showed that treating every `execution_variant` as a strong family edge can over-group posts that share a format/app integration but have different promises or subject matter.
+
+Therefore `execution_variant` is not allowed to seed a core creative family by itself. The judgment remains valuable evidence for later template/pattern analysis, while core-family membership still requires an independent deterministic gate.
+
+`family_ai_review.csv` exposes both post hooks/topics plus the AI decision, relationship, confidence, concept, and reason for manual auditing without opening Parquet.
