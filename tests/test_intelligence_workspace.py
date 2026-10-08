@@ -561,3 +561,23 @@ def test_review_history_preserves_held_sources_for_reinspection() -> None:
     assert review["reviewed_sources"] == 1
     assert review["reviewed_items"][0]["review_source_id"] == "STR2"
     assert review["reviewed_items"][0]["existing_review_decision"] == "hold"
+
+
+
+def test_research_intelligence_v3_materializes_without_manual_approvals() -> None:
+    frames = _frames()
+    frames["knowledge"].loc[:, "knowledge_status"] = "review_candidate"
+    lab = build_workspace_payloads(**frames)["lab.json"]
+    research = lab["research_intelligence"]
+    assert research["schema_version"] == "research-intelligence-v1"
+    assert research["no_human_truth_approval_required"] is True
+    assert research["operator_id"] == "OP1"
+    assert research["counts"]["observed"] >= 2
+    assert research["counts"]["inferred"] >= 1
+    assert research["counts"]["unknown"] >= 3
+    assert len(research["experiment_candidates"]) == 5
+    assert all(
+        row["experiment_not_proven"] is True
+        for row in research["experiment_candidates"]
+    )
+    assert research["family_quality"]["human_review_required"] is False
