@@ -35,6 +35,15 @@ export GEMINI_API_KEY="..."
 uv run creative-research lab --open --ai-enabled --ai-max-calls 12
 ```
 
+Before spending on model calls, run the free readiness check:
+
+```bash
+uv run creative-research ai-research-audit --strict
+```
+
+It writes `data/07_exports/operator-intelligence/ai_research_readiness.json`
+and checks all review sources for bounded, resolvable source evidence.
+
 Every call shows a free evidence/cost-budget preflight. Reports are saved in
 the gitignored local data directory with prompt/model/snapshot provenance.
 See [AI Research Copilot](docs/AI_RESEARCH_COPILOT.md) for safeguards,
