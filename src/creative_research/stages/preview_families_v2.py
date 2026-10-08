@@ -27,6 +27,16 @@ PREVIEW_SCHEMA_VERSION = "creative-family-v2-preview-v2"
 
 DEFAULT_STRONG_COMBINED = 0.80
 DEFAULT_BRIDGE_COMBINED = 0.75
+DEFAULT_MIN_AI_CONFIDENCE = 0.80
+
+AI_POSITIVE_RELATIONSHIPS = {
+    "exact_reuse",
+    "translation_adaptation",
+    "paraphrase",
+    "hook_variant",
+    "execution_variant",
+}
+AI_NEGATIVE_RELATIONSHIPS = {"thematic_only", "unrelated"}
 
 SAME_LANGUAGE_STRONG_SEMANTIC = 0.35
 SAME_LANGUAGE_STRONG_HOOK = 0.28
@@ -172,11 +182,61 @@ def _pair_key(left: str, right: str) -> tuple[str, str]:
     return (left, right) if left < right else (right, left)
 
 
+def _ai_judgment_lookup(
+    judgments: pd.DataFrame | None,
+) -> dict[tuple[str, str], dict[str, Any]]:
+    if (
+        judgments is None
+        or judgments.empty
+        or not {"left_post_uid", "right_post_uid"}.issubset(judgments.columns)
+    ):
+        return {}
+    result: dict[tuple[str, str], dict[str, Any]] = {}
+    for row in judgments.to_dict(orient="records"):
+        left = str(row.get("left_post_uid") or "")
+        right = str(row.get("right_post_uid") or "")
+        if not left or not right:
+            continue
+        result[_pair_key(left, right)] = row
+    return result
+
+
+def _ai_override(
+    judgment: dict[str, Any] | None,
+    *,
+    min_confidence: float,
+) -> str | None:
+    if not judgment:
+        return None
+    confidence = _numeric(judgment.get("confidence"))
+    if confidence is None or confidence < min_confidence:
+        return None
+
+    decision = str(judgment.get("decision") or "")
+    relationship = str(judgment.get("relationship") or "")
+
+    if (
+        decision == "different_core_concept"
+        or relationship in AI_NEGATIVE_RELATIONSHIPS
+    ):
+        return "reject_ai_different"
+
+    if (
+        decision == "same_core_concept"
+        and relationship in AI_POSITIVE_RELATIONSHIPS
+    ):
+        return "strong_ai_same"
+
+    return None
+
+
 def _prepare_pairs(
     pairs: pd.DataFrame,
     *,
     strong_combined: float,
     bridge_combined: float,
+    ai_judgments: pd.DataFrame | None = None,
+    min_ai_confidence: float = DEFAULT_MIN_AI_CONFIDENCE,
 ) -> tuple[
     dict[tuple[str, str], dict[str, Any]],
     dict[str, set[str]],
@@ -187,6 +247,7 @@ def _prepare_pairs(
     strong_neighbors: dict[str, set[str]] = {}
     bridge_neighbors: dict[str, set[str]] = {}
     gate_counts: dict[str, int] = {}
+    ai_lookup = _ai_judgment_lookup(ai_judgments)
 
     required = {"left_post_uid", "right_post_uid", "combined_score"}
     missing = sorted(required - set(pairs.columns))
@@ -199,7 +260,15 @@ def _prepare_pairs(
     for raw in pairs.to_dict(orient="records"):
         left = str(raw["left_post_uid"])
         right = str(raw["right_post_uid"])
-        gate = classify_pair(
+        ai_gate = _ai_override(
+            ai_lookup.get(_pair_key(left, right)),
+            min_confidence=min_ai_confidence,
+        )
+        if ai_gate == "reject_ai_different":
+            gate_counts[ai_gate] = gate_counts.get(ai_gate, 0) + 1
+            continue
+
+        gate = ai_gate or classify_pair(
             raw,
             strong_combined=strong_combined,
             bridge_combined=bridge_combined,
@@ -285,15 +354,19 @@ def build_family_v2_preview(
     posts: pd.DataFrame,
     pairs: pd.DataFrame,
     analysis: pd.DataFrame | None = None,
+    ai_judgments: pd.DataFrame | None = None,
     *,
     strong_combined: float = DEFAULT_STRONG_COMBINED,
     bridge_combined: float = DEFAULT_BRIDGE_COMBINED,
+    min_ai_confidence: float = DEFAULT_MIN_AI_CONFIDENCE,
 ) -> dict[str, pd.DataFrame | dict[str, Any]]:
     metadata = _post_metadata(posts, analysis)
     pair_lookup, strong_neighbors, bridge_neighbors, gate_counts = _prepare_pairs(
         pairs,
         strong_combined=strong_combined,
         bridge_combined=bridge_combined,
+        ai_judgments=ai_judgments,
+        min_ai_confidence=min_ai_confidence,
     )
 
     families: list[PreviewFamily] = []
@@ -533,6 +606,12 @@ def build_family_v2_preview(
         "size_distribution": size_distribution,
         "strong_combined": strong_combined,
         "bridge_combined": bridge_combined,
+        "min_ai_confidence": min_ai_confidence,
+        "ai_judgments_loaded": (
+            int(len(ai_judgments))
+            if ai_judgments is not None
+            else 0
+        ),
         "same_language_strong_semantic": SAME_LANGUAGE_STRONG_SEMANTIC,
         "same_language_strong_hook": SAME_LANGUAGE_STRONG_HOOK,
         "same_language_strong_topic": SAME_LANGUAGE_STRONG_TOPIC,
@@ -550,7 +629,8 @@ def build_family_v2_preview(
             "Bridge edges can satisfy the anchor constraint but cannot seed a family on their own.",
             "Cross-language gates compensate for lexical penalty but require very high structural similarity.",
             "Same-language gates additionally require hook coherence or strong topic plus production-score coherence.",
-            "Same-current-family calibration pairs are retained as strong positive controls.",
+            "Same-current-family calibration pairs are retained as strong positive controls unless a high-confidence AI rejection overrides them.",
+            "High-confidence AI same-core judgments become strong edges; high-confidence different-core judgments reject an edge; uncertain/low-confidence judgments fall back to deterministic gates.",
         ],
     }
 
@@ -621,6 +701,16 @@ def main() -> None:
         default="data/06_analytics/family_v2_preview",
     )
     parser.add_argument(
+        "--ai-judgments",
+        default="data/06_analytics/family_ai/family_ai_judgments.parquet",
+        help="Optional AI pair judgments; missing file falls back to deterministic gates.",
+    )
+    parser.add_argument(
+        "--min-ai-confidence",
+        type=float,
+        default=DEFAULT_MIN_AI_CONFIDENCE,
+    )
+    parser.add_argument(
         "--strong-combined",
         type=float,
         default=DEFAULT_STRONG_COMBINED,
@@ -636,19 +726,27 @@ def main() -> None:
     posts_path = Path(args.posts).expanduser().resolve()
     analysis_path = Path(args.analysis).expanduser().resolve()
     pairs_path = Path(args.pairs).expanduser().resolve()
+    ai_judgments_path = Path(args.ai_judgments).expanduser().resolve()
     out_dir = Path(args.out).expanduser().resolve()
     out_dir.mkdir(parents=True, exist_ok=True)
 
     posts = read_table(posts_path)
     analysis = read_table(analysis_path)
     pairs = read_table(pairs_path)
+    ai_judgments = (
+        read_table(ai_judgments_path)
+        if ai_judgments_path.exists()
+        else None
+    )
 
     result = build_family_v2_preview(
         posts,
         pairs,
         analysis,
+        ai_judgments,
         strong_combined=args.strong_combined,
         bridge_combined=args.bridge_combined,
+        min_ai_confidence=args.min_ai_confidence,
     )
     families = result["families"]
     members = result["members"]
@@ -675,6 +773,11 @@ def main() -> None:
             "posts_source": str(posts_path),
             "analysis_source": str(analysis_path),
             "pairs_source": str(pairs_path),
+            "ai_judgments_source": (
+                str(ai_judgments_path)
+                if ai_judgments is not None
+                else None
+            ),
             "outputs": {
                 "families": str(families_path),
                 "members": str(members_path),
