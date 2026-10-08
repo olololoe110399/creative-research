@@ -185,7 +185,8 @@ def test_production_v2_preserves_downstream_schema_and_lineage() -> None:
     )
 
     families = tables["creative_families"]
-    members = tables["creative_family_members"].set_index("post_uid")
+    member_table = tables["creative_family_members"]
+    members = member_table.set_index("post_uid")
 
     assert set(members.index) == {"P1", "P2", "P3", "P4"}
     assert members.loc["P1", "family_id"] == members.loc["P2", "family_id"]
@@ -223,7 +224,7 @@ def test_production_v2_preserves_downstream_schema_and_lineage() -> None:
         "views_percentile_account",
         "views_percentile_operator",
     }
-    assert required_member_columns.issubset(members.columns)
+    assert required_member_columns.issubset(member_table.columns)
     assert meta["family_schema_version"] == FAMILY_SCHEMA_VERSION_V2
     assert meta["preview"]["posts"] == 4
 
