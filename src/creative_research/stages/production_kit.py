@@ -85,7 +85,8 @@ def main() -> None:
     )
     if args.raw_root:
         enrich_production_kit_from_raw(
-            kit, _resolve(args.raw_root), evidence_posts=evidence["posts"]
+            kit, _resolve(args.raw_root), evidence_posts=evidence["posts"],
+            cache_path=project_root() / "data/05_master/source_asset_index.json",
         )
     audit = audit_production_kit(
         kit,
