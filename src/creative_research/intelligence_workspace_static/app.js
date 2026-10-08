@@ -52,7 +52,7 @@ function briefView(){
   const b=data.lab.research_brief||{}, hero=b.hero||{}, s=b.stats||{};
   const score=hero.confidence_score==null?0:clamp(Number(hero.confidence_score)*100,0,100);
   const findings=(b.key_findings||[]).slice(0,8).map(function(f){
-    return '<article class="finding-card" data-strategy="'+esc(f.hypothesis_id)+'"><div class="row"><span class="eyebrow">'+esc(label(f.hypothesis_type))+'</span>'+confidenceBadge(f.confidence_band,f.confidence_score)+'</div><h3>'+esc(f.title||label(f.hypothesis_type))+'</h3><p>'+esc(f.claim||'')+'</p></article>';
+    return '<article class="finding-card" data-strategy="'+esc(f.hypothesis_id)+'"><div class="row"><span class="eyebrow">'+esc(label(f.hypothesis_type))+'</span>'+confidenceBadge(f.confidence_band,f.confidence_score)+badge(f.trust_status,f.trust_status==='approved'?'good':'warn')+'</div><h3>'+esc(f.title||label(f.hypothesis_type))+'</h3><p>'+esc(f.claim||'')+'</p></article>';
   }).join('');
   const canSay=(b.key_findings||[]).slice(0,5).map(function(f){
     return '<div class="claim-item"><span class="claim-icon info">?</span><div><b>'+esc(f.title||label(f.hypothesis_type))+'</b><span>'+esc(f.claim||'')+'</span></div></div>';
@@ -168,7 +168,7 @@ function advancedView(){
   }else if(advancedMode==='patterns'){
     body='<div class="grid">'+(data.patterns.patterns||[]).map(function(p){return '<article class="finding-card" data-pattern="'+esc(p.pattern_id)+'"><div class="row">'+badge(label(p.pattern_type))+badge(p.evidence_strength)+'</div><h3>'+esc(p.title||p.pattern_id)+'</h3><p>'+esc(p.observation||'')+'</p></article>';}).join('')+'</div>';
   }else if(advancedMode==='knowledge'){
-    body='<div class="grid">'+(data.knowledge.knowledge||[]).map(function(k){return '<article class="finding-card" data-knowledge="'+esc(k.knowledge_id)+'"><div class="row">'+badge(k.knowledge_type)+badge(k.knowledge_status,k.knowledge_status==='approved'||k.knowledge_status==='promoted'?'good':k.knowledge_status==='review_candidate'?'warn':'bad')+'</div><h3>'+esc(k.title||k.knowledge_id)+'</h3><p>'+esc(k.statement||'')+'</p></article>';}).join('')+'</div>';
+    body='<div class="grid">'+(data.knowledge.knowledge||[]).map(function(k){return '<article class="finding-card" data-knowledge="'+esc(k.knowledge_id)+'"><div class="row">'+badge(k.knowledge_type)+badge(k.knowledge_status,k.knowledge_status==='approved'?'good':k.knowledge_status==='promoted'||k.knowledge_status==='review_candidate'?'warn':'bad')+'</div><h3>'+esc(k.title||k.knowledge_id)+'</h3><p>'+esc(k.statement||'')+'</p></article>';}).join('')+'</div>';
   }else if(advancedMode==='timeline'){
     body='<div class="table"><table><thead><tr><th>Period</th><th>Posts</th><th>Top angle</th><th>Product</th><th>CTA</th><th>Family origins</th><th>Imports</th></tr></thead><tbody>'+(data.timeline.operator_windows||[]).map(function(w){return '<tr><td>'+esc(w.period_id)+'</td><td>'+num(w.posts)+'</td><td>'+esc(label(w.top_content_angle))+'</td><td>'+pct(w.product_rate)+'</td><td>'+pct(w.cta_rate)+'</td><td>'+num(w.family_origins)+'</td><td>'+num(w.imported_family_entries)+'</td></tr>';}).join('')+'</tbody></table></div>';
   }else{
@@ -252,7 +252,7 @@ function openStrategy(id){
 function openKnowledge(id){
   const k=data.knowledgeById.get(String(id)); if(!k)return;
   const sources=(k.source_links||[]).map(function(l){return data.strategyById.has(String(l.source_id))?strategyButton(l.source_id,'Strategy source · '+l.source_id):'<div>'+esc(l.source_type)+': '+esc(l.source_id)+'</div>';}).join('');
-  drawer(k.title||id,'<div class="badges">'+badge(k.knowledge_type)+badge(k.knowledge_status,k.knowledge_status==='approved'||k.knowledge_status==='promoted'?'good':k.knowledge_status==='review_candidate'?'warn':'bad')+confidenceBadge(k.confidence_band,k.confidence_score)+'</div><p>'+esc(k.statement||'')+'</p><h3>Practical guidance</h3><p>'+esc(k.actionable_guidance||'')+'</p><h3>Exceptions / caveats</h3><ul>'+(k.exceptions||[]).map(function(x){return '<li>'+esc(x)+'</li>';}).join('')+'</ul><h3>Counter evidence</h3><pre>'+esc(json(k.counter_evidence||{}))+'</pre><h3>Source</h3><div class="link-list">'+sources+'</div>');
+  drawer(k.title||id,'<div class="badges">'+badge(k.knowledge_type)+badge(k.knowledge_status,k.knowledge_status==='approved'?'good':k.knowledge_status==='promoted'||k.knowledge_status==='review_candidate'?'warn':'bad')+confidenceBadge(k.confidence_band,k.confidence_score)+'</div><p>'+esc(k.statement||'')+'</p><h3>Practical guidance</h3>'+(k.knowledge_status==='rejected'||k.knowledge_status==='hold'?'<p class="method-note">Guidance withheld: source was held/rejected during human review.</p>':'<p>'+esc(k.actionable_guidance||'')+'</p>')+'<h3>Exceptions / caveats</h3><ul>'+(k.exceptions||[]).map(function(x){return '<li>'+esc(x)+'</li>';}).join('')+'</ul><h3>Counter evidence</h3><pre>'+esc(json(k.counter_evidence||{}))+'</pre><h3>Source</h3><div class="link-list">'+sources+'</div>');
 }
 
 function openPost(id){
