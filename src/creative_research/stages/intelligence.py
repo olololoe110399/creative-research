@@ -4,18 +4,21 @@ from __future__ import annotations
 import argparse
 import http.server
 import json
+import mimetypes
 import subprocess
 import sys
 import webbrowser
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
+from urllib.parse import unquote, urlparse
 
 from creative_research.intelligence_workspace import validate_intelligence_workspace
 from creative_research.knowledge_reviews import (
     KnowledgeReview,
     upsert_knowledge_reviews,
 )
+from creative_research.reference_media import local_media_sources_for_post
 from creative_research.pathing import project_root
 
 
@@ -73,6 +76,7 @@ def _make_handler(
     root: Path,
     reviews_path: Path,
     read_only: bool,
+    media_records: dict[str, dict[str, Any]],
 ) -> type[http.server.SimpleHTTPRequestHandler]:
     class LabHandler(http.server.SimpleHTTPRequestHandler):
         def __init__(self, *args: Any, **kwargs: Any) -> None:
@@ -81,6 +85,80 @@ def _make_handler(
         def end_headers(self) -> None:
             self.send_header("Cache-Control", "no-store")
             super().end_headers()
+
+        def _serve_local_media(self, kind: str, post_uid: str) -> None:
+            record = media_records.get(post_uid)
+            if record is None:
+                self.send_error(404, "Unknown post")
+                return
+            source = local_media_sources_for_post(record).get(kind)
+            if source is None or not source.is_file():
+                self.send_error(404, "Local media unavailable")
+                return
+
+            size = int(source.stat().st_size)
+            content_type = (
+                mimetypes.guess_type(source.name)[0]
+                or "application/octet-stream"
+            )
+            range_header = self.headers.get("Range")
+            start = 0
+            end = size - 1
+            partial = False
+            if range_header and range_header.startswith("bytes="):
+                raw = range_header[6:].split(",", 1)[0].strip()
+                try:
+                    left, right = raw.split("-", 1)
+                    if left:
+                        start = int(left)
+                        end = int(right) if right else size - 1
+                    elif right:
+                        suffix = int(right)
+                        start = max(0, size - suffix)
+                    start = max(0, min(start, size - 1))
+                    end = max(start, min(end, size - 1))
+                    partial = True
+                except (TypeError, ValueError):
+                    self.send_error(416, "Invalid byte range")
+                    return
+
+            length = end - start + 1
+            self.send_response(206 if partial else 200)
+            self.send_header("Content-Type", content_type)
+            self.send_header("Accept-Ranges", "bytes")
+            self.send_header("Content-Length", str(length))
+            if partial:
+                self.send_header(
+                    "Content-Range",
+                    f"bytes {start}-{end}/{size}",
+                )
+            self.end_headers()
+
+            with source.open("rb") as handle:
+                handle.seek(start)
+                remaining = length
+                while remaining > 0:
+                    chunk = handle.read(min(1024 * 256, remaining))
+                    if not chunk:
+                        break
+                    self.wfile.write(chunk)
+                    remaining -= len(chunk)
+
+        def do_GET(self) -> None:  # noqa: N802
+            parsed = urlparse(self.path)
+            parts = parsed.path.strip("/").split("/")
+            if (
+                len(parts) == 4
+                and parts[0] == "api"
+                and parts[1] == "media"
+                and parts[2] in {"thumbnail", "video"}
+            ):
+                self._serve_local_media(
+                    parts[2],
+                    unquote(parts[3]),
+                )
+                return
+            super().do_GET()
 
         def do_POST(self) -> None:  # noqa: N802
             if self.path != "/api/review":
@@ -251,10 +329,24 @@ def main() -> None:
             "Build it first with creative-research build-intelligence-workspace."
         )
 
+    evidence_path = root / "evidence.json"
+    try:
+        evidence_payload = json.loads(
+            evidence_path.read_text(encoding="utf-8")
+        )
+    except (OSError, json.JSONDecodeError):
+        evidence_payload = {}
+    media_records = {
+        str(row.get("post_uid")): row
+        for row in evidence_payload.get("posts", [])
+        if isinstance(row, dict) and row.get("post_uid")
+    }
+
     handler = _make_handler(
         root=root,
         reviews_path=reviews_path,
         read_only=args.read_only,
+        media_records=media_records,
     )
     server = http.server.ThreadingHTTPServer(
         (args.host, args.port),
