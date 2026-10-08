@@ -229,3 +229,67 @@ button:focus-visible,summary:focus-visible{outline:3px solid #8ab4ff;outline-off
   .research-action-row{flex-direction:column}
   .research-action-row .research-experiment-button{margin-top:8px}
 }
+
+
+/* Production Kit: operational handoff with transparent evidence/asset gates. */
+.production-download{display:inline-flex;align-items:center;justify-content:center;
+  padding:11px 15px;border-radius:11px;background:#123352;color:#fff!important;
+  text-decoration:none;font-weight:760;font-size:13px;white-space:nowrap}
+.production-download:hover{background:#235579}
+.production-status{background:#fff8eb;border:1px solid #f1d9a2;border-radius:15px;
+  padding:17px 20px;margin:12px 0 18px}
+.production-status-label{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+.production-status-label b{font-size:16px}
+.production-status-label span{font-size:12px;color:#775c28}
+.production-status p{font-size:13px;color:#745622;line-height:1.6;margin:9px 0 0}
+.production-tabs{display:flex;flex-wrap:wrap;gap:8px;margin:20px 0}
+.production-tabs button{background:#fff;border:1px solid var(--line2);
+  color:#334155;border-radius:10px;padding:11px 14px;cursor:pointer;font-size:13px;font-weight:700}
+.production-tabs button.active{background:#173654;border-color:#173654;color:#fff}
+.production-table-scroller{max-width:100%;overflow:auto;border-radius:15px;border:1px solid var(--line2);background:#fff}
+.production-table{width:100%;border-collapse:collapse;font-size:13px;min-width:810px}
+.production-table th{background:#f2f5fa;font-size:12px;color:#475569;text-align:left;
+  padding:12px;border-bottom:1px solid #dce4ee}
+.production-table td{vertical-align:top;padding:12px;border-bottom:1px solid #e9edf2}
+.production-table tr:last-child td{border-bottom:none}
+.production-table td small{display:block;font-size:11px;color:#64748b;padding-top:4px}
+.production-recipe-link{padding:0;background:none;border:none;text-align:left;
+  color:#0f4a80;font-weight:700;cursor:pointer;line-height:1.4}
+.production-recipe-link:hover{text-decoration:underline}
+.production-recipe-card,.production-account{background:#fff;padding:20px;
+  border:1px solid var(--line2);border-radius:15px}
+.production-recipe-card h3{font-size:18px;margin:14px 0}
+.production-recipe-card p,.production-account p{font-size:13px;color:#455366;line-height:1.6}
+.production-warning{background:#fff5dd;color:#775519;padding:9px 12px;border-radius:9px;
+  font-size:12px;margin:14px 0}
+.production-primary{border:0;border-radius:9px;background:#123352;
+  color:white;font-weight:710;padding:10px 12px;cursor:pointer}
+.production-primary:hover{background:#235579}
+.production-account h2{font-size:20px;margin:10px 0 14px}
+.production-account h3{font-size:14px;margin:17px 0 10px}
+.production-account details{margin-top:18px}
+.production-account summary{cursor:pointer;color:#164a77}
+.production-check{display:flex;align-items:flex-start;gap:7px;margin:7px 0;font-size:12px}
+.production-check input{margin:2px 0 0}
+.production-account .row{gap:7px;flex-wrap:wrap}
+.production-slide{border:1px solid var(--line);border-radius:13px;padding:15px;margin:10px 0;background:#fbfcff}
+.production-slide h3{font-size:13px;margin:10px 0 4px}
+.production-slide p{font-size:13px;color:#364154;line-height:1.6}
+.production-slide details{font-size:12px;margin-top:14px;color:#64748b}
+.production-visual-query{padding:8px 12px;border-radius:9px;background:#eef4fb}
+.production-evidence{font-size:12px;color:#4b5563;line-height:1.6;padding:12px;
+  border:1px solid #d1e4f6;background:#f3f8ff;border-radius:12px}
+.production-evidence .badge{margin-right:6px}
+.production-evidence p{margin:5px 0 0}
+.production-source-links{display:flex;flex-direction:column;gap:6px}
+.production-source-links>div{display:flex;align-items:center;gap:7px;flex-wrap:wrap}
+.production-source-links a{font-size:12px}
+.production-false-list{display:grid;gap:8px}
+.production-false-split{border:1px solid var(--line);padding:12px;border-radius:9px;display:flex;align-items:center;gap:7px;flex-wrap:wrap}
+.production-false-split small{color:#64748b;font-size:11px}
+.production-false-split span{font-size:12px;color:#475569}
+@media(max-width:760px){
+  .production-download{width:100%;white-space:normal}
+  .production-tabs button{flex:1}
+  .production-status-label{align-items:flex-start;flex-direction:column}
+}
