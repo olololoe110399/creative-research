@@ -23,7 +23,7 @@ import pandas as pd
 from creative_research.stages.build_families import _text_similarity
 from creative_research.validation import read_table
 
-PREVIEW_SCHEMA_VERSION = "creative-family-v2-preview-v1"
+PREVIEW_SCHEMA_VERSION = "creative-family-v2-preview-v2"
 
 DEFAULT_STRONG_COMBINED = 0.80
 DEFAULT_BRIDGE_COMBINED = 0.75
@@ -533,6 +533,16 @@ def build_family_v2_preview(
         "size_distribution": size_distribution,
         "strong_combined": strong_combined,
         "bridge_combined": bridge_combined,
+        "same_language_strong_semantic": SAME_LANGUAGE_STRONG_SEMANTIC,
+        "same_language_strong_hook": SAME_LANGUAGE_STRONG_HOOK,
+        "same_language_strong_topic": SAME_LANGUAGE_STRONG_TOPIC,
+        "same_language_strong_topic_production": SAME_LANGUAGE_STRONG_TOPIC_PRODUCTION,
+        "same_language_bridge_semantic": SAME_LANGUAGE_BRIDGE_SEMANTIC,
+        "same_language_bridge_hook": SAME_LANGUAGE_BRIDGE_HOOK,
+        "cross_language_strong_structure": CROSS_LANGUAGE_STRONG_STRUCTURE,
+        "cross_language_strong_semantic": CROSS_LANGUAGE_STRONG_SEMANTIC,
+        "cross_language_bridge_structure": CROSS_LANGUAGE_BRIDGE_STRUCTURE,
+        "cross_language_bridge_semantic": CROSS_LANGUAGE_BRIDGE_SEMANTIC,
         "gate_counts": gate_counts,
         "notes": [
             "Preview only: production creative_families are not modified.",
