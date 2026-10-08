@@ -15,8 +15,9 @@ import unicodedata
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from difflib import SequenceMatcher
+from functools import lru_cache
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 import pandas as pd
 
@@ -57,10 +58,8 @@ def _clean(value: Any) -> str | None:
     return text
 
 
-def _normalize_text(value: Any) -> str:
-    text = _clean(value)
-    if not text:
-        return ""
+@lru_cache(maxsize=None)
+def _normalize_clean_text(text: str) -> str:
     normalized = unicodedata.normalize("NFKC", text).casefold()
     tokens = [
         token
@@ -70,9 +69,18 @@ def _normalize_text(value: Any) -> str:
     return " ".join(tokens)
 
 
-def _tokens(value: Any) -> frozenset[str]:
-    normalized = _normalize_text(value)
+def _normalize_text(value: Any) -> str:
+    text = _clean(value)
+    return _normalize_clean_text(text) if text else ""
+
+
+@lru_cache(maxsize=None)
+def _tokens_from_normalized(normalized: str) -> frozenset[str]:
     return frozenset(normalized.split()) if normalized else frozenset()
+
+
+def _tokens(value: Any) -> frozenset[str]:
+    return _tokens_from_normalized(_normalize_text(value))
 
 
 def _text_similarity(left: Any, right: Any) -> float | None:
@@ -82,13 +90,37 @@ def _text_similarity(left: Any, right: Any) -> float | None:
         return None
     if not left_text or not right_text:
         return 0.0
+    if left_text == right_text:
+        return 1.0
 
-    left_tokens = frozenset(left_text.split())
-    right_tokens = frozenset(right_text.split())
+    left_tokens = _tokens_from_normalized(left_text)
+    right_tokens = _tokens_from_normalized(right_text)
     union = left_tokens | right_tokens
     jaccard = len(left_tokens & right_tokens) / len(union) if union else 0.0
     sequence = SequenceMatcher(None, left_text, right_text).ratio()
     return float(0.65 * jaccard + 0.35 * sequence)
+
+
+def _text_similarity_upper_bound(left: Any, right: Any) -> float | None:
+    """Cheap upper bound for _text_similarity without SequenceMatcher.
+
+    SequenceMatcher.ratio() is at most 1, so replacing its contribution with
+    0.35 is guaranteed not to under-estimate the real score.
+    """
+    left_text = _normalize_text(left)
+    right_text = _normalize_text(right)
+    if not left_text and not right_text:
+        return None
+    if not left_text or not right_text:
+        return 0.0
+    if left_text == right_text:
+        return 1.0
+
+    left_tokens = _tokens_from_normalized(left_text)
+    right_tokens = _tokens_from_normalized(right_text)
+    union = left_tokens | right_tokens
+    jaccard = len(left_tokens & right_tokens) / len(union) if union else 0.0
+    return float(0.65 * jaccard + 0.35)
 
 
 def _exact_similarity(left: Any, right: Any) -> float | None:
@@ -294,6 +326,41 @@ def compare_features(
     return float(score), components
 
 
+def compare_features_upper_bound(
+    left: CreativeFeature,
+    right: CreativeFeature,
+) -> float:
+    """Return a guaranteed upper bound for compare_features' weighted score."""
+    components: dict[str, float | None] = {
+        "concept_text": _text_similarity_upper_bound(left.concept_text, right.concept_text),
+        "hook_text": _text_similarity_upper_bound(left.hook_text, right.hook_text),
+        "hook_formula": _text_similarity_upper_bound(left.hook_formula, right.hook_formula),
+        "creative_formula": _text_similarity_upper_bound(
+            left.creative_formula,
+            right.creative_formula,
+        ),
+        "sequence": _sequence_similarity(left.sequence_roles, right.sequence_roles),
+        "angle": _exact_similarity(left.content_angle, right.content_angle),
+        "audience": _exact_similarity(left.audience_segment, right.audience_segment),
+        "product_family": _exact_similarity(left.product_family, right.product_family),
+        "format": _exact_similarity(left.format_value, right.format_value),
+        "hook_technique": _exact_similarity(left.hook_technique, right.hook_technique),
+    }
+    available_weight = sum(
+        COMPONENT_WEIGHTS[name]
+        for name, value in components.items()
+        if value is not None
+    )
+    if not available_weight:
+        return 0.0
+    score = sum(
+        COMPONENT_WEIGHTS[name] * float(value)
+        for name, value in components.items()
+        if value is not None
+    ) / available_weight
+    return float(score)
+
+
 def _reason_json(
     components: dict[str, float | None],
     *,
@@ -325,14 +392,42 @@ def cluster_features(
     *,
     threshold: float = DEFAULT_THRESHOLD,
     bridge_floor: float = DEFAULT_BRIDGE_FLOOR,
+    stats: dict[str, int] | None = None,
+    progress_every: int = 0,
+    progress_callback: Callable[[int, int, int, dict[str, int]], None] | None = None,
 ) -> tuple[list[FamilyState], list[dict[str, Any]]]:
     if not 0 <= bridge_floor <= threshold <= 1:
         raise ValueError("Require 0 <= bridge_floor <= threshold <= 1")
 
+    metrics = stats if stats is not None else {}
+    metrics.clear()
+    metrics.update(
+        {
+            "upper_bound_checks": 0,
+            "full_comparisons": 0,
+            "anchor_pruned": 0,
+            "member_pruned": 0,
+        }
+    )
+
     families_by_scope: dict[str, list[FamilyState]] = {}
     assignments: list[dict[str, Any]] = []
+    total = len(features)
 
-    for feature in features:
+    def emit_progress(processed: int) -> None:
+        if (
+            progress_callback is None
+            or progress_every <= 0
+            or (
+                processed % progress_every != 0
+                and processed != total
+            )
+        ):
+            return
+        family_count = sum(len(items) for items in families_by_scope.values())
+        progress_callback(processed, total, family_count, metrics)
+
+    for processed, feature in enumerate(features, start=1):
         scope_families = families_by_scope.setdefault(feature.operator_scope, [])
         best_family: FamilyState | None = None
         best_assignment_score = -1.0
@@ -342,12 +437,37 @@ def cluster_features(
         best_components: dict[str, float | None] = {}
 
         for family in scope_families:
-            anchor_score, _ = compare_features(feature, family.anchor)
-            nearest_score = -1.0
-            nearest: CreativeFeature | None = None
-            nearest_components: dict[str, float | None] = {}
-            for member in family.members:
+            metrics["upper_bound_checks"] += 1
+            anchor_upper = compare_features_upper_bound(feature, family.anchor)
+            if anchor_upper < bridge_floor:
+                metrics["anchor_pruned"] += 1
+                continue
+
+            anchor_score, anchor_components = compare_features(
+                feature,
+                family.anchor,
+            )
+            metrics["full_comparisons"] += 1
+            if anchor_score < bridge_floor:
+                metrics["anchor_pruned"] += 1
+                continue
+
+            # The anchor is also the first family member. Initializing nearest
+            # with it preserves the old first-match tie behavior while avoiding
+            # a duplicate full comparison.
+            nearest_score = anchor_score
+            nearest: CreativeFeature | None = family.anchor
+            nearest_components = anchor_components
+
+            for member in family.members[1:]:
+                metrics["upper_bound_checks"] += 1
+                member_upper = compare_features_upper_bound(feature, member)
+                if member_upper <= nearest_score:
+                    metrics["member_pruned"] += 1
+                    continue
+
                 score, components = compare_features(feature, member)
+                metrics["full_comparisons"] += 1
                 if score > nearest_score:
                     nearest_score = score
                     nearest = member
@@ -355,7 +475,7 @@ def cluster_features(
 
             eligible = (
                 anchor_score >= threshold
-                or (nearest_score >= threshold and anchor_score >= bridge_floor)
+                or nearest_score >= threshold
             )
             if not eligible:
                 continue
@@ -370,7 +490,10 @@ def cluster_features(
                 best_components = nearest_components
 
         if best_family is None:
-            family = FamilyState(operator_scope=feature.operator_scope, anchor=feature)
+            family = FamilyState(
+                operator_scope=feature.operator_scope,
+                anchor=feature,
+            )
             scope_families.append(family)
             assignments.append(
                 {
@@ -392,6 +515,7 @@ def cluster_features(
                     "is_origin": True,
                 }
             )
+            emit_progress(processed)
             continue
 
         best_family.members.append(feature)
@@ -402,7 +526,9 @@ def cluster_features(
                 "anchor_score": best_anchor_score,
                 "nearest_score": best_nearest_score,
                 "nearest_post_uid": (
-                    best_nearest.post_uid if best_nearest is not None else best_family.anchor.post_uid
+                    best_nearest.post_uid
+                    if best_nearest is not None
+                    else best_family.anchor.post_uid
                 ),
                 "match_reason_json": _reason_json(
                     best_components,
@@ -412,12 +538,15 @@ def cluster_features(
                 "is_origin": False,
             }
         )
+        emit_progress(processed)
 
     families = [
         family
         for scope in sorted(families_by_scope)
         for family in families_by_scope[scope]
     ]
+    metrics["features"] = total
+    metrics["families"] = len(families)
     return families, assignments
 
 
@@ -496,12 +625,18 @@ def build_creative_family_tables(
     *,
     threshold: float = DEFAULT_THRESHOLD,
     bridge_floor: float = DEFAULT_BRIDGE_FLOOR,
+    clustering_stats: dict[str, int] | None = None,
+    progress_every: int = 0,
+    progress_callback: Callable[[int, int, int, dict[str, int]], None] | None = None,
 ) -> dict[str, pd.DataFrame]:
     features = _build_features(posts, analysis, sequence)
     families, assignments = cluster_features(
         features,
         threshold=threshold,
         bridge_floor=bridge_floor,
+        stats=clustering_stats,
+        progress_every=progress_every,
+        progress_callback=progress_callback,
     )
     perf_lookup = _performance_lookup(performance)
 
@@ -707,6 +842,12 @@ def main() -> None:
     parser.add_argument("--out", default="data/06_analytics")
     parser.add_argument("--threshold", type=float, default=DEFAULT_THRESHOLD)
     parser.add_argument("--bridge-floor", type=float, default=DEFAULT_BRIDGE_FLOOR)
+    parser.add_argument(
+        "--progress-every",
+        type=int,
+        default=100,
+        help="Print clustering progress every N posts; use 0 to disable.",
+    )
     args = parser.parse_args()
 
     posts_path = Path(args.posts).expanduser().resolve()
@@ -721,6 +862,24 @@ def main() -> None:
     sequence = read_table(sequence_path)
     performance = read_table(performance_path) if performance_path.exists() else None
 
+    clustering_stats: dict[str, int] = {}
+
+    def progress(
+        processed: int,
+        total: int,
+        family_count: int,
+        stats: dict[str, int],
+    ) -> None:
+        pruned = stats.get("anchor_pruned", 0) + stats.get("member_pruned", 0)
+        print(
+            "Family clustering: "
+            f"{processed}/{total} posts · "
+            f"{family_count} families · "
+            f"{stats.get('full_comparisons', 0)} full comparisons · "
+            f"{pruned} pruned",
+            flush=True,
+        )
+
     tables = build_creative_family_tables(
         posts,
         analysis,
@@ -728,6 +887,9 @@ def main() -> None:
         performance,
         threshold=args.threshold,
         bridge_floor=args.bridge_floor,
+        clustering_stats=clustering_stats,
+        progress_every=max(0, args.progress_every),
+        progress_callback=progress,
     )
 
     outputs: dict[str, str] = {}
@@ -764,6 +926,7 @@ def main() -> None:
         "family_members": int(len(members)),
         "threshold": args.threshold,
         "bridge_floor": args.bridge_floor,
+        "clustering_stats": clustering_stats,
         "outputs": outputs,
         "notes": [
             "No scrape was performed.",
