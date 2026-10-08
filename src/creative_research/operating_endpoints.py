@@ -5,7 +5,7 @@ import json
 from http.server import BaseHTTPRequestHandler
 from urllib.parse import urlparse
 
-from creative_research.ai_endpoints import loopback_host, respond, same_origin_json_request
+from creative_research.http_local import loopback_host, respond, same_origin_json_request
 from creative_research.operating_state import OperatingError, OperatingStore
 
 
