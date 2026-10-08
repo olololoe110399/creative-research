@@ -54,6 +54,7 @@ build-families
 analyze-propagation
 analyze-timeline
 discover-patterns
+infer-strategies
 
 rank-posts
 extract-references
@@ -393,6 +394,61 @@ Every pattern stores sample size, support/counter evidence, effect size where me
 
 `pattern_evidence_links.parquet` links patterns back to stable `post_uid`, `family_id`, and/or `account_id`. These patterns are structured observations — **not yet rules, strategies, lessons, templates, or playbooks**.
 
+### 15. Infer reviewable strategy hypotheses
+
+The next stage promotes multiple evidence patterns into explicit, reviewable hypotheses:
+
+```bash
+uv run creative-research infer-strategies \
+  --patterns data/06_analytics/patterns.parquet \
+  --pattern-evidence data/06_analytics/pattern_evidence_links.parquet \
+  --out data/06_analytics
+```
+
+This writes:
+
+```text
+data/06_analytics/
+├── strategy_hypotheses.parquet
+├── account_strategy_hypotheses.parquet
+├── operator_strategy_hypotheses.parquet
+├── strategy_pattern_links.parquet
+├── strategy_evidence_links.parquet
+└── strategy_hypotheses_report.json
+```
+
+Current hypothesis types include:
+
+- **account origin/exploration** — an account repeatedly originates families that propagate elsewhere;
+- **account reuse/amplification** — an account repeatedly receives families and may repeat or outperform receiving executions;
+- **operator explore→propagate model** — different verified accounts show repeated origin-versus-reuse asymmetry;
+- **preserve core / vary execution** — cross-account reuse preserves core concept/structure while changing hook/format/execution;
+- **iterative reuse model** — most observed families contain multiple executions rather than one-offs;
+- **performance-responsive cadence** — high- and low-performing posts are followed by systematically different posting gaps;
+- **temporal strategy shift** — a material measured change between adjacent strategy windows.
+
+Every row remains:
+
+```text
+status = hypothesis
+causal_claim = false
+```
+
+and contains:
+
+- confidence score/band;
+- promotion readiness;
+- supporting pattern IDs;
+- direct counter-pattern IDs when available;
+- aggregated counter evidence already carried by supporting patterns;
+- alternative explanations;
+- sample-size/evidence summaries;
+- deterministic inference method.
+
+`strategy_pattern_links.parquet` explains which patterns support or counter each hypothesis. `strategy_evidence_links.parquet` then inherits the underlying post/family/account lineage, so a hypothesis can be traced all the way back to original evidence.
+
+This stage still does **not** create final rules, lessons, templates, or playbooks. Those belong to the next knowledge-promotion layer after human review and/or stronger evidence requirements.
+
 ## System-first reference workflow
 
 The default workflow is deliberately **not "take the global top 30"**.
@@ -587,10 +643,11 @@ raw evidence
 -> cross-account propagation + account role evidence
 -> strategy timeline + change points
 -> evidence patterns
+-> strategy hypotheses + counter-evidence
 -> system/reference workspace
 ```
 
-The operator warehouse is intentionally built before strategy inference. Relative performance, historical cadence, creative families, propagation/account-role evidence, strategy windows/change points, and evidence-backed recurring patterns are now analytics layers. Future stages can promote sufficiently supported patterns into strategy hypotheses, rules, lessons, templates, and playbooks while retaining lineage. Those future knowledge assets must retain evidence lineage instead of being unsupported LLM summaries.
+The operator warehouse is intentionally built before strategy inference. Relative performance, historical cadence, creative families, propagation/account-role evidence, strategy windows/change points, evidence-backed recurring patterns, and deterministic strategy hypotheses are now analytics layers. Future stages can promote reviewed/high-confidence hypotheses into durable rules, lessons, templates, and playbooks while retaining lineage. Those future knowledge assets must retain evidence lineage instead of being unsupported LLM summaries.
 
 Brief/variant production and first-party experiment outcomes remain downstream concerns.
 
