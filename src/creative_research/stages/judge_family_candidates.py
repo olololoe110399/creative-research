@@ -29,13 +29,13 @@ from pathlib import Path
 from typing import Any, Literal
 
 import pandas as pd
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 from creative_research.stages.preview_families_v2 import classify_pair
 from creative_research.validation import read_table
 
-JUDGE_SCHEMA_VERSION = "family-ai-judge-v1"
-PROMPT_VERSION = "family-ai-judge-prompt-v1"
+JUDGE_SCHEMA_VERSION = "family-ai-judge-v2"
+PROMPT_VERSION = "family-ai-judge-prompt-v2"
 DEFAULT_MODEL = "gemini-3.5-flash-lite"
 
 DEFAULT_MIN_COMBINED = 0.74
@@ -88,6 +88,7 @@ class FamilyPairJudgment(BaseModel):
         "paraphrase",
         "hook_variant",
         "execution_variant",
+        "template_variant",
         "thematic_only",
         "unrelated",
         "uncertain",
@@ -99,6 +100,37 @@ class FamilyPairJudgment(BaseModel):
     counter_evidence: list[str] = Field(default_factory=list)
     confidence: float = Field(ge=0, le=1)
     reason: str
+
+    @model_validator(mode="after")
+    def validate_decision_relationship(self) -> "FamilyPairJudgment":
+        same_core = {
+            "exact_reuse",
+            "translation_adaptation",
+            "paraphrase",
+            "hook_variant",
+            "execution_variant",
+        }
+        different_core = {
+            "template_variant",
+            "thematic_only",
+            "unrelated",
+        }
+        if self.decision == "same_core_concept" and self.relationship not in same_core:
+            raise ValueError(
+                "same_core_concept requires an identity-preserving relationship"
+            )
+        if (
+            self.decision == "different_core_concept"
+            and self.relationship not in different_core
+        ):
+            raise ValueError(
+                "different_core_concept requires template/thematic/unrelated"
+            )
+        if self.decision == "uncertain" and self.relationship != "uncertain":
+            raise ValueError("uncertain decision requires uncertain relationship")
+        if self.relationship == "uncertain" and self.decision != "uncertain":
+            raise ValueError("uncertain relationship requires uncertain decision")
+        return self
 
 
 def _clean(value: Any) -> Any:
@@ -282,34 +314,65 @@ def build_prompt(
         default=str,
     )
     return f"""
-You are a semantic judge for creative-research evidence.
+You are a strict semantic identity judge for creative-research evidence.
 
 Decide whether these two posts are executions of the SAME CORE CREATIVE CONCEPT.
 
-CORE RULE:
-A broad shared category is NOT enough.
-For example, two posts can both be "study_method" while having different promises,
-problems, mechanisms, or narrative concepts. Those should be different_core_concept.
+IDENTITY TEST:
+Temporarily ignore the shared app/product, CTA, visual style, listicle format,
+sequence, product reveal, and creator niche. Ask:
+"Would a human still describe both posts with the same specific one-sentence
+creative idea, promise/problem, and central subject?"
 
-Count as same_core_concept when the underlying creative idea is materially preserved,
-including cases such as direct reuse, translation/localization, paraphrase, hook rewrite
-around the same promise/problem, or execution/format adaptation around the same concept.
+If NO, they are NOT the same core concept even if their execution template is
+nearly identical.
 
-Use only the supplied creative evidence. Do not infer performance, intent, ownership,
-or causation. If evidence is insufficient or mixed, return uncertain.
+SAME CORE examples:
+- direct reuse of the same post concept;
+- a real translation/localization of the same specific hook/promise/topic;
+- a paraphrase preserving the same specific idea;
+- a new hook framing for the same body/promise/topic;
+- a different visual execution of the same specific concept.
+
+DIFFERENT CORE examples:
+- Electrolytes vs MRI Essentials, despite identical medical-note/app format;
+- lung sounds vs injection types, despite identical nursing template;
+- "5 tiny habits" vs "become disgustingly educated", despite the same app funnel;
+- two generic motivational hooks that both end with the same study app;
+- different medical/study subjects that merely reuse the same listicle/product reveal.
 
 Relationship labels:
-- exact_reuse: materially same creative with minimal change
-- translation_adaptation: same concept translated/localized across languages
-- paraphrase: same concept rewritten with equivalent meaning
-- hook_variant: same core body/promise with a changed hook framing
-- execution_variant: same concept expressed in a different format/execution
-- thematic_only: same broad topic/category but not the same creative concept
-- unrelated: not meaningfully the same concept
+- exact_reuse: materially the same creative with minimal change
+- translation_adaptation: a genuine cross-language translation/localization of the
+  same specific central hook/promise/topic; language difference alone is never enough
+- paraphrase: same specific concept rewritten with equivalent meaning
+- hook_variant: same specific body/promise/topic with only hook framing changed
+- execution_variant: same specific concept, different visual/format execution
+- template_variant: same reusable execution template/product funnel, but a different
+  central topic, promise, problem, list subject, or medical/study subject
+- thematic_only: same broad niche/category but not the same concept or close template
+- unrelated: no meaningful concept/template relationship
 - uncertain: evidence is insufficient
 
-Be strict about thematic_only versus same_core_concept.
-Keep the JSON compact:
+DECISION MAPPING IS STRICT:
+- same_core_concept -> exact_reuse / translation_adaptation / paraphrase /
+  hook_variant / execution_variant
+- different_core_concept -> template_variant / thematic_only / unrelated
+- uncertain -> uncertain
+
+IMPORTANT:
+Shared app/product, late product reveal, listicle structure, aesthetics, audience,
+or sequence are supporting execution evidence only. They can justify template_variant,
+but NEVER by themselves justify same_core_concept or translation_adaptation.
+
+For translation_adaptation, require semantic equivalence of the CENTRAL idea.
+Different hooks/topics with the same app funnel must be template_variant or
+thematic_only, not translation_adaptation.
+
+Use only supplied creative evidence. Do not infer performance, intent, ownership,
+or causation.
+
+Keep JSON compact:
 - reason: one sentence, maximum 180 characters;
 - preserved_dimensions: at most 3 short items;
 - changed_dimensions: at most 3 short items;
