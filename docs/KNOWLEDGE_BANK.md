@@ -122,9 +122,21 @@ vary dimensions
 
 These are structural guides, not permission to copy source creative text/media verbatim.
 
-## Playbooks
+## Playbooks (legacy knowledge catalog vs Research Intelligence v3)
 
-A playbook is assembled only when multiple operator hypotheses support the same operating model.
+The existing machine-generated **knowledge catalog** uses human review
+before it labels a prescriptive playbook as approved. That legacy status is
+not an acceptable gate for a researcher who cannot know the operator's
+private directives.
+
+**Research Intelligence v3 instead generates provisional experiment
+candidates automatically** from the observed/inferred evidence. Users
+can add candidate actions to My Experiments and record their own outcomes,
+without approving any operator hypothesis. Experiments remain distinct
+from trusted catalog knowledge and are never described as proven tactics.
+
+A legacy catalog playbook is assembled only when multiple operator hypotheses
+support the same operating model.
 
 The current playbook can combine:
 
