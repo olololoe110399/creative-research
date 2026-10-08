@@ -424,13 +424,14 @@ def test_write_workspace_copies_static_and_required_data(tmp_path: Path) -> None
     assert validate_intelligence_workspace(tmp_path) == []
 
     workspace = json.loads((tmp_path / "workspace.json").read_text(encoding="utf-8"))
-    assert workspace["workspace_schema_version"] == "operator-intelligence-lab-v2"
+    assert workspace["workspace_schema_version"] == "operator-intelligence-lab-v3"
     assert workspace["views"] == [
         "brief",
         "network",
         "families",
-        "review",
+        "intelligence",
         "playbook",
+        "experiments",
         "advanced",
     ]
     assert (tmp_path / "lab.json").is_file()
@@ -560,3 +561,77 @@ def test_review_history_preserves_held_sources_for_reinspection() -> None:
     assert review["reviewed_sources"] == 1
     assert review["reviewed_items"][0]["review_source_id"] == "STR2"
     assert review["reviewed_items"][0]["existing_review_decision"] == "hold"
+
+
+
+def test_research_intelligence_v3_materializes_without_manual_approvals() -> None:
+    frames = _frames()
+    frames["knowledge"].loc[:, "knowledge_status"] = "review_candidate"
+    lab = build_workspace_payloads(**frames)["lab.json"]
+    research = lab["research_intelligence"]
+    assert research["schema_version"] == "research-intelligence-v1"
+    assert research["no_human_truth_approval_required"] is True
+    assert research["operator_id"] == "OP1"
+    assert research["counts"]["observed"] >= 2
+    assert research["counts"]["inferred"] >= 1
+    assert research["counts"]["unknown"] >= 3
+    assert len(research["experiment_candidates"]) == 5
+    assert all(
+        row["experiment_not_proven"] is True
+        for row in research["experiment_candidates"]
+    )
+    assert research["family_quality"]["human_review_required"] is False
+
+
+
+def test_v3_lab_rejects_stale_export_even_when_static_files_exist(
+    tmp_path: Path,
+) -> None:
+    """A mixed/stale Lab must never silently render the retired review UI."""
+    write_intelligence_workspace(
+        out_dir=tmp_path, sources={"test": "fixture"}, **_frames()
+    )
+    manifest_path = tmp_path / "workspace.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest["workspace_schema_version"] = "operator-intelligence-lab-v2"
+    manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+    issues = validate_intelligence_workspace(tmp_path)
+    assert any("stale export" in issue for issue in issues)
+    manifest["workspace_schema_version"] = "operator-intelligence-lab-v3"
+    manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+    lab_path = tmp_path / "lab.json"
+    lab = json.loads(lab_path.read_text(encoding="utf-8"))
+    lab.pop("research_intelligence")
+    lab_path.write_text(json.dumps(lab), encoding="utf-8")
+    issues = validate_intelligence_workspace(tmp_path)
+    assert "lab.json: missing Research Intelligence v3" in issues
+
+
+
+def test_rebuild_prunes_legacy_copilot_asset_and_buttons(tmp_path: Path) -> None:
+    """An upgraded v2 export must not serve a leftover on-demand AI widget."""
+    retired = tmp_path / "ai_ui.js"
+    retired.write_text(
+        'document.write("Investigate further with AI (optional)")',
+        encoding="utf-8",
+    )
+    assert retired.exists()
+
+    write_intelligence_workspace(
+        out_dir=tmp_path, sources={"test": "fixture"}, **_frames()
+    )
+    assert not retired.exists()
+    assert "ai_ui.js" not in STATIC_FILES
+    html = (tmp_path / "index.html").read_text(encoding="utf-8")
+    app = (tmp_path / "app.js").read_text(encoding="utf-8")
+    research = (tmp_path / "research_ui.js").read_text(encoding="utf-8")
+    combined = html + app + research
+
+    assert "Investigate further with AI" not in combined
+    assert "Explore playbook further with AI" not in combined
+    assert "AI Research Copilot" not in combined
+    assert "optionalAiButton" not in combined
+    assert "launchOptionalAI" not in combined
+    assert "data-deep-ai-" not in combined
+    assert "/api/ai/status" not in combined
+    assert "AI Research Copilot" not in html

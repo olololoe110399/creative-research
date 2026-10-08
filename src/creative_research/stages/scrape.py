@@ -824,6 +824,18 @@ def build_parser() -> argparse.ArgumentParser:
         help="Keep media in Apify KVS but do not mirror it locally.",
     )
 
+    p.add_argument(
+        "--operators", default="config/operators.toml",
+        help="Researcher-confirmed operator registry; mandatory before paid scrape.",
+    )
+    p.add_argument(
+        "--operator-id", default=None,
+        help="Optional expected operator ID; reject accounts assigned elsewhere.",
+    )
+    p.add_argument(
+        "--preflight", action="store_true",
+        help="Validate account grouping without token, network, or charges.",
+    )
     return p
 
 
@@ -837,6 +849,31 @@ def main() -> None:
     if args.comments < 0 or args.top_level_comments < 0 or args.max_replies < 0:
         raise SystemExit("Comment limits cannot be negative.")
 
+    from creative_research.operator_registry import load_operator_registry
+    from creative_research.stages.operator_setup import checked_scrape_operator
+
+    accounts_file = Path(args.accounts_file).expanduser().resolve()
+    accounts = read_accounts(accounts_file)
+    try:
+        registry_path = Path(args.operators).expanduser().resolve()
+        registry = load_operator_registry(registry_path)
+        operator = checked_scrape_operator(
+            registry, accounts, operator_id=args.operator_id
+        )
+    except (ValueError, FileNotFoundError) as exc:
+        raise SystemExit(
+            f"Operator grouping preflight FAILED: {exc}\n"
+            "Set it up with creative-research operator-setup "
+            "--confirm-same-operator before scraping."
+        ) from exc
+    print(
+        f"Operator grouping confirmed: {operator.operator_id} "
+        f"({len(accounts)} requested accounts; researcher assertion)."
+    )
+    if args.preflight:
+        print("Preflight PASS. No Apify token used or provider call made.")
+        return
+
     token = args.token or os.environ.get("APIFY_TOKEN")
     if not token:
         raise SystemExit(
@@ -846,12 +883,6 @@ def main() -> None:
             "PowerShell:\n"
             '  $env:APIFY_TOKEN="apify_api_..."\n'
         )
-
-    accounts_file = Path(args.accounts_file).expanduser().resolve()
-    accounts = read_accounts(accounts_file)
-
-    if not accounts:
-        raise SystemExit("No accounts found in accounts file.")
 
     out = Path(args.out).expanduser().resolve()
     (out / "raw" / "batches").mkdir(parents=True, exist_ok=True)
@@ -879,6 +910,15 @@ def main() -> None:
         "started_at": utc_now(),
         "accounts_file": str(accounts_file),
         "accounts": accounts,
+        "operator_grouping": {
+            "operator_id": operator.operator_id,
+            "name": operator.name,
+            "user_confirmed": True,
+            "confirmation_method": operator.verification_method,
+            "confirmation_date": operator.verified_at,
+            "registry_path": str(registry_path),
+            "not_legal_ownership_proof": True,
+        },
         "account_count": len(accounts),
         "settings": {
             "batch_size": args.batch_size,

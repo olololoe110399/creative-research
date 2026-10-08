@@ -37,6 +37,8 @@ jobs:
           node --check src/creative_research/reference_workspace_static/app.js
           node --check src/creative_research/intelligence_workspace_static/app.js
           node --check src/creative_research/intelligence_workspace_static/product_ui.js
+          node --check src/creative_research/intelligence_workspace_static/research_ui.js
+          node tests/ui_research_smoke.cjs
 
       - name: Test
         run: uv run pytest --cov=creative_research --cov-report=term-missing
@@ -59,6 +61,7 @@ jobs:
               "creative_research/intelligence_workspace_static/index.html",
               "creative_research/intelligence_workspace_static/app.js",
               "creative_research/intelligence_workspace_static/product_ui.js",
+              "creative_research/intelligence_workspace_static/research_ui.js",
               "creative_research/intelligence_workspace_static/style.css",
               "creative_research/intelligence_workspace_static/favicon.svg",
           }
@@ -67,5 +70,9 @@ jobs:
           missing = sorted(required - names)
           if missing:
               raise SystemExit("Missing workspace assets in wheel: " + ", ".join(missing))
+          retired = "creative_research/intelligence_workspace_static/ai_ui.js"
+          if retired in names:
+              raise SystemExit("Retired Copilot UI must not be packaged: " + retired)
           print("Static assets packaged:", ", ".join(sorted(required)))
+          print("Retired Copilot asset absent: PASS")
           PY

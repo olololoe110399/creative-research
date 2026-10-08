@@ -280,33 +280,80 @@ def audit_outcome(
             issue("blocked_active_knowledge", "Held/rejected/unreviewed knowledge appears active.")
 
     operator_id = str(brief.get("operator", {}).get("operator_id") or "")
+    research = lab.get("research_intelligence")
+    v3_product = isinstance(research, dict)
+    if v3_product:
+        if research.get("no_human_truth_approval_required") is not True:
+            issue(
+                "research_requires_unverifiable_approval",
+                "Research Intelligence must not depend on certifying hidden operator intent.",
+            )
+        if research.get("operator_id") != operator_id:
+            issue("research_wrong_operator", "Research Intelligence operator scope differs from Brief.")
+        observed = research.get("observed", [])
+        inferred = research.get("inferred", [])
+        unknown = research.get("unknown", [])
+        candidates = research.get("experiment_candidates", [])
+        if not observed or not unknown:
+            issue("missing_research_classification", "Observed and Unknown lanes cannot be empty.")
+        for interpretation in inferred:
+            identifier = str(interpretation.get("id") or "")
+            if identifier not in strategy_by_id:
+                issue("orphan_inferred_claim", f"Inferred claim {identifier} not found in strategies.")
+        if len({item.get("key") for item in candidates}) != len(candidates):
+            issue("duplicate_experiment_id", "Experiment candidates must have unique keys.")
+        for candidate in candidates:
+            if candidate.get("experiment_not_proven") is not True:
+                issue("experiment_misrepresented_as_proven", str(candidate.get("key")))
+            source = candidate.get("related_hypothesis_id")
+            if source and str(source) not in strategy_by_id:
+                issue("orphan_experiment_source", str(candidate.get("key")))
+        quality = research.get("family_quality") or {}
+        repeat_count = int(stats.get("repeated_families") or 0)
+        if quality.get("counts", {}).get("repeated_families_checked") != repeat_count:
+            issue("family_qa_coverage_gap", "Every repeated family needs automated diagnostics.")
+        if quality.get("human_review_required") is True:
+            issue("manual_family_truth_gate", "Family matching QA must be automated.")
+        checked["research_observed"] = len(observed)
+        checked["research_inferred"] = len(inferred)
+        checked["research_unknown"] = len(unknown)
+        checked["experiment_candidates"] = len(candidates)
+        if quality.get("counts", {}).get("semantic_uncertain", 0):
+            issue(
+                "multilingual_semantics_uncertain",
+                "Some families need automated/model follow-up; do not imply verified identity.",
+                fatal=False,
+            )
     catalog_playbooks = [
         row for row in knowledge_rows
         if row.get("knowledge_type") == "playbook"
         and row.get("knowledge_status") == "approved"
         and str(row.get("operator_id") or "") == operator_id
     ]
-    if not catalog_playbooks:
-        issue(
-            "no_trusted_catalog_playbook",
-            "No approved/auto-promoted catalog playbook; the Lab draft remains provisional.",
-            fatal=False,
-        )
-    if approved_core_steps < 3:
-        issue(
-            "human_review_pending",
-            f"Only {approved_core_steps}/3 core operating-model steps are human-approved.",
-            fatal=False,
-        )
-    if any(
-        step.get("key") == "adapt" and step.get("trust_status") != "approved"
-        for step in steps
-    ):
-        issue(
-            "adaptation_not_reviewed",
-            "Adaptation remains a provisional experiment, not a trusted operator rule.",
-            fatal=False,
-        )
+    if not v3_product:
+        # Legacy v2 audit only. In v3 a human approval of operator-internal
+        # intent is not possible and cannot block product readiness.
+        if not catalog_playbooks:
+            issue(
+                "no_trusted_catalog_playbook",
+                "Legacy catalog playbook is not manually approved.",
+                fatal=False,
+            )
+        if approved_core_steps < 3:
+            issue(
+                "human_review_pending",
+                f"Legacy human approvals: {approved_core_steps}/3 core steps.",
+                fatal=False,
+            )
+        if any(
+            step.get("key") == "adapt" and step.get("trust_status") != "approved"
+            for step in steps
+        ):
+            issue(
+                "adaptation_not_reviewed",
+                "Legacy adaptation source is not human-reviewed.",
+                fatal=False,
+            )
     issue(
         "manual_usability_unverified",
         "Visual media playback and the 5–10 minute nontechnical user test require a real Lab session.",
@@ -316,14 +363,15 @@ def audit_outcome(
         "schema_version": "research-outcome-audit-v1",
         "status": "fail" if failures else (
             "ready_for_usability_test"
-            if catalog_playbooks and approved_core_steps == 3
+            if v3_product or (catalog_playbooks and approved_core_steps == 3)
             else "conditional_pass"
         ),
         "counts": dict(checked),
         "failures": failures,
         "warnings": warnings,
         "scope": (
-            "Materialized claims, family/post lineage, review boundaries, and "
-            "decision guidance only. Does not validate semantics or media playback."
+            "Materialized observations, inferred references, family/post lineage "
+            "and provisional experiment suggestions. Human truth approval is not "
+            "required for v3. Does not validate semantics or media playback."
         ),
     }

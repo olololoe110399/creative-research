@@ -178,6 +178,8 @@ def build_stage_specs(config: PipelineConfig) -> tuple[StageSpec, ...]:
             "index.html",
             "app.js",
             "product_ui.js",
+            "ai_ui.js",
+            "research_ui.js",
             "style.css",
             "favicon.svg",
         )
@@ -531,7 +533,7 @@ def build_stage_specs(config: PipelineConfig) -> tuple[StageSpec, ...]:
                 (
                     workspace / "workspace.json",
                     "workspace_schema_version",
-                    "operator-intelligence-lab-v2",
+                    "operator-intelligence-lab-v3",
                 ),
             ),
         ),

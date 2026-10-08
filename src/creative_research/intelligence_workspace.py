@@ -15,14 +15,15 @@ from creative_research.operator_product import (
     hypothesis_trust_status,
     strategy_role_lineage,
 )
+from creative_research.research_intelligence import build_research_intelligence
 from creative_research.reference_media import (
     local_media_sources_for_post,
     preview_media_for_post,
 )
 from creative_research.stages.review_knowledge import build_review_queue
 
-WORKSPACE_SCHEMA_VERSION = "operator-intelligence-lab-v2"
-STATIC_FILES = ("index.html", "app.js", "product_ui.js", "style.css", "favicon.svg")
+WORKSPACE_SCHEMA_VERSION = "operator-intelligence-lab-v3"
+STATIC_FILES = ("index.html", "app.js", "product_ui.js", "research_ui.js", "style.css", "favicon.svg")
 REQUIRED_DATA_FILES = (
     "workspace.json",
     "overview.json",
@@ -459,6 +460,8 @@ def _lab_payload(
     knowledge: pd.DataFrame | None,
     knowledge_evidence_links: pd.DataFrame | None,
     role_index: dict[str, dict[str, Any]],
+    family_members: pd.DataFrame | None,
+    creative_analysis: pd.DataFrame | None,
 ) -> dict[str, Any]:
     operator_rows = _records(operators)
     operator = operator_rows[0] if operator_rows else {}
@@ -656,7 +659,35 @@ def _lab_payload(
         ),
     }
 
+    playbook_draft = build_provisional_playbook(
+        strategy_rows,
+        knowledge_rows,
+        operator_id=str(operator.get("operator_id") or ""),
+    )
+    counts = {
+        "accounts": int(len(accounts)) if accounts is not None else 0,
+        "posts": int(len(posts)) if posts is not None else 0,
+        "families": total_families,
+        "repeated_families": repeated_count,
+        "cross_account_repeated_families": cross_count,
+        "repeated_family_rate": repeated_rate,
+        "cross_account_share_of_repeated": cross_share,
+        "propagation_events": (
+            int(len(propagation)) if propagation is not None else 0
+        ),
+    }
+    research_product = build_research_intelligence(
+        operator_id=str(operator.get("operator_id") or ""),
+        stats=counts,
+        strategies=strategy_rows,
+        families=family_rows,
+        members=_records(family_members),
+        posts=_records(posts),
+        creative_analysis=_records(creative_analysis),
+        playbook_steps=playbook_draft["steps"],
+    )
     return {
+        "research_intelligence": research_product,
         "research_brief": {
             "operator": {
                 "operator_id": operator.get("operator_id"),
@@ -668,20 +699,7 @@ def _lab_payload(
                 "verified": bool(operator.get("verified")),
             },
             "hero": hero,
-            "stats": {
-                "accounts": int(len(accounts)) if accounts is not None else 0,
-                "posts": int(len(posts)) if posts is not None else 0,
-                "families": total_families,
-                "repeated_families": repeated_count,
-                "cross_account_repeated_families": cross_count,
-                "repeated_family_rate": repeated_rate,
-                "cross_account_share_of_repeated": cross_share,
-                "propagation_events": (
-                    int(len(propagation))
-                    if propagation is not None
-                    else 0
-                ),
-            },
+            "stats": counts,
             "key_findings": key_findings,
             "guardrails": guardrails,
         },
@@ -692,11 +710,7 @@ def _lab_payload(
             strategies,
             role_index,
         ),
-        "playbook": build_provisional_playbook(
-            strategy_rows,
-            knowledge_rows,
-            operator_id=str(operator.get("operator_id") or ""),
-        ),
+        "playbook": playbook_draft,
         "family_highlights": family_highlights,
         "review": {
             "pending_sources": int(len(review_queue)),
@@ -862,12 +876,19 @@ def build_workspace_payloads(
             knowledge,
             knowledge_evidence_links,
             role_index,
+            family_members,
+            creative_analysis,
         ),
     }
 
 
 def sync_intelligence_workspace(out_dir: Path) -> list[str]:
     out_dir.mkdir(parents=True, exist_ok=True)
+    # The v2/v3 opt-in Copilot panel was retired from the standard Lab.
+    # Rebuilt workspaces must not retain its executable JS from older exports.
+    old_ai_ui = out_dir / "ai_ui.js"
+    if old_ai_ui.exists() or old_ai_ui.is_symlink():
+        old_ai_ui.unlink()
     static_root = resources.files("creative_research").joinpath(
         "intelligence_workspace_static"
     )
@@ -880,8 +901,27 @@ def sync_intelligence_workspace(out_dir: Path) -> list[str]:
 
 
 def validate_intelligence_workspace(root: Path) -> list[str]:
+    """Refuse mixed v2/v3 workspaces, not only missing filenames."""
     required = (*STATIC_FILES, *REQUIRED_DATA_FILES)
-    return [name for name in required if not (root / name).is_file()]
+    issues = [name for name in required if not (root / name).is_file()]
+    if "workspace.json" not in issues:
+        try:
+            manifest = json.loads((root / "workspace.json").read_text(encoding="utf-8"))
+            if manifest.get("workspace_schema_version") != WORKSPACE_SCHEMA_VERSION:
+                issues.append(
+                    f"workspace.json: expected {WORKSPACE_SCHEMA_VERSION} "
+                    "(stale export; regenerate the workspace)"
+                )
+        except (OSError, ValueError, AttributeError):
+            issues.append("workspace.json: unreadable manifest")
+    if "lab.json" not in issues:
+        try:
+            lab = json.loads((root / "lab.json").read_text(encoding="utf-8"))
+            if not isinstance(lab.get("research_intelligence"), dict):
+                issues.append("lab.json: missing Research Intelligence v3")
+        except (OSError, ValueError, AttributeError):
+            issues.append("lab.json: unreadable research data")
+    return issues
 
 
 def write_intelligence_workspace(
@@ -906,15 +946,16 @@ def write_intelligence_workspace(
             "brief",
             "network",
             "families",
-            "review",
+            "intelligence",
             "playbook",
+            "experiments",
             "advanced",
         ],
         "counts": payloads["overview.json"]["counts"],
         "notes": [
             "This lab is a generated research surface, not a new source of truth.",
             "It does not rerun scraping, Vision, analytics, strategy inference, or knowledge promotion.",
-            "Knowledge statuses remain visible so review_candidate/rejected/hold items are not confused with active guidance.",
+            "Historic knowledge-review statuses are annotations, not a required Research Intelligence approval workflow.",
         ],
     }
     (out_dir / "workspace.json").write_text(

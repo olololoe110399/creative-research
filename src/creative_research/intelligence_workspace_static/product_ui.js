@@ -4,42 +4,6 @@
  * This file is deliberately limited to UI; claims/trust are materialized in
  * operator_product.py and never inferred or promoted in the browser.
  */
-function playbookView(){
-  const p=data.lab.playbook||{}, steps=p.steps||[];
-  const trusted=p.trusted_catalog_playbooks||[];
-  const status=p.status==='core_reviewed'?'Core operating model reviewed · other steps may be provisional':'Research draft · not validated';
-  const cards=steps.map(function(s,i){
-    const blocked=s.trust_status==='hold'||s.trust_status==='rejected';
-    const cls=s.trust_status==='approved'?'good':blocked?'bad':'warn';
-    const knowledge=(s.source_knowledge_ids||[]).map(function(id){
-      return data.knowledgeById.has(String(id))
-        ?'<button class="link-button" data-knowledge="'+esc(id)+'">Knowledge source · '+esc(id)+'</button>':'';
-    }).join('');
-    return '<article class="playbook-step"><div class="row"><span class="eyebrow">STEP '+(i+1)+'</span>'+badge(s.trust_status,cls)+'</div>'+
-      '<h2>'+esc(s.title||s.key)+'</h2>'+
-      (s.not_an_operator_claim?'<p class="method-note">Validation protocol only — not evidence about how the operator works.</p>':'')+
-      (s.observation?'<h3>Observed hypothesis</h3><p>'+esc(s.observation)+'</p>':'')+
-      (s.application_exercise?'<h3>How to test this in your own system</h3><p>'+esc(s.application_exercise)+'</p>':'<p class="method-note">Action withheld: source is held/rejected or evidence is unavailable.</p>')+
-      '<h3>Before acting</h3><p>'+esc(s.verification_question||'')+'</p>'+
-      (s.source_hypothesis_id?'<div class="link-list">'+strategyButton(s.source_hypothesis_id,'Open claim, counter-evidence and source posts')+knowledge+'</div>':'')+
-      (blocked?'<p class="method-note">This source was held/rejected and must not become active guidance.</p>':'')+
-      '</article>';
-  }).join('');
-  const accepted=trusted.map(function(k){
-    return data.knowledgeById.has(String(k.knowledge_id))
-      ?'<div class="link-list"><div class="badges">'+badge(k.status,k.status==='approved'?'good':'warn')+'</div><button class="link-button" data-knowledge="'+esc(k.knowledge_id)+'">'+esc(k.title||k.knowledge_id)+'</button></div>':'';
-  }).join('');
-  const guardrails=(p.guardrails||[]).map(function(x){return '<li>'+esc(x)+'</li>';}).join('');
-  return pageHead('Operator playbook','From observations to decisions','An evidence-linked plan to TEST, not a claim that the operator follows a proven formula.')+
-    '<section class="playbook-intro"><div class="row"><h2>'+esc(status)+'</h2>'+badge((p.approved_core_steps||0)+' of '+(p.core_step_count||3)+' core claims approved',p.status==='core_reviewed'?'good':'warn')+'</div>'+
-    '<p>Research exercises stay provisional until their source claims are reviewed. Automated promotion is not human approval. Review can hold/reject a step without changing historical observations.</p>'+
-    '<button class="hero-link" data-go="review">Review operating-model claims</button></section>'+
-    '<section class="playbook-grid">'+(cards||'<div class="empty-state">No decision steps could be derived from this operator.</div>')+'</section>'+
-    '<section class="section"><div class="section-head"><div><h2>Trusted catalog playbooks</h2><p>Only materialized, status-marked knowledge items appear here.</p></div></div>'+
-      (accepted||'<div class="empty-state">No promoted or human-approved catalog playbook yet. The research draft above is not a substitute.</div>')+'</section>'+
-    '<section class="section claim-box"><h3>Non-negotiable guardrails</h3><ul>'+guardrails+'</ul></section>';
-}
-
 function flowGroupHtml(group,kind){
   const flowRows=(group.flows||[]).map(function(f){
     const origin='@'+(f.origin_account||f.origin_account_id||'');

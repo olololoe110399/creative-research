@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import argparse
 import http.server
+import ipaddress
 import json
 import mimetypes
 import subprocess
@@ -13,6 +14,14 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import unquote, urlparse
 
+from creative_research.ai_endpoints import (
+    handle_ai_get,
+    handle_ai_post,
+    same_origin_json_request,
+)
+from creative_research.ai_research import AIResearchService, ALLOWED_MODELS, DEFAULT_MODEL
+from creative_research.experiment_endpoints import handle_experiment_get, handle_experiment_post
+from creative_research.experiment_plan import ExperimentPlanStore
 from creative_research.intelligence_workspace import validate_intelligence_workspace
 from creative_research.knowledge_reviews import (
     KnowledgeReview,
@@ -31,14 +40,30 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--port", type=int, default=8767)
     parser.add_argument("--open", action="store_true", dest="open_browser")
     parser.add_argument(
+        "--ai-enabled", action="store_true",
+        help="Legacy developer-only Gemini research API. No Lab AI UI or buttons.",
+    )
+    parser.add_argument(
+        "--ai-model", choices=sorted(ALLOWED_MODELS), default=DEFAULT_MODEL,
+    )
+    parser.add_argument(
+        "--ai-max-calls", type=int, default=12,
+        help="Maximum paid model attempts per local Lab server process (1–100).",
+    )
+    parser.add_argument(
         "--reviews",
         default="config/knowledge_reviews.toml",
-        help="Local human-review registry written by Insight Review.",
+        help="Optional legacy research annotation registry; not a truth gate.",
+    )
+    parser.add_argument(
+        "--enable-legacy-review-actions", action="store_true",
+        help="Compatibility-only: re-enable the historical approve/hold/reject API. "
+             "Not part of automated Research Intelligence.",
     )
     parser.add_argument(
         "--read-only",
         action="store_true",
-        help="Disable review mutations/rebuild actions.",
+        help="Disable human legacy-review and first-party experiment changes.",
     )
     return parser
 
@@ -108,6 +133,9 @@ def _make_handler(
     reviews_path: Path,
     read_only: bool,
     media_records: dict[str, dict[str, Any]],
+    ai_service: AIResearchService | None = None,
+    experiment_service: ExperimentPlanStore | None = None,
+    allow_legacy_reviews: bool = False,
 ) -> type[http.server.SimpleHTTPRequestHandler]:
     class LabHandler(http.server.SimpleHTTPRequestHandler):
         def __init__(self, *args: Any, **kwargs: Any) -> None:
@@ -177,6 +205,10 @@ def _make_handler(
 
         def do_GET(self) -> None:  # noqa: N802
             parsed = urlparse(self.path)
+            if handle_experiment_get(self, experiment_service):
+                return
+            if handle_ai_get(self, ai_service, self.path):
+                return
             parts = parsed.path.strip("/").split("/")
             if (
                 len(parts) == 4
@@ -192,8 +224,19 @@ def _make_handler(
             super().do_GET()
 
         def do_POST(self) -> None:  # noqa: N802
+            if handle_experiment_post(self, experiment_service, read_only=read_only):
+                return
+            if handle_ai_post(self, ai_service, read_only=read_only):
+                return
             if self.path != "/api/review":
                 _json_response(self, 404, {"error": "not_found"})
+                return
+            if not allow_legacy_reviews:
+                _json_response(
+                    self, 410,
+                    {"error": "human_truth_approval_retired",
+                     "help": "Use Research Intelligence and My Experiments."},
+                )
                 return
             if read_only:
                 _json_response(
@@ -201,6 +244,9 @@ def _make_handler(
                     403,
                     {"error": "lab_is_read_only"},
                 )
+                return
+            if not same_origin_json_request(self):
+                _json_response(self, 403, {"error": "same_origin_json_required"})
                 return
 
             try:
@@ -358,6 +404,25 @@ def main() -> None:
     args = build_parser().parse_args()
     root = resolve_intelligence_dir(args.dir)
     reviews_path = resolve_project_path(args.reviews)
+    if args.ai_enabled:
+        if args.read_only:
+            raise SystemExit("Cannot enable AI model calls in --read-only mode.")
+        try:
+            is_loopback = ipaddress.ip_address(args.host).is_loopback
+        except ValueError:
+            is_loopback = args.host.lower() == "localhost"
+        if not is_loopback:
+            raise SystemExit("AI model calls require --host localhost / loopback.")
+    ai_service = (
+        AIResearchService(
+            root,
+            enabled=True,
+            model=args.ai_model,
+            max_calls=args.ai_max_calls,
+        )
+        if args.ai_enabled
+        else None
+    )
     missing = validate_intelligence_workspace(root)
     if missing:
         rendered = "\n".join(f"  - {name}" for name in missing)
@@ -385,6 +450,9 @@ def main() -> None:
         reviews_path=reviews_path,
         read_only=args.read_only,
         media_records=media_records,
+        ai_service=ai_service,
+        experiment_service=ExperimentPlanStore(root),
+        allow_legacy_reviews=args.enable_legacy_review_actions,
     )
     server = http.server.ThreadingHTTPServer(
         (args.host, args.port),
@@ -399,10 +467,13 @@ def main() -> None:
     url = f"http://{browser_host}:{actual_port}/"
     print(f"Operator Intelligence Lab: {root}")
     print(f"Serving:                   {url}")
-    print(
-        "Review actions:            "
-        + ("disabled" if args.read_only else f"enabled → {reviews_path}")
-    )
+    if args.enable_legacy_review_actions and not args.read_only:
+        print(f"Legacy compatibility API: enabled → {reviews_path}")
+    if args.ai_enabled:
+        print(
+            f"Legacy developer-only AI API: {args.ai_model} "
+            f"(max {args.ai_max_calls} requests; NO user-facing Lab controls)"
+        )
     print("Press Ctrl+C to stop.")
     if args.open_browser:
         webbrowser.open(url)

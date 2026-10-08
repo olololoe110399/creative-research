@@ -7,6 +7,8 @@ import urllib.error
 import urllib.request
 from pathlib import Path
 
+import pytest
+
 from creative_research.stages.intelligence import (
     _make_handler,
     review_request_error,
@@ -54,6 +56,7 @@ def test_lab_review_endpoint_enforces_proof_before_persisting(tmp_path: Path) ->
         reviews_path=reviews_path,
         read_only=False,
         media_records={},
+        allow_legacy_reviews=True,
     )
     server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), handler)
     thread = threading.Thread(target=server.serve_forever, daemon=True)
@@ -113,3 +116,38 @@ def test_review_allowlist_includes_reviewed_history_but_not_unknown(
     )
     assert review_source_in_queue(tmp_path, "hypothesis", "APPROVED-SOURCE")
     assert not review_source_in_queue(tmp_path, "hypothesis", "FAKE")
+
+
+
+def test_normal_lab_retires_human_truth_approval_endpoint(
+    tmp_path: Path,
+) -> None:
+    reviews_path = tmp_path / "reviews.toml"
+    handler = _make_handler(
+        root=tmp_path, reviews_path=reviews_path,
+        read_only=False, media_records={},
+    )
+    server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), handler)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        request = urllib.request.Request(
+            f"http://127.0.0.1:{server.server_address[1]}/api/review",
+            data=json.dumps({
+                "source_type": "hypothesis", "source_id": "STR1",
+                "decision": "approve",
+                "note": "Long arbitrary truth assertion",
+                "evidence_inspected": True,
+                "rebuild": False,
+            }).encode("utf-8"),
+            headers={"Content-Type": "application/json"},
+        )
+        with pytest.raises(urllib.error.HTTPError) as caught:
+            urllib.request.urlopen(request, timeout=5)
+        assert caught.value.code == 410
+        assert json.loads(caught.value.read())["error"] == "human_truth_approval_retired"
+        assert not reviews_path.exists()
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=5)

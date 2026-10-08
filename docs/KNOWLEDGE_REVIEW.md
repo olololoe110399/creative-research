@@ -1,4 +1,10 @@
-# Knowledge human review workflow
+# Legacy knowledge human-review workflow (optional compatibility)
+
+**Research Intelligence v3 does not require this workflow.** Users of public
+operator data cannot certify an operator's hidden intentions. Normal Lab
+sessions expose Observed / Inferred / Unknown, not an approval queue.
+Source-level approval below is retained only for older knowledge-bank
+consumers that explicitly choose manual annotation.
 
 The knowledge bank is evidence-derived but not automatically human-approved.
 

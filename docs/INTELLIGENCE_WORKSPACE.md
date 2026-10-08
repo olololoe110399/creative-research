@@ -138,9 +138,10 @@ The Lab deliberately leads with research value instead of implementation stages:
 1. **Research Brief** — operating model, most useful findings, repeated-concept statistics, explicit claim guardrails, top creative families, and account roles.
 2. **Account Network** — visual origin → receiver chronology with evidence-gated role labels and strongest cross-account flows.
 3. **Creative Library** — repeated concepts shown as visual executions with thumbnails, member/account coverage, chronology, and post-level drill-down.
-4. **Insight Review** — source-level Tier 1/2/3 human review with Approve / Need more evidence / Reject actions.
-5. **Operator Playbook** — five evidence-linked research/application steps with explicit human-review trust status. A provisional draft is **not** a promoted catalog playbook.
-6. **Advanced** — strategy hypotheses, patterns, knowledge, timeline, and canonical evidence for expert inspection.
+4. **Research Intelligence** — Observed / Inferred / Unknown, with source links and automatic multilingual family diagnostics; no mandatory Approve/Hold/Reject workflow.
+5. **Operator Playbook** — automatic evidence-linked experiments with metrics and stop/recheck conditions. Human hypothesis approval is not a prerequisite.
+6. **My Experiments** — first-party selection, progress, observed outcomes and stale-evidence warnings; these actions are not truth certifications.
+7. **Advanced** — raw strategy hypotheses, patterns, legacy knowledge and timeline for expert inspection.
 
 **Evidence-to-decision acceptance:** see [RESEARCH_OUTCOME_ACCEPTANCE.md](RESEARCH_OUTCOME_ACCEPTANCE.md) and run creative-research outcome-audit.
 
@@ -148,23 +149,30 @@ Account role denominators count unique originated/imported **families**, not the
 
 Pipeline stages, schema versions, and generated artifacts remain implementation details rather than the default navigation.
 
-## Human review in the Lab
+## Automated analysis, not on-demand AI buttons
 
-When served locally without `--read-only`, Insight Review writes decisions to:
+Research Intelligence is built from canonical evidence: reconciled
+observations, evidence-linked inferences, unresolved unknowns and
+machine-owned family-quality diagnostics. Operator Playbook turns these
+into provisional experiment candidates, with a separate first-party
+experiment plan.
 
-```text
-config/knowledge_reviews.toml
-```
+The Lab interface deliberately has **no AI Copilot controls, no manual
+"Investigate further with AI" action and no Human Review queue**. It does
+not download AI UI JavaScript or call model status endpoints on page load.
+Any Vision or multilingual-family adjudication occurs upstream in the
+appropriate pipeline stages, not in user-facing approval dialogs.
 
-A decision immediately rebuilds only the trust-dependent layers:
+## Compatibility: historic manual knowledge-review workflow
 
-```text
-knowledge → workspace → quality audit
-```
+V3 does **not** show a human Approve/Hold/Reject interface because the
+researcher cannot verify internal intent from public posts. Existing local
+review registries are retained for audit/compatibility. The old POST /api/review
+returns HTTP 410 by default; explicitly pass --enable-legacy-review-actions
+only when intentionally using that old workflow.
 
-It does not rerun scraping, Vision, family clustering, propagation, or strategy inference.
-
-Every review requires a substantive note. Approval additionally requires a checkbox confirming source/counter-evidence inspection. The local API accepts only IDs in the materialized review queue.
+My Experiments is the supported human decision workflow. It writes a local
+operator-scoped plan without changing knowledge or public research evidence.
 
 Use:
 

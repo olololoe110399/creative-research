@@ -28,16 +28,16 @@ function initMaps(){
   data.strategyById=byId(data.strategies.strategies,'hypothesis_id');
   data.knowledgeById=byId(data.knowledge.knowledge,'knowledge_id');
   data.accountById=byId(data.lab.account_network.nodes,'account_id');
-  data.reviewBySource=new Map();
-  (data.lab.review.items||[]).concat(data.lab.review.reviewed_items||[]).forEach(function(r){data.reviewBySource.set(String(r.review_source_type)+':'+String(r.review_source_id),r);});
 }
 
 function setHeader(){
   const brief=data.lab.research_brief||{}, op=brief.operator||{}, stats=brief.stats||{};
-  $('#project-name').textContent=(op.name||op.operator_id||'Research project')+(op.verified?' · verified operator':'');
+  $('#project-name').textContent=(op.name||op.operator_id||'Research project')+
+    (op.verified?' · account group confirmed':'')+' · Research v3';
   $('#research-meta').textContent=(stats.posts||0)+' posts · '+(stats.accounts||0)+' accounts · '+(stats.propagation_events||0)+' observed reuse events';
-  const pending=(data.lab.review||{}).pending_sources||0;
-  $('#review-count').textContent=pending?String(pending):'';
+  const inferred=(data.lab.research_intelligence||{}).counts?.inferred||0;
+  const indicator=$('#research-count');
+  if(indicator)indicator.textContent=inferred?String(inferred):'';
 }
 
 function metricCard(name,value,sub){
@@ -52,7 +52,7 @@ function briefView(){
   const b=data.lab.research_brief||{}, hero=b.hero||{}, s=b.stats||{};
   const score=hero.confidence_score==null?0:clamp(Number(hero.confidence_score)*100,0,100);
   const findings=(b.key_findings||[]).slice(0,8).map(function(f){
-    return '<article class="finding-card" data-strategy="'+esc(f.hypothesis_id)+'"><div class="row"><span class="eyebrow">'+esc(label(f.hypothesis_type))+'</span>'+confidenceBadge(f.confidence_band,f.confidence_score)+badge(f.trust_status,f.trust_status==='approved'?'good':'warn')+'</div><h3>'+esc(f.title||label(f.hypothesis_type))+'</h3><p>'+esc(f.claim||'')+'</p></article>';
+    return '<article class="finding-card" data-strategy="'+esc(f.hypothesis_id)+'"><div class="row"><span class="eyebrow">'+esc(label(f.hypothesis_type))+'</span>'+confidenceBadge(f.confidence_band,f.confidence_score)+badge('inferred','warn')+'</div><h3>'+esc(f.title||label(f.hypothesis_type))+'</h3><p>'+esc(f.claim||'')+'</p></article>';
   }).join('');
   const canSay=(b.key_findings||[]).slice(0,5).map(function(f){
     return '<div class="claim-item"><span class="claim-icon info">?</span><div><b>'+esc(f.title||label(f.hypothesis_type))+'</b><span>'+esc(f.claim||'')+'</span></div></div>';
@@ -69,14 +69,14 @@ function briefView(){
     '<section class="hero"><div><div class="eyebrow">'+esc(hero.eyebrow||'Operating model')+'</div><h2>'+esc(hero.title||'Research model is forming')+'</h2><p>'+esc(hero.summary||'')+'</p></div><div class="hero-side"><div class="confidence-ring" style="--score:'+score+'%"><span>'+num(hero.confidence_score)+'</span></div>'+(hero.hypothesis_id?'<button class="hero-link" data-strategy="'+esc(hero.hypothesis_id)+'">See why we believe this</button>':'')+'</div></section>'+
     '<div class="metric-grid">'+
       metricCard('Posts analyzed',num(s.posts),'canonical evidence')+
-      metricCard('Verified accounts',num(s.accounts),'same operator')+
+      metricCard('Declared accounts',num(s.accounts),'researcher-confirmed grouping')+
       metricCard('Creative concepts',num(s.families),'family candidates')+
       metricCard('Repeated concepts',num(s.repeated_families),pct(s.repeated_family_rate)+' of concepts')+
       metricCard('Cross-account repeats',num(s.cross_account_repeated_families),pct(s.cross_account_share_of_repeated)+' of repeats')+
       metricCard('Reuse events',num(s.propagation_events),'observed chronology')+
     '</div>'+
     '<section class="section"><div class="section-head"><div><h2>Most useful findings</h2><p>High-leverage interpretations before lower-level analytics.</p></div></div><div class="grid">'+(findings||'<div class="empty-state">No operating-model findings yet.</div>')+'</div></section>'+
-    '<section class="section claims"><div class="claim-box"><h3>What the evidence suggests (hypotheses)</h3><p>Not automatically human-approved. Open supporting and counter evidence before acting.</p><div class="claim-list">'+(canSay||'<p>No reviewed findings yet.</p>')+'</div></div><div class="claim-box"><h3>What we should not claim</h3><div class="claim-list">'+cannot+'</div></div></section>'+
+    '<section class="section claims"><div class="claim-box"><h3>What the evidence suggests (hypotheses)</h3><p>These are evidence-linked interpretations, not verified operator intent. Check sources, counterexamples and alternatives.</p><div class="claim-list">'+(canSay||'<p>No grounded hypotheses yet.</p>')+'</div></div><div class="claim-box"><h3>What we should not claim</h3><div class="claim-list">'+cannot+'</div></div></section>'+
     '<section class="section"><div class="section-head"><div><h2>Creative ideas worth inspecting</h2><p>The strongest repeated families, visualized as executions rather than rows.</p></div><button class="hero-link" data-go="families" style="background:#fff;color:#17191d;border-color:#d3d8e0">Open library</button></div><div class="grid">'+topFamilies+'</div></section>'+
     '<section class="section"><div class="section-head"><div><h2>Account roles at a glance</h2><p>Observed origin/receiver asymmetry, not internal org-chart labels.</p></div><button class="hero-link" data-go="network" style="background:#fff;color:#17191d;border-color:#d3d8e0">Open network</button></div><div class="grid">'+accounts+'</div></section>';
 }
@@ -148,23 +148,6 @@ function familiesView(){
   return pageHead('Creative library','Repeated ideas, shown as executions','Browse concepts that were actually reused. Open a family to compare hooks, accounts, chronology, and original evidence.')+
     '<div class="toolbar"><input id="search" placeholder="Search hook, concept, account…" value="'+esc(query)+'"><select id="family-filter"><option value="all">All repeated families</option><option value="cross" '+(familyFilter==='cross'?'selected':'')+'>Cross-account only</option><option value="largest" '+(familyFilter==='largest'?'selected':'')+'>3+ executions</option></select></div>'+
     '<div class="grid">'+(rows.map(familyCard).join('')||'<div class="empty-state">No families match this view.</div>')+'</div>';
-}
-
-function reviewView(){
-  const review=data.lab.review||{}, items=review.items||[], tiers=review.tier_counts||{}, reviewed=review.reviewed_items||[];
-  const cards=items.map(function(r){
-    return '<article class="review-card" data-review="'+esc(r.review_source_type)+':'+esc(r.review_source_id)+'"><span class="tier">TIER '+esc(r.priority_tier)+'</span><div class="eyebrow">'+esc(label(r.priority_reason))+'</div><h3>'+esc(r.title||r.review_source_id)+'</h3><p>'+esc(r.statement||'')+'</p><div class="badges">'+confidenceBadge(null,r.confidence_max)+badge(r.review_source_type)+badge(JSON.parse(r.knowledge_types_json||'[]').join(' + '),'info')+'</div><div class="review-evidence"><span>'+num(r.evidence_post_count)+' posts</span><span>'+num(r.evidence_family_count)+' families</span><span>'+num(r.evidence_pattern_count)+' patterns</span></div></article>';
-  }).join('');
-  return pageHead('Human review','Decide what becomes trusted knowledge','Review high-value operating-model findings first. Approval is scope-bound evidence judgment, not universal truth.')+
-    '<div class="review-summary"><span class="tier-pill"><b>'+num(review.pending_sources)+'</b> pending sources</span><span class="tier-pill">Tier 1 · <b>'+num(tiers['1']||0)+'</b></span><span class="tier-pill">Tier 2 · <b>'+num(tiers['2']||0)+'</b></span><span class="tier-pill">Tier 3 · <b>'+num(tiers['3']||0)+'</b></span></div>'+
-    '<section class="section"><div class="grid">'+(cards||'<div class="empty-state"><h3>Review queue is clear</h3><p>No promoted or review-candidate sources remain in the current queue.</p></div>')+'</div></section>'+
-    '<section class="section"><div class="section-head"><div><h2>Reviewed sources ('+num(review.reviewed_sources||0)+')</h2><p>Every decision remains inspectable. Re-review if new evidence changes your judgment.</p></div></div>'+
-    '<div class="grid">'+(reviewed.map(function(r){
-      return '<article class="review-card" data-review="'+esc(r.review_source_type)+':'+esc(r.review_source_id)+'">'+
-        '<div class="badges">'+badge(r.existing_review_decision,r.existing_review_decision==='approve'?'good':r.existing_review_decision==='hold'?'warn':'bad')+
-        badge(r.review_source_type)+'</div><h3>'+esc(r.title||r.review_source_id)+'</h3>'+
-        '<p>'+esc(r.statement||'')+'</p><small>'+esc(r.existing_review_note||'')+'</small></article>';
-    }).join('')||'<div class="empty-state">No human review decisions yet.</div>')+'</div></section>';
 }
 
 function advancedView(){
@@ -240,7 +223,9 @@ function openFamily(id){
     '<div class="family-preview" style="border-radius:14px;margin:10px 0 18px">'+familyThumbs(f)+'</div>'+
     '<div class="badges">'+badge((f.member_count||0)+' executions','info')+badge((f.accounts_count||0)+' accounts')+badge(f.cross_account?'cross-account':'single-account',f.cross_account?'good':'')+'</div>'+
     '<h3>What appears preserved</h3><dl><dt>Angle</dt><dd>'+esc(label(f.core_angle))+'</dd><dt>Hook formula</dt><dd>'+esc(label(f.core_hook_formula))+'</dd><dt>Creative formula</dt><dd>'+esc(label(f.core_creative_formula))+'</dd><dt>First observed account</dt><dd>@'+esc(f.origin_account||'—')+'</dd></dl>'+
-    '<h3>Executions</h3><div class="link-list">'+members+'</div><h3>Cross-account chronology</h3><div class="link-list">'+(prop||'<p>No cross-account propagation in this family.</p>')+'</div>');
+    '<h3>Executions</h3><div class="link-list">'+members+'</div>'+
+    '<p class="research-limitation">Creative family matches are algorithmic candidates based on normalized creative and sequence evidence, not proof of identical visual execution or operator intent.</p>'+
+    '<h3>Cross-account chronology</h3><div class="link-list">'+(prop||'<p>No cross-account propagation in this family.</p>')+'</div>');
 }
 
 function openPattern(id){
@@ -259,7 +244,7 @@ function openStrategy(id){
 function openKnowledge(id){
   const k=data.knowledgeById.get(String(id)); if(!k)return;
   const sources=(k.source_links||[]).map(function(l){return data.strategyById.has(String(l.source_id))?strategyButton(l.source_id,'Strategy source · '+l.source_id):'<div>'+esc(l.source_type)+': '+esc(l.source_id)+'</div>';}).join('');
-  drawer(k.title||id,'<div class="badges">'+badge(k.knowledge_type)+badge(k.knowledge_status,k.knowledge_status==='approved'?'good':k.knowledge_status==='promoted'||k.knowledge_status==='review_candidate'?'warn':'bad')+confidenceBadge(k.confidence_band,k.confidence_score)+'</div><p>'+esc(k.statement||'')+'</p><h3>Practical guidance</h3>'+(k.knowledge_status==='rejected'||k.knowledge_status==='hold'?'<p class="method-note">Guidance withheld: source was held/rejected during human review.</p>':'<p>'+esc(k.actionable_guidance||'')+'</p>')+'<h3>Exceptions / caveats</h3><ul>'+(k.exceptions||[]).map(function(x){return '<li>'+esc(x)+'</li>';}).join('')+'</ul><h3>Counter evidence</h3><pre>'+esc(json(k.counter_evidence||{}))+'</pre><h3>Source</h3><div class="link-list">'+sources+'</div>');
+  drawer(k.title||id,'<div class="badges">'+badge(k.knowledge_type)+badge(k.knowledge_status,k.knowledge_status==='approved'?'good':k.knowledge_status==='promoted'||k.knowledge_status==='review_candidate'?'warn':'bad')+confidenceBadge(k.confidence_band,k.confidence_score)+'</div><p>'+esc(k.statement||'')+'</p><h3>Practical guidance</h3>'+(k.knowledge_status==='rejected'||k.knowledge_status==='hold'?'<p class="method-note">Legacy catalog annotation: guidance withheld. This is not evidence of operator intent.</p>':'<p>'+esc(k.actionable_guidance||'')+'</p>')+'<h3>Exceptions / caveats</h3><ul>'+(k.exceptions||[]).map(function(x){return '<li>'+esc(x)+'</li>';}).join('')+'</ul><h3>Counter evidence</h3><pre>'+esc(json(k.counter_evidence||{}))+'</pre><h3>Source</h3><div class="link-list">'+sources+'</div>');
 }
 
 function openPost(id){
@@ -275,49 +260,6 @@ function openEdge(key){
   if(!edge)return;
   const fams=(edge.family_ids||[]).map(function(id){return familyButton(id,id);}).join('');
   drawer('@'+(edge.origin_account||parts[0])+' → @'+(edge.target_account||parts[1]),'<div class="badges">'+badge((edge.events||0)+' events','info')+badge((edge.families||0)+' families')+badge('median '+num(edge.median_delay_days)+' days')+'</div><h3>Observed families</h3><div class="link-list">'+fams+'</div><p>This is chronology inside matched creative families, not a causal claim about publishing decisions.</p>');
-}
-
-function openReview(key){
-  const r=data.reviewBySource.get(String(key)); if(!r)return;
-  let evidence='';
-  if(r.review_source_type==='hypothesis'){
-    const s=data.strategyById.get(String(r.review_source_id));
-    if(s)evidence='<h3>Claim</h3><p>'+esc(s.claim||'')+'</p><h3>Evidence summary</h3><pre>'+esc(json(s.evidence_summary||{}))+'</pre><h3>Counter evidence</h3><pre>'+esc(json(s.counter_evidence||{}))+'</pre><h3>Alternative explanations</h3><ul>'+(s.alternative_explanations||[]).map(function(x){return '<li>'+esc(x)+'</li>';}).join('')+'</ul><div class="link-list">'+(s.pattern_links||[]).map(function(l){return patternButton(l.pattern_id,l.pattern_id+' · '+(l.relation||'support'));}).join('')+'</div>'+strategyFlowHtml(s);
-  }else if(r.review_source_type==='family'){
-    evidence='<h3>Family evidence</h3>'+familyButton(r.review_source_id,'Open complete creative family');
-  }else if(r.review_source_type==='playbook_sources'){
-    const sources=String(r.review_source_id||'').split('|').filter(Boolean);
-    evidence='<p class="method-note">A bundle approval does not override constituent source reviews. Review each hypothesis individually first; held/rejected components block the playbook.</p>'+
-      '<h3>Component hypotheses and counter evidence</h3>'+
-      sources.map(function(id){
-        const s=data.strategyById.get(id);
-        if(!s)return '<p class="method-note">Missing source: '+esc(id)+'</p>';
-        return '<div class="panel">'+strategyButton(id,s.title||id)+
-          '<p>'+esc(s.claim||'')+'</p>'+
-          '<details><summary>Counter evidence and alternatives</summary><pre>'+esc(json(s.counter_evidence||{}))+'</pre>'+
-          '<ul>'+(s.alternative_explanations||[]).map(function(x){return '<li>'+esc(x)+'</li>';}).join('')+'</ul></details>'+
-          strategyFlowHtml(s)+'</div>';
-      }).join('');
-  }
-  drawer(r.title||r.review_source_id,'<div class="badges">'+badge('Tier '+r.priority_tier,'info')+confidenceBadge(null,r.confidence_max)+badge(r.review_source_type)+'</div><p>'+esc(r.statement||'')+'</p><h3>What to check</h3><p>'+esc(r.review_focus||'')+'</p><div class="review-evidence"><span>'+num(r.evidence_post_count)+' posts</span><span>'+num(r.evidence_family_count)+' families</span><span>'+num(r.evidence_pattern_count)+' patterns</span></div>'+evidence+'<h3>Your judgment</h3>'+(r.existing_review_decision?'<p class="method-note">Previous decision: '+esc(r.existing_review_decision)+(r.existing_review_note?' · '+esc(r.existing_review_note):'')+'. This review replaces that decision.</p>':'')+'<div class="review-form"><input id="reviewed-by" placeholder="Your name (optional)"><textarea id="review-note" placeholder="Required: which supporting/counter evidence did you check, and why?"></textarea><label class="review-confirm"><input id="evidence-inspected" type="checkbox"> I inspected source evidence and alternatives, not just the confidence score.</label><div class="review-actions"><button class="reject" data-review-decision="reject" data-review-key="'+esc(key)+'">Reject</button><button class="hold" data-review-decision="hold" data-review-key="'+esc(key)+'">Need more evidence</button><button class="approve" data-review-decision="approve" data-review-key="'+esc(key)+'">Approve</button></div><small style="color:#6b7280">The decision is saved locally and the knowledge/workspace trust layer is rebuilt automatically.</small></div>');
-}
-
-async function submitReview(key,decision){
-  const r=data.reviewBySource.get(String(key)); if(!r)return;
-  const note=$('#review-note')?$('#review-note').value.trim():'', reviewedBy=$('#reviewed-by')?$('#reviewed-by').value.trim():'';
-  if(note.length<10){toast('Please record what you checked (at least 10 characters).');return;}
-  if(decision==='approve'&&!$('#evidence-inspected').checked){toast('Inspect source evidence and confirm before approval.');return;}
-  const buttons=document.querySelectorAll('[data-review-decision]'); buttons.forEach(function(b){b.disabled=true; b.textContent='Saving…';});
-  try{
-    const response=await fetch('/api/review',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({source_type:r.review_source_type,source_id:r.review_source_id,decision:decision,note:note,reviewed_by:reviewedBy,evidence_inspected:!!($('#evidence-inspected')&&$('#evidence-inspected').checked),rebuild:true})});
-    const result=await response.json();
-    if(!response.ok)throw new Error(result.error||'Review failed');
-    toast('Review saved. Refreshing trusted knowledge…');
-    setTimeout(function(){window.location.reload();},500);
-  }catch(e){
-    buttons.forEach(function(b){b.disabled=false; b.textContent=b.classList.contains('approve')?'Approve':b.classList.contains('hold')?'Need more evidence':'Reject';});
-    toast('Could not save review: '+e.message);
-  }
 }
 
 function wire(){
@@ -337,16 +279,17 @@ function wire(){
   document.querySelectorAll('[data-knowledge]').forEach(function(b){b.onclick=function(){openKnowledge(b.dataset.knowledge);};});
   document.querySelectorAll('[data-post]').forEach(function(b){b.onclick=function(){openPost(b.dataset.post);};});
   document.querySelectorAll('[data-edge]').forEach(function(b){b.onclick=function(){openEdge(b.dataset.edge);};});
-  document.querySelectorAll('[data-review]').forEach(function(b){b.onclick=function(){openReview(b.dataset.review);};});
-  document.querySelectorAll('[data-review-decision]').forEach(function(b){b.onclick=function(){submitReview(b.dataset.reviewKey,b.dataset.reviewDecision);};});
   document.querySelectorAll('[data-advanced]').forEach(function(b){b.onclick=function(){advancedMode=b.dataset.advanced;render();};});
   const search=$('#search'); if(search)search.oninput=function(){query=search.value;render();};
   const ff=$('#family-filter'); if(ff)ff.onchange=function(){familyFilter=ff.value;render();};
+  wireResearchControls();
 }
 
 function render(){
   document.querySelectorAll('.primary-nav button').forEach(function(b){b.classList.toggle('active',b.dataset.tab===tab);});
-  const views={brief:briefView,network:networkView,families:familiesView,review:reviewView,playbook:playbookView,advanced:advancedView};
+  const views={brief:briefView,network:networkView,families:familiesView,
+    intelligence:researchIntelligenceView,playbook:researchPlaybookView,
+    experiments:experimentPlanView,advanced:advancedView};
   $('#main').innerHTML=views[tab]();
   wire();
 }
@@ -367,6 +310,10 @@ Promise.all([
   fetch('evidence.json',{cache:'no-store'}).then(function(r){return r.json();}),
   fetch('lab.json',{cache:'no-store'}).then(function(r){return r.json();})
 ]).then(function(values){
+  if(values[0].workspace_schema_version!=='operator-intelligence-lab-v3'||
+     !values[9]||!values[9].research_intelligence){
+    throw new Error('Old workspace detected. Run intelligence-build --from-stage workspace --force, then restart Lab.');
+  }
   data.manifest=values[0];
   data.overview=values[1];
   data.accounts=values[2];
@@ -380,6 +327,7 @@ Promise.all([
   initMaps();
   setHeader();
   render();
+  reloadExperimentPlan();
 }).catch(function(e){
   $('#main').innerHTML='<div class="empty-state"><h2>Research lab unavailable</h2><p>'+esc(e.message)+'</p></div>';
 });

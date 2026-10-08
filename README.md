@@ -2,7 +2,7 @@
 
 > **Creative Research turns public creator/operator activity into visual, evidence-backed operating intelligence and actionable playbooks.**
 
-A complete outcome is **not** merely a green pipeline: a nontechnical researcher must understand the operator, click significant claims back to families/posts/media, review trust with counter-evidence, and turn conditional insights into an evidence-linked playbook. See [Research Outcome Acceptance](docs/RESEARCH_OUTCOME_ACCEPTANCE.md).
+A complete outcome is **not** merely a green pipeline: a nontechnical researcher must understand the operator, trace claims to families/posts/media, distinguish observed facts from bounded inferences and unknowns, and choose evidence-linked experiments. **No human certification of hidden operator intent is required.** See [Research Intelligence v3](docs/RESEARCH_INTELLIGENCE_V3.md) and [Research Outcome Acceptance](docs/RESEARCH_OUTCOME_ACCEPTANCE.md).
 
 Reusable evidence and operator-intelligence pipeline for reverse-engineering public creative/distribution systems.
 
@@ -20,6 +20,36 @@ verified operator
 ```
 
 The goal is not a generic analytics dashboard. It is a durable research base where conclusions can eventually be traced back to the posts and Vision evidence that support them.
+
+## Research Intelligence v3 — no approval queue
+
+The researcher confirms a same-operator group **once before scraping**.
+Canonical analytics then automatically classify findings as Observed, Inferred
+or Unknown. Multilingual family matching and clustering consistency are
+machine-owned diagnostics; the product never asks a researcher to approve
+facts they cannot know about another operator's internal workflow.
+
+The Operator Playbook shows provisional **experiment candidates immediately**.
+You can add them to **My Experiments**, save measured outcomes and recheck
+changed evidence. Selecting an experiment is NOT approval of an operator claim.
+
+See [Research Intelligence v3](docs/RESEARCH_INTELLIGENCE_V3.md).
+
+## Research runs automatically — no AI buttons or truth approval
+
+Open the Lab to see **Observed / Inferred / Unknown**, creative family
+consistency flags, and experiment candidates derived from your materialized
+warehouse. There is **no "Investigate further with AI" button** in Research
+Intelligence, the Creative Library or Operator Playbook, and no Copilot script
+or model-status request on page load.
+
+The analysis pipeline and optional offline family AI judge are separate from
+the Lab UI. Neither is a user-driven approval step. Gemini is still used by
+the upstream Vision / explicit family-judge stages when those stages run;
+opening the Lab does not trigger provider calls.
+
+After updating the source branch, regenerate the static Lab and restart the
+running server; see [Research Intelligence v3](docs/RESEARCH_INTELLIGENCE_V3.md).
 
 ## Requirements
 
@@ -43,6 +73,7 @@ Never commit real API keys or research datasets.
 ## CLI
 
 ```text
+operator-setup
 scrape
 select-accounts
 prepare-media
@@ -65,6 +96,7 @@ intelligence
 intelligence-build
 quality-audit
 outcome-audit
+ai-research-audit
 
 rank-posts
 extract-references
@@ -99,13 +131,27 @@ data/
 
 ## Canonical evidence pipeline
 
-### 1. Scrape
+### 1. Confirm the account grouping, then scrape
 
 ```bash
+uv run creative-research operator-setup \
+  --accounts-file config/target_accounts.txt \
+  --operator-id OP-001 --name "Research operator 001" \
+  --confirm-same-operator
+
+uv run creative-research scrape config/target_accounts.txt \
+  --operators config/operators.toml --preflight
+
+export APIFY_TOKEN="..."
 uv run creative-research scrape \
   config/target_accounts.txt \
+  --operators config/operators.toml \
   --out data/00_raw/apify/run-001
 ```
+
+Accounts not in a user-confirmed one-operator registry are rejected **before**
+any paid scrape starts. The registry is a research assertion, not independent
+legal ownership proof.
 
 ### 2. Select accounts
 
