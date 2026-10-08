@@ -605,3 +605,33 @@ def test_v3_lab_rejects_stale_export_even_when_static_files_exist(
     lab_path.write_text(json.dumps(lab), encoding="utf-8")
     issues = validate_intelligence_workspace(tmp_path)
     assert "lab.json: missing Research Intelligence v3" in issues
+
+
+
+def test_rebuild_prunes_legacy_copilot_asset_and_buttons(tmp_path: Path) -> None:
+    """An upgraded v2 export must not serve a leftover on-demand AI widget."""
+    retired = tmp_path / "ai_ui.js"
+    retired.write_text(
+        'document.write("Investigate further with AI (optional)")',
+        encoding="utf-8",
+    )
+    assert retired.exists()
+
+    write_intelligence_workspace(
+        out_dir=tmp_path, sources={"test": "fixture"}, **_frames()
+    )
+    assert not retired.exists()
+    assert "ai_ui.js" not in STATIC_FILES
+    html = (tmp_path / "index.html").read_text(encoding="utf-8")
+    app = (tmp_path / "app.js").read_text(encoding="utf-8")
+    research = (tmp_path / "research_ui.js").read_text(encoding="utf-8")
+    combined = html + app + research
+
+    assert "Investigate further with AI" not in combined
+    assert "Explore playbook further with AI" not in combined
+    assert "AI Research Copilot" not in combined
+    assert "optionalAiButton" not in combined
+    assert "launchOptionalAI" not in combined
+    assert "data-deep-ai-" not in combined
+    assert "/api/ai/status" not in combined
+    assert "AI Research Copilot" not in html
