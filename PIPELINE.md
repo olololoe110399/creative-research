@@ -82,9 +82,13 @@ relative performance        account/operator chronology
         + alternative explanations
                        |
                        v
-          future knowledge promotion
-      rules -> lessons -> templates
-      -> playbooks
+              promote-knowledge
+                       |
+                       v
+        data/07_knowledge/
+      strategies / rules / lessons
+      templates / playbooks
+      + source/evidence lineage
 ```
 
 ## Sources of truth
@@ -101,7 +105,8 @@ relative performance        account/operator chronology
 10. Strategy timeline: fixed historical operator/account windows with deterministic adjacent-window change points.
 11. Evidence patterns: recurring observations with sample/effect metrics and explicit post/family/account evidence links.
 12. Strategy hypotheses: deterministic pattern promotion with confidence, counter evidence, alternative explanations, and inherited evidence lineage.
-13. Reference Workspace: a generated decision surface over the evidence, not a new truth source.
+13. Knowledge bank: typed strategies/rules/lessons/templates/playbooks with promotion/review status and inherited source/evidence lineage.
+14. Reference Workspace: a generated decision surface over the evidence, not a new truth source.
 
 ## Invariants
 
@@ -121,6 +126,10 @@ relative performance        account/operator chronology
 - Patterns always set `causal_claim=false` and remain observations until promoted later.
 - Strategy inference never turns a hypothesis into a fact; hypothesis rows also keep `causal_claim=false`.
 - Strategy hypotheses must preserve supporting/counter pattern links, alternative explanations, and inherited evidence lineage.
+- Knowledge promotion never removes caveats, counter evidence, scope, time validity, or source lineage.
+- Rejected/held knowledge is retained for audit and must not be treated as active guidance.
+- Review candidates should not drive high-impact automation until approved or otherwise explicitly accepted downstream.
+- Creative templates require repeated family evidence; singleton families never become templates.
 - Pattern evidence must remain traceable to stable post/family/account IDs.
 - `creative_master` has one row per unique `account+post_id`.
 - Stable canonical post IDs are deterministic and shared with the Reference Workspace.
