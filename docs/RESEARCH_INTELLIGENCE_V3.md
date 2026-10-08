@@ -174,15 +174,14 @@ After checking out the branch:
 This refreshes Lab schema v3 from your existing canonical warehouse and
 knowledge artifacts. It does not need to rescrape or modify family memberships.
 
-AI is optional and separately enabled:
+There are **no manual AI buttons** in the v3 Lab, regardless of how
+the server was started. Opening Lab never requires GEMINI_API_KEY, does
+not invoke a model, and does not expose a Copilot UI. Any legacy research
+reports are preserved outside the workspace as historical artifacts,
+not imported into trusted knowledge.
 
-    export GEMINI_API_KEY="..."
-    uv run creative-research lab --open --ai-enabled
-
-All cached AI reports are provenance-versioned and are not promoted into
-trusted knowledge. When public data cannot prove something, the product
-must communicate uncertainty rather than asking the researcher to approve
-the unknown.
+When public data cannot prove something, the product communicates
+uncertainty rather than asking the researcher to approve the unknown.
 
 ## 7. Acceptance gates
 
