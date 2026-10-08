@@ -430,11 +430,18 @@ def test_write_workspace_copies_static_and_required_data(tmp_path: Path) -> None
         "network",
         "families",
         "intelligence",
+        "production",
         "playbook",
         "experiments",
         "advanced",
     ]
     assert (tmp_path / "lab.json").is_file()
+    assert (tmp_path / "production.json").is_file()
+    assert (tmp_path / "production-kit.zip").is_file()
+    kit = json.loads((tmp_path / "production.json").read_text(encoding="utf-8"))
+    assert kit["schema_version"] == "creator-production-kit-v1"
+    assert kit["quality"]["ready_to_publish"] == 0
+    assert kit["quality"]["post_evidence_links"] >= 1
 
 
 
