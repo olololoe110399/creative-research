@@ -36,7 +36,7 @@ AI_STRONG_CORE_RELATIONSHIPS = {
     "hook_variant",
 }
 AI_DEFER_RELATIONSHIPS = {"execution_variant"}
-AI_NEGATIVE_RELATIONSHIPS = {"thematic_only", "unrelated"}
+AI_NEGATIVE_RELATIONSHIPS = {"template_variant", "thematic_only", "unrelated"}
 
 SAME_LANGUAGE_STRONG_SEMANTIC = 0.35
 SAME_LANGUAGE_STRONG_HOOK = 0.28
