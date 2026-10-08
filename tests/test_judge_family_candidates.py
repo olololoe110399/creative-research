@@ -6,6 +6,7 @@ from creative_research.stages.judge_family_candidates import (
     FamilyPairJudgment,
     _cache_key,
     _evidence_hash,
+    _retryable_api_error,
     build_evidence_lookup,
     build_plan,
     build_prompt,
@@ -172,8 +173,8 @@ def test_evidence_hash_and_cache_key_are_stable_across_pair_order() -> None:
     h1 = _evidence_hash("P1", "P2", lookup["P1"], lookup["P2"])
     h2 = _evidence_hash("P2", "P1", lookup["P2"], lookup["P1"])
     assert h1 == h2
-    k1 = _cache_key("AIP-X", h1, "gemini-2.5-flash-lite")
-    k2 = _cache_key("AIP-X", h2, "gemini-2.5-flash-lite")
+    k1 = _cache_key("AIP-X", h1, "gemini-3.5-flash-lite")
+    k2 = _cache_key("AIP-X", h2, "gemini-3.5-flash-lite")
     assert k1 == k2
 
 
@@ -182,7 +183,7 @@ def test_build_plan_reports_token_and_cost_ceiling_without_api() -> None:
         _pairs(),
         _analysis(),
         _sequence(),
-        model="gemini-2.5-flash-lite",
+        model="gemini-3.5-flash-lite",
         max_ai_pairs=10,
         max_input_tokens_per_pair=5000,
         max_estimated_input_tokens=5000,
@@ -201,3 +202,19 @@ def test_family_pair_judgment_json_schema_is_fully_resolved() -> None:
     assert "decision" in properties
     assert "relationship" in properties
     assert "confidence" in properties
+
+
+class _FakeApiError(Exception):
+    def __init__(self, status_code: int) -> None:
+        super().__init__(f"{status_code} synthetic")
+        self.status_code = status_code
+
+
+def test_client_model_not_found_is_not_retryable() -> None:
+    assert _retryable_api_error(_FakeApiError(404)) is False
+    assert _retryable_api_error(_FakeApiError(400)) is False
+
+
+def test_rate_limit_and_server_errors_are_retryable() -> None:
+    assert _retryable_api_error(_FakeApiError(429)) is True
+    assert _retryable_api_error(_FakeApiError(503)) is True
