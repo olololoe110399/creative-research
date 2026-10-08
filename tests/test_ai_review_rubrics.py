@@ -221,6 +221,7 @@ def test_family_review_requires_all_members_and_real_outlier_for_rejection(
     workspace = six_member_family(tmp_path)
     candidate = six_member_identity_answer()
     candidate["family_assessment"]["checked_member_post_refs"].pop()
+    candidate["family_assessment"]["identity_support_post_refs"].pop()
     with pytest.raises(ResearchValidationError, match="family_approval_requires_all_members"):
         AIResearchService(
             workspace, enabled=True, generator=lambda _: candidate
@@ -240,6 +241,9 @@ def test_family_review_forbids_experiments_and_false_visual_claims(
     workspace = six_member_family(tmp_path)
     candidate = six_member_identity_answer()
     candidate["experiments"] = valid_answer(mode="draft_playbook")["experiments"]
+    candidate["experiments"][0]["evidence_refs"] = [
+        "family:FAM-39E15050D193", "post:POST-0"
+    ]
     with pytest.raises(ResearchValidationError, match="family_review_cannot_generate_experiments"):
         AIResearchService(
             workspace, enabled=True, generator=lambda _: candidate
