@@ -76,21 +76,40 @@ function aiDrawReport(report){
   const experiments=(answer.experiments||[]).map(function(e,i){
     return '<article class="ai-finding"><h4>Experiment '+(i+1)+'</h4>'+
       '<p>'+esc(e.action||'')+'</p>'+
+      '<div class="badges">'+
+        (e.threshold_origin==='proposed_experiment'?badge('Numeric cutoff is PROPOSED, not an operator rule','warn'):'')+
+        (e.measurement_plan==='new_tracking_required'?badge('New time-series/data collection REQUIRED','warn'):badge('Historical snapshot metric','info'))+
+      '</div>'+
       '<dl><dt>Measure</dt><dd>'+esc(e.success_metric||'')+'</dd>'+
       '<dt>Stop / recheck</dt><dd>'+esc(e.stop_or_recheck||'')+'</dd></dl>'+
       aiCitations(e.evidence_refs)+'</article>';
   }).join('');
   const bullets=function(arr){return '<ul>'+(arr||[]).map(function(item){return '<li>'+esc(item)+'</li>';}).join('')+'</ul>';};
   const reviewMode=report.mode==='investigate'||report.mode==='challenge';
+  const family=answer.family_assessment;
+  const familyDetails=(report.source_type==='family'&&family)
+    ?'<section class="ai-family-review"><h3>Creative family identity check</h3>'+
+      '<p><b>Underlying concept:</b> '+esc(family.core_concept||'')+'</p>'+
+      '<p>'+esc(family.identity_rationale||'')+'</p>'+
+      '<h4>Member posts examined</h4>'+aiCitations(family.checked_member_post_refs)+
+      '<h4>Identity-supporting posts</h4>'+aiCitations(family.identity_support_post_refs)+
+      (family.outlier_post_refs&&family.outlier_post_refs.length?
+        '<h4>Possible false merges</h4>'+aiCitations(family.outlier_post_refs):'')+
+      '<p class="method-note"><b>Raw media NOT seen by AI.</b> This is a semantic/sequence identity proposal, not a final visual inspection. Open original media for each member before human approval.</p>'+
+      '</section>':'';
   drawer(aiModeName(report.mode)+' · Proposal',
     '<div class="badges">'+badge('proposal only','warn')+badge(report.model)+
       badge(report.from_cache?'cached snapshot':'validated output','info')+'</div>'+
     (report.snapshot_is_current===false?'<p class="method-note"><b>STALE EVIDENCE SNAPSHOT.</b> Data or review status changed after this report. Re-run research before relying on it.</p>':'')+
     '<p class="method-note"><b>NOT HUMAN REVIEWED.</b> AI cannot approve, reject, or edit knowledge. '+
       'Check each source link and counterexample before accepting any suggestion.</p>'+
+    '<h3>Review target</h3><p><b>'+esc(report.review_question||'')+'</b></p>'+
+    '<div class="badges">'+badge(report.review_basis||'research task','info')+'</div>'+
     '<h3>Research summary</h3><p>'+esc(answer.summary||'')+'</p>'+
-    (reviewMode?'<h3>Suggested review: '+esc(label(answer.proposed_review||'hold'))+'</h3>'+
+    (reviewMode?'<h3>'+esc(report.source_type==='family'?'Suggested family membership decision: ':'Suggested claim decision: ')+
+      esc(label(answer.proposed_review||'hold'))+'</h3>'+
       '<p>'+esc(answer.review_rationale||'')+'</p>':'')+
+    familyDetails+
     '<h3>Supporting, skeptical and counter evidence</h3>'+
     (findings||'<p>No cited findings returned.</p>')+
     '<h3>Alternative explanations</h3>'+bullets(answer.alternative_explanations)+
@@ -102,8 +121,9 @@ function aiDrawReport(report){
       '<dt>Evidence sources</dt><dd>'+num(report.source_count)+'</dd>'+
       '<dt>Flow pairs sampled</dt><dd>'+num(report.flow_count)+' of '+num(report.available_flow_count)+'</dd>'+
       '<dt>Timestamp</dt><dd>'+esc(report.generated_at)+'</dd></dl>'+
-    '<p class="method-note">Sampled flows are not a representative statistical sample. '+
-      'Use full population metrics in Research Brief for denominators.</p>'+
+    (report.source_type==='family'
+      ?'<p class="method-note">Family review uses member descriptions, matching and sequence. Views and scaling are deliberately EXCLUDED from the identity decision.</p>'
+      :'<p class="method-note">Sampled flows are not statistically representative. Use full-population Research Brief metrics for denominators.</p>')+
     (reviewMode?'<button class="ai-review-draft" data-ai-review-draft="1">'+
       'Return to Human Review with editable AI note (no decision saved)</button>':'')+
     '<button class="ai-history-link" data-ai-reopen-plan="1">Inspect another research mode</button>');
@@ -158,6 +178,8 @@ async function aiPreview(mode,source_type,source_id){
       '<p>The local research engine selected a bounded set of supporting and '+
       'counterexample evidence. A subsequent model call may incur Gemini charges.</p>'+
       '<dl><dt>Operator target</dt><dd>'+esc(source_type+': '+source_id)+'</dd>'+
+      '<dt>Review question</dt><dd>'+esc(plan.review_question||'')+'</dd>'+
+      (source_type==='family'?'<dt>Family members examined</dt><dd>'+num((plan.family_members_considered||[]).length)+' / '+num(plan.family_members_total)+'</dd>':'')+
       '<dt>Evidence sources</dt><dd>'+num(plan.source_count)+'</dd>'+
       '<dt>Flow pairs</dt><dd>'+num(plan.flow_count)+' / '+num(plan.available_flow_count)+' available</dd>'+
       '<dt>Estimated input tokens (rough)</dt><dd>'+num(plan.estimated_input_tokens_approx)+'</dd>'+ 
