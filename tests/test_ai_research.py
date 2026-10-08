@@ -302,3 +302,27 @@ def test_invalid_report_id_and_disabled_ai(tmp_path: Path) -> None:
         AIResearchService(path, model="gemini-arbitrary-expensive-model")
     with pytest.raises(ValueError, match="invalid_ai_call_limit"):
         AIResearchService(path, max_calls=1000)
+
+
+
+def test_saved_ai_history_is_readable_and_warns_on_stale_snapshot(
+    tmp_path: Path,
+) -> None:
+    path = corpus_fixture(tmp_path)
+    service = AIResearchService(path, enabled=True, generator=lambda _: valid_answer())
+    record = service.run("investigate", "hypothesis", "STR1")
+    metadata = service.history("hypothesis", "STR1")
+    assert len(metadata) == 1
+    assert metadata[0]["request_id"] == record["request_id"]
+    assert service.load(record["request_id"])["snapshot_is_current"] is True
+    assert service.history("family", "F1") == []
+    with pytest.raises(ResearchValidationError, match="unknown_research_source"):
+        service.history("hypothesis", "FORGED")
+
+    raw_path = path / "knowledge.json"
+    raw = json.loads(raw_path.read_text(encoding="utf-8"))
+    raw["knowledge"][0]["knowledge_status"] = "rejected"
+    raw_path.write_text(json.dumps(raw), encoding="utf-8")
+    old = service.load(record["request_id"])
+    assert old["snapshot_is_current"] is False
+    assert old["ai_status"] == "proposal_only"
