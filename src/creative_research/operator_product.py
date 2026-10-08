@@ -326,6 +326,12 @@ def build_provisional_playbook(
         if step["source_hypothesis_id"]
     )
     observational_steps = sum(bool(step["source_hypothesis_id"]) for step in steps)
+    core_steps = [
+        step for step in steps if step["key"] in {"explore", "select", "distribute"}
+    ]
+    approved_core_steps = sum(
+        step["trust_status"] == "approved" for step in core_steps
+    )
     trusted_playbooks = [
         {
             "knowledge_id": row.get("knowledge_id"),
@@ -338,9 +344,11 @@ def build_provisional_playbook(
         and _text(row.get("knowledge_status")) in {"approved", "promoted"}
     ]
     return {
+        # The core observations can be reviewed even when the optional
+        # adaptation inference is weak, missing, or explicitly held.
         "status": (
-            "human_reviewed"
-            if observational_steps == 4 and approved_sources == 4
+            "core_reviewed"
+            if len(core_steps) == 3 and approved_core_steps == 3
             else "research_draft"
         ),
         "operator_id": operator_id,
@@ -348,6 +356,8 @@ def build_provisional_playbook(
         "steps": steps,
         "approved_source_steps": approved_sources,
         "observational_source_steps": observational_steps,
+        "approved_core_steps": approved_core_steps,
+        "core_step_count": len(core_steps),
         "trusted_catalog_playbooks": trusted_playbooks,
         "guardrails": [
             "Hypothesis confidence is not human approval.",
