@@ -12,6 +12,7 @@ from creative_research.operator_product import (
     build_provisional_playbook,
     build_role_flow_index,
     empty_role_lineage,
+    hypothesis_trust_status,
     strategy_role_lineage,
 )
 from creative_research.reference_media import (
@@ -479,6 +480,7 @@ def _lab_payload(
     )
 
     strategy_rows = _records(strategies)
+    knowledge_rows = _records(knowledge)
     strategy_by_type: dict[str, list[dict[str, Any]]] = {}
     for row in strategy_rows:
         strategy_by_type.setdefault(
@@ -501,8 +503,16 @@ def _lab_payload(
             ),
         )
         for row in rows:
+            trust_status = hypothesis_trust_status(
+                knowledge_rows,
+                str(row.get("hypothesis_id") or ""),
+                str(operator.get("operator_id") or ""),
+            )
+            if trust_status in {"hold", "rejected"}:
+                continue
             key_findings.append(
                 {
+                    "trust_status": trust_status,
                     "hypothesis_id": row.get("hypothesis_id"),
                     "hypothesis_type": hypothesis_type,
                     "scope_type": row.get("scope_type"),
@@ -627,6 +637,9 @@ def _lab_payload(
             if hero_strategy
             else None
         ),
+        "trust_status": (
+            hero_strategy.get("trust_status") if hero_strategy else "hypothesis_only"
+        ),
         "hypothesis_id": (
             hero_strategy.get("hypothesis_id")
             if hero_strategy
@@ -672,7 +685,7 @@ def _lab_payload(
         ),
         "playbook": build_provisional_playbook(
             strategy_rows,
-            _records(knowledge),
+            knowledge_rows,
             operator_id=str(operator.get("operator_id") or ""),
         ),
         "family_highlights": family_highlights,
