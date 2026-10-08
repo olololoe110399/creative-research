@@ -241,7 +241,10 @@ function openFamily(id){
     '<div class="family-preview" style="border-radius:14px;margin:10px 0 18px">'+familyThumbs(f)+'</div>'+
     '<div class="badges">'+badge((f.member_count||0)+' executions','info')+badge((f.accounts_count||0)+' accounts')+badge(f.cross_account?'cross-account':'single-account',f.cross_account?'good':'')+'</div>'+
     '<h3>What appears preserved</h3><dl><dt>Angle</dt><dd>'+esc(label(f.core_angle))+'</dd><dt>Hook formula</dt><dd>'+esc(label(f.core_hook_formula))+'</dd><dt>Creative formula</dt><dd>'+esc(label(f.core_creative_formula))+'</dd><dt>First observed account</dt><dd>@'+esc(f.origin_account||'—')+'</dd></dl>'+
-    '<h3>Executions</h3><div class="link-list">'+members+'</div><h3>Cross-account chronology</h3><div class="link-list">'+(prop||'<p>No cross-account propagation in this family.</p>')+'</div>');
+    '<h3>Executions</h3><div class="link-list">'+members+'</div>'+
+    '<p class="research-limitation">These are machine-generated grouping candidates. AI can compare normalized creative and sequence evidence, not certify raw visual identity or intent.</p>'+
+    aiControlsMarkup('family',f.family_id,['investigate','challenge'])+
+    '<h3>Cross-account chronology</h3><div class="link-list">'+(prop||'<p>No cross-account propagation in this family.</p>')+'</div>');
 }
 
 function openPattern(id){
