@@ -165,7 +165,7 @@ for(const filename of scripts){
 
   vm.runInContext('tab="results";render();',context);
   const results=one('#main').innerHTML;
-  assert.match(results,/Results & Learnings/);
+  assert.match(results,/Results &amp; Learnings/);
   assert.match(results,/No first-party outcomes yet/);
   assert.match(results,/Export live team handoff ZIP/);
 
