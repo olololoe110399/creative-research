@@ -287,12 +287,49 @@ def test_account_role_evidence_is_descriptive_not_a_final_strategy_label() -> No
     assert roles.loc["A", "origin_families"] == 2
     assert roles.loc["A", "imported_families"] == 0
     assert roles.loc["A", "outbound_propagation_rate"] == 1.0
+    assert roles.loc["A", "cross_account_flow_observations"] == 2
+    assert roles.loc["A", "cross_account_origin_rate"] == 1.0
+    assert roles.loc["A", "cross_account_import_rate"] == 0.0
     assert roles.loc["A", "originator_signal"] == 1.0
     assert roles.loc["A", "descriptive_profile"] == "originator_leaning"
 
     assert roles.loc["C", "origin_families"] == 0
     assert roles.loc["C", "imported_families"] == 2
+    assert roles.loc["C", "cross_account_origin_rate"] == 0.0
+    assert roles.loc["C", "cross_account_import_rate"] == 1.0
     assert roles.loc["C", "receiver_signal"] == 1.0
     assert roles.loc["C", "descriptive_profile"] == "receiver_leaning"
 
     assert "not a final" in roles.loc["A", "notes"]
+
+
+
+def test_singleton_families_do_not_dilute_cross_account_role_signal() -> None:
+    members = _members().copy()
+    singleton_rows = []
+    for index in range(20):
+        singleton_rows.append(
+            {
+                **members.iloc[0].to_dict(),
+                "family_id": f"S{index}",
+                "post_uid": f"SPOST{index}",
+                "post_id": f"S{index}",
+                "account_id": "A",
+                "account": "a",
+                "created_at": f"2026-02-{index + 1:02d}T00:00:00Z",
+                "family_member_index": 1,
+                "is_family_origin": True,
+                "family_origin_post_uid": f"SPOST{index}",
+            }
+        )
+    members = pd.concat(
+        [members, pd.DataFrame(singleton_rows)],
+        ignore_index=True,
+    )
+    tables = build_propagation_tables(members, _analysis(), _performance())
+    roles = tables["account_role_evidence"].set_index("account_id")
+
+    # Overall origin rate is dominated by singletons, but role signal is not.
+    assert roles.loc["A", "family_origin_rate"] > 0.90
+    assert roles.loc["A", "cross_account_origin_rate"] == 1.0
+    assert roles.loc["A", "originator_signal"] == 1.0
