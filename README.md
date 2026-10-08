@@ -320,6 +320,34 @@ The report counts high-scoring cross-language/cross-account pairs that the produ
 
 See `docs/FAMILY_CALIBRATION.md` for the scoring contract.
 
+#### Preview the conservative family-v2 gate before production migration
+
+After calibration is available:
+
+```bash
+uv run creative-research preview-families-v2
+```
+
+This writes:
+
+```text
+data/06_analytics/family_v2_preview/
+├── family_v2_preview_families.parquet
+├── family_v2_preview_members.parquet
+├── family_v2_preview_review.csv
+└── family_v2_preview_report.json
+```
+
+The preview is deliberately conservative:
+
+- new family seeds require a strong pair (default combined score >= 0.80);
+- same-language and cross-language pairs use different semantic/structure gates;
+- weaker 0.75–0.80 edges can only bridge a post into a family that already has strong evidence;
+- every assignment still needs an anchor relationship, preventing unconstrained transitive mega-clusters;
+- existing production-family pairs are retained as positive controls.
+
+The preview never overwrites `creative_families.parquet`. Inspect the family-size distribution and largest-family review CSV before migrating the production family layer.
+
 ### 12. Analyze cross-account propagation
 
 After families exist, derive how each family appears across the manually verified accounts of the same operator:
