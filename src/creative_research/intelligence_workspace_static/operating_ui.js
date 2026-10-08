@@ -142,8 +142,19 @@ function openOperatingForm(kind,id){
   drawer(head,
     (stale?'<p class="method-note">The source recipe/slot changed after rebuild. Old work is preserved, but edits are blocked until evidence recheck.</p>':'')+
     '<div class="production-operating-form" data-operating-form="'+esc(kind)+'" data-operating-key="'+esc(id)+'">'+
-    form+'<button class="production-primary" data-operating-save="'+esc(kind)+'"'+(stale?' disabled':'')+'>Save team work</button></div>'
+    form+'<button class="production-primary" data-operating-save="'+esc(kind)+'"'+(stale?' disabled':'')+'>Save team work</button>'+
+    (stale?'<button class="production-primary" data-operating-recheck="'+esc(kind)+'">Recheck changed evidence & reset quality gates →</button>':'')+'</div>'
   );
+  document.querySelectorAll('[data-operating-recheck]').forEach(function(button){
+    button.onclick=function(){
+      const approved=window.confirm(
+        'The underlying source has changed. Your old work stays in history, but editorial/asset/publishing approvals will be reset. Continue?'
+      );
+      if(approved)saveOperating({
+        action:'recheck',category:kind,key:id,confirm_source_change:true
+      });
+    };
+  });
   document.querySelectorAll('[data-operating-save]').forEach(function(button){
     button.onclick=function(){
       const parent=button.closest('[data-operating-form]');
