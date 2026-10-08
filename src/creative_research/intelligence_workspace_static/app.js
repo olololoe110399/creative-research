@@ -36,8 +36,9 @@ function setHeader(){
   const brief=data.lab.research_brief||{}, op=brief.operator||{}, stats=brief.stats||{};
   $('#project-name').textContent=(op.name||op.operator_id||'Research project')+(op.verified?' · verified operator':'');
   $('#research-meta').textContent=(stats.posts||0)+' posts · '+(stats.accounts||0)+' accounts · '+(stats.propagation_events||0)+' observed reuse events';
-  const pending=(data.lab.review||{}).pending_sources||0;
-  $('#review-count').textContent=pending?String(pending):'';
+  const inferred=(data.lab.research_intelligence||{}).counts?.inferred||0;
+  const indicator=$('#research-count');
+  if(indicator)indicator.textContent=inferred?String(inferred):'';
 }
 
 function metricCard(name,value,sub){
@@ -299,7 +300,7 @@ function openReview(key){
           strategyFlowHtml(s)+'</div>';
       }).join('');
   }
-  drawer(r.title||r.review_source_id,'<div class="badges">'+badge('Tier '+r.priority_tier,'info')+confidenceBadge(null,r.confidence_max)+badge(r.review_source_type)+'</div><p>'+esc(r.statement||'')+'</p><h3>What to check</h3><p>'+esc(r.review_focus||'')+'</p><div class="review-evidence"><span>'+num(r.evidence_post_count)+' posts</span><span>'+num(r.evidence_family_count)+' families</span><span>'+num(r.evidence_pattern_count)+' patterns</span></div>'+evidence+aiControlsMarkup(r.review_source_type,r.review_source_id,['investigate','challenge'])+
+  drawer(r.title||r.review_source_id,'<div class="badges">'+badge('Legacy research source','info')+confidenceBadge(null,r.confidence_max)+badge(r.review_source_type)+'</div><p>'+esc(r.statement||'')+'</p><h3>What to check</h3><p>'+esc(r.review_focus||'')+'</p><div class="review-evidence"><span>'+num(r.evidence_post_count)+' posts</span><span>'+num(r.evidence_family_count)+' families</span><span>'+num(r.evidence_pattern_count)+' patterns</span></div>'+evidence+aiControlsMarkup(r.review_source_type,r.review_source_id,['investigate','challenge'])+
     '<h3>Your judgment</h3>'+(r.existing_review_decision?'<p class="method-note">Previous decision: '+esc(r.existing_review_decision)+(r.existing_review_note?' · '+esc(r.existing_review_note):'')+'. This review replaces that decision.</p>':'')+'<div class="review-form"><input id="reviewed-by" placeholder="Your name (optional)"><textarea id="review-note" placeholder="Required: which supporting/counter evidence did you check, and why?"></textarea><label class="review-confirm"><input id="evidence-inspected" type="checkbox"> I inspected source evidence and alternatives, not just the confidence score.</label><div class="review-actions"><button class="reject" data-review-decision="reject" data-review-key="'+esc(key)+'">Reject</button><button class="hold" data-review-decision="hold" data-review-key="'+esc(key)+'">Need more evidence</button><button class="approve" data-review-decision="approve" data-review-key="'+esc(key)+'">Approve</button></div><small style="color:#6b7280">The decision is saved locally and the knowledge/workspace trust layer is rebuilt automatically.</small></div>');
 }
 
@@ -344,11 +345,14 @@ function wire(){
   const search=$('#search'); if(search)search.oninput=function(){query=search.value;render();};
   const ff=$('#family-filter'); if(ff)ff.onchange=function(){familyFilter=ff.value;render();};
   wireAiControls();
+  wireResearchControls();
 }
 
 function render(){
   document.querySelectorAll('.primary-nav button').forEach(function(b){b.classList.toggle('active',b.dataset.tab===tab);});
-  const views={brief:briefView,network:networkView,families:familiesView,review:reviewView,playbook:playbookView,advanced:advancedView};
+  const views={brief:briefView,network:networkView,families:familiesView,
+    intelligence:researchIntelligenceView,playbook:researchPlaybookView,
+    experiments:experimentPlanView,advanced:advancedView};
   $('#main').innerHTML=views[tab]();
   wire();
 }
@@ -382,6 +386,7 @@ Promise.all([
   initMaps();
   setHeader();
   render();
+  reloadExperimentPlan();
 }).catch(function(e){
   $('#main').innerHTML='<div class="empty-state"><h2>Research lab unavailable</h2><p>'+esc(e.message)+'</p></div>';
 });
