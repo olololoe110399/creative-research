@@ -283,3 +283,80 @@ def test_guarded_operating_endpoints_read_only_and_live_team_export(
              "handle":"","notes":"","expected_revision":1})[0]==403
     finally:
         server.shutdown();server.server_close();t.join(timeout=4)
+
+
+
+def test_explicit_recheck_preserves_old_work_and_clears_review_gates(
+    tmp_path: Path,
+) -> None:
+    workspace=_workspace(tmp_path)
+    store=OperatingStore(workspace)
+    _act(store,action="recipe",key="F1",edited_hook="Old but owned",
+         edited_caption="Existing editorial draft",
+         editorial_checked_by="team-editor",notes="Do not lose the work")
+    raw=json.loads((workspace/"production.json").read_text(encoding="utf-8"))
+    raw["recipes"][0]["slides"][0]["source_text_reference_only"] = "Research changed"
+    (workspace/"production.json").write_text(json.dumps(raw),encoding="utf-8")
+    assert store.view()["recipe_work"][0]["needs_recheck"]
+    with pytest.raises(OperatingError,match="explicit_source_recheck_required"):
+        _act(store,action="recheck",key="F1",category="recipe")
+    _act(store,action="recheck",key="F1",category="recipe",
+         confirm_source_change=True)
+    current=store.view()["recipe_work"][0]
+    assert current["needs_recheck"] is False
+    assert current["edited_hook"] == "Old but owned"
+    assert current["editorial_checked_by"] == ""
+    assert store.view()["source_migrations_count"] == 1
+    assert store._load("OP1")["source_migrations"][0]["old_work_snapshot"][
+        "editorial_checked_by"
+    ] == "team-editor"
+
+
+def test_team_csv_imports_are_atomic_source_scoped_and_survive_rebuild(
+    tmp_path: Path,
+) -> None:
+    workspace=_workspace(tmp_path)
+    store=OperatingStore(workspace)
+    asset_id=json.loads((workspace/"production.json").read_text(encoding="utf-8"))[
+        "asset_bank"
+    ][0]["asset_id"]
+    good={
+        "asset_id":asset_id,
+        "rights_status":"team_attested_licensed",
+        "file_or_licensed_source_url":"owned/desk.png",
+        "license_evidence_url":"owner-release-notes",
+        "license_scope":"TikTok organic + promotional",
+        "verified_by":"legal-checker",
+    }
+    with pytest.raises(OperatingError,match="unknown_csv_asset"):
+        store.import_asset_attestations([good,{**good,"asset_id":"FAKE"}])
+    assert store.view()["revision"]==0
+    imported=store.import_asset_attestations([good])
+    key=next(x for x in imported["asset_work"] if x["asset_id"]==asset_id)
+    assert key["state"]=="rights_checked"
+    assert key["editorial_checked_by"]==""
+    assert key["needs_recheck"] is False
+    post={
+        "recipe_id":"REC-001",
+        "account_slot":"PILOT-A",
+        "published_url":"https://www.tiktok.com/@our_brand/video/777",
+        "posted_at":"2026-10-09T12:00:00+07:00",
+        "measurement_age_hours":"24",
+        "views":"750", "saves":"13", "shares":"2",
+        "account_median_views":"500","notes":"Original content",
+    }
+    with pytest.raises(OperatingError,match="invalid_csv_tiktok_post"):
+        store.import_first_party_csv([post,{**post,"published_url":"https://evil.invalid/video/77"}])
+    assert store.view()["outcomes"]==[]
+    result=store.import_first_party_csv([post])
+    assert result["outcomes"][0]["views_vs_baseline"]==1.5
+    assert result["outcomes"][0]["evidence_origin"]=="first_party_user_csv_import"
+    assert result["outcomes"][0]["slot_id"] is None
+    assert result["outcomes"][0]["causal_claim"] is False
+    assert len(OperatingStore(workspace).view()["outcomes"])==1
+    kit=json.loads((workspace/"production.json").read_text(encoding="utf-8"))
+    write_production_kit(kit,workspace=workspace)
+    assert OperatingStore(workspace).view()["revision"]==2
+    assert OperatingStore(workspace).view()["outcomes"][0]["views"]==750
+    with zipfile.ZipFile(io.BytesIO(store.export_zip())) as z:
+        assert b"750" in z.read("TEAM_OWN_OUTCOMES.csv")
