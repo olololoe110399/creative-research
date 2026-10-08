@@ -12,8 +12,8 @@ def test_ai_readiness_checks_all_review_sources_and_playbook(tmp_path: Path) -> 
     workspace = corpus_fixture(tmp_path)
     report = audit_ai_readiness(workspace)
     assert report["status"] == "pass"
-    assert report["targets_checked"] == 4
-    assert report["targets_ready"] == 4
+    assert report["targets_checked"] == 5
+    assert report["targets_ready"] == 5
     assert report["targets_failed"] == 0
     assert {x["mode"] for x in report["results"]} == {
         "investigate", "draft_playbook", "stress_test",
