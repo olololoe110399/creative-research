@@ -1,5 +1,9 @@
 # Creative Research
 
+> **Creative Research turns public creator/operator activity into visual, evidence-backed operating intelligence and actionable playbooks.**
+
+A complete outcome is **not** merely a green pipeline: a nontechnical researcher must understand the operator, click significant claims back to families/posts/media, review trust with counter-evidence, and turn conditional insights into an evidence-linked playbook. See [Research Outcome Acceptance](docs/RESEARCH_OUTCOME_ACCEPTANCE.md).
+
 Reusable evidence and operator-intelligence pipeline for reverse-engineering public creative/distribution systems.
 
 The repository keeps raw evidence immutable, preserves existing Vision analysis, and now adds an operator-aware warehouse foundation:
@@ -60,6 +64,7 @@ build-intelligence-workspace
 intelligence
 intelligence-build
 quality-audit
+outcome-audit
 
 rank-posts
 extract-references
