@@ -10,9 +10,9 @@ After building the canonical master and verified operator registry, run from the
 
     uv run creative-research intelligence-build \
       --operators config/operators.toml \
-      --from-stage workspace
+      --from-stage knowledge
 
-Add --reviews config/knowledge_reviews.toml if a manually reviewed registry exists. Start from --from-stage knowledge instead when knowledge/trust also needs rebuilding. This operation does not scrape TikTok or call Gemini/Vision.
+Add --reviews config/knowledge_reviews.toml if a manually reviewed registry exists. The new knowledge schema triggers a one-time rebuild of older outputs and the workspace schema triggers a Lab refresh; stages after knowledge are rebuilt as dependencies change. To explicitly recompute downstream artifacts, use --from-stage knowledge --force. This does not scrape TikTok, rerun Vision, or modify existing analytical family assignments.
 
 Then run:
 
