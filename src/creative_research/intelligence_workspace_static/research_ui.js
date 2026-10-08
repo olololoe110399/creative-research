@@ -66,7 +66,7 @@ function researchIntelligenceView(){
         badge(num(q.semantic_uncertain)+' semantic flags','warn')+
         badge(num(q.integrity_gaps)+' integrity gaps',q.integrity_gaps?'bad':'good')+
       '</div>'+
-      '<p class="research-limitation">Diagnostic flags do not prove wrong grouping. The engine should revisit ambiguous pairs with cached/optional AI matching; raw media semantics remain uncertain unless independently analyzed.</p>'+
+      '<p class="research-limitation">Diagnostic flags do not prove a bad match. Ambiguous pairs can be reassessed by the upstream calibrated family-judge pipeline; this screen never starts an AI model or requests manual approval.</p>'+
       '<div class="research-quality-list">'+
         (familyFlags||'<div class="empty-state">No flagged repeated families in this snapshot.</div>')+
       '</div></section>'+
