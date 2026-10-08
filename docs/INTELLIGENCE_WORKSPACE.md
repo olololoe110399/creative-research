@@ -152,9 +152,15 @@ Pipeline stages, schema versions, and generated artifacts remain implementation 
 
 Open any Insight Review item for **AI Investigate** and **AI Challenge**,
 or open Operator Playbook for **AI Draft Playbook** and **AI Stress Test**.
-The AI preflight samples both supporting and skeptical evidence without
-calling the provider; a separate confirmation performs one bounded Gemini
-call only when the local Lab has been started with --ai-enabled.
+AI Investigate uses a **source-specific rubric**. Family review compares
+core creative identity, all supplied member hooks, bilingual variants and
+sequence structure—not performance, causal distribution or test-to-scale
+intent. Hypothesis review separately assesses the stated operator claim.
+AI makes proposals only; visually verifying family media remains a human task.
+
+The AI preflight samples supporting and skeptical evidence without calling
+the provider; a separate confirmation performs one bounded Gemini call only
+when the local Lab has been started with --ai-enabled.
 
 AI findings and experiment proposals link to canonical post/family/pattern/
 hypothesis/knowledge IDs. Unknown citations are rejected. Results are saved
