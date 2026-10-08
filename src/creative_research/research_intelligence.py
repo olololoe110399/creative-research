@@ -14,12 +14,6 @@ from typing import Any
 RESEARCH_SCHEMA_VERSION = "research-intelligence-v1"
 # These are diagnostic thresholds, NOT truth/identity verification cutoffs.
 LOW_MATCH_DIAGNOSTIC = 0.67
-_UNSAFE_INTENT = re.compile(
-    r"\b(?:deliberat(?:ely|e)|internal workflow|formal testing|"
-    r"performance-driven scaling|prove[ds]? causation)\b", re.IGNORECASE
-)
-
-
 def _json(value: Any) -> Any:
     if isinstance(value, (dict, list)):
         return value
@@ -188,12 +182,6 @@ def family_diagnostics(
     }
 
 
-def _identity_provenance(strategies: list[dict[str, Any]], type_name: str) -> list[dict[str, Any]]:
-    return [
-        row for row in strategies if row.get("hypothesis_type") == type_name
-    ]
-
-
 def build_research_intelligence(
     *,
     operator_id: str,
@@ -203,7 +191,6 @@ def build_research_intelligence(
     members: list[dict[str, Any]],
     posts: list[dict[str, Any]],
     creative_analysis: list[dict[str, Any]],
-    account_nodes: list[dict[str, Any]],
     playbook_steps: list[dict[str, Any]],
 ) -> dict[str, Any]:
     """Classify claims by epistemic type, not by user Approval status."""
