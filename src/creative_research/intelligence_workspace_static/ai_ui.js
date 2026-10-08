@@ -86,6 +86,9 @@ function aiDrawReport(report){
   }).join('');
   const bullets=function(arr){return '<ul>'+(arr||[]).map(function(item){return '<li>'+esc(item)+'</li>';}).join('')+'</ul>';};
   const reviewMode=report.mode==='investigate'||report.mode==='challenge';
+  const aiAssessment=({approve:'Supported within observed scope',
+    hold:'Uncertain — evidence incomplete',
+    reject:'Contradicted by inspected evidence'})[answer.proposed_review]||'Research proposal';
   const family=answer.family_assessment;
   const familyDetails=(report.source_type==='family'&&family)
     ?'<section class="ai-family-review"><h3>Creative family identity check</h3>'+
@@ -106,8 +109,8 @@ function aiDrawReport(report){
     '<h3>Review target</h3><p><b>'+esc(report.review_question||'')+'</b></p>'+
     '<div class="badges">'+badge(report.review_basis||'research task','info')+'</div>'+
     '<h3>Research summary</h3><p>'+esc(answer.summary||'')+'</p>'+
-    (reviewMode?'<h3>'+esc(report.source_type==='family'?'Suggested family membership decision: ':'Suggested claim decision: ')+
-      esc(label(answer.proposed_review||'hold'))+'</h3>'+
+    (reviewMode?'<h3>'+esc(report.source_type==='family'?'Family evidence assessment: ':'Hypothesis evidence assessment: ')+
+      esc(aiAssessment)+'</h3>'+
       '<p>'+esc(answer.review_rationale||'')+'</p>':'')+
     familyDetails+
     '<h3>Supporting, skeptical and counter evidence</h3>'+
@@ -125,9 +128,8 @@ function aiDrawReport(report){
       ?'<p class="method-note">Family review uses member descriptions, matching and sequence. Views and scaling are deliberately EXCLUDED from the identity decision.</p>'
       :'<p class="method-note">Sampled flows are not statistically representative. Use full-population Research Brief metrics for denominators.</p>')+
     (reviewMode&&report.snapshot_is_current!==false
-      ?'<button class="ai-review-draft" data-ai-review-draft="1">'+
-        'Return to Human Review with editable AI note (no decision saved)</button>'
-      :reviewMode?'<p class="method-note">This historical AI suggestion is stale. Re-run AI review before drafting a human decision.</p>':'')+
+      ?'<button class="ai-review-draft" data-ai-inspect-source="1">Inspect original research evidence</button>'
+      :reviewMode?'<p class="method-note">This report is stale. Re-run AI research before using its assessment.</p>':'')+
     '<button class="ai-history-link" data-ai-reopen-plan="1">Inspect another research mode</button>');
 }
 
@@ -220,21 +222,16 @@ async function aiConfirm(){
   }
 }
 
-function aiDraftReviewNote(){
+function aiInspectResearchSource(){
   const r=aiLastReport;
-  if(!r||!['investigate','challenge'].includes(r.mode))return;
-  if(r.snapshot_is_current===false){toast('Re-run AI research: this report is stale.');return;}
-  const key=r.source_type+':'+r.source_id;
-  if(!data.reviewBySource.has(key))return;
-  openReview(key);
-  const note=$('#review-note');
-  if(note){
-    const a=r.answer||{};
-    note.value=('UNVERIFIED AI suggestion: '+(a.proposed_review||'hold')+
-      '. '+(a.review_rationale||'')+
-      ' Verify original sources and document your OWN judgment before submitting.').slice(0,2500);
+  if(!r)return;
+  if(r.snapshot_is_current===false){toast('Re-run AI research: stale evidence.');return;}
+  if(r.source_type==='family')openFamily(r.source_id);
+  else if(r.source_type==='hypothesis')openStrategy(r.source_id);
+  else if(r.source_type==='playbook_sources'){
+    const first=String(r.source_id||'').split('|')[0];
+    if(first)openStrategy(first);
   }
-  toast('Editable AI note inserted. Approval checkbox remains unchecked.');
 }
 
 function wireAiControls(){
@@ -257,8 +254,8 @@ function wireAiControls(){
   document.querySelectorAll('[data-ai-last]').forEach(function(button){
     button.onclick=function(){if(aiLastReport)aiDrawReport(aiLastReport);};
   });
-  document.querySelectorAll('[data-ai-review-draft]').forEach(function(button){
-    button.onclick=aiDraftReviewNote;
+  document.querySelectorAll('[data-ai-inspect-source]').forEach(function(button){
+    button.onclick=aiInspectResearchSource;
   });
   document.querySelectorAll('[data-ai-reopen-plan]').forEach(function(button){
     button.onclick=function(){if(aiLastReport)aiPreview(
