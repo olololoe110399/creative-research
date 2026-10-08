@@ -539,3 +539,24 @@ def test_lab_projects_flow_lineage_without_changing_role_denominator() -> None:
     assert nodes["B"]["lineage_matches_summary"]
     entry = nodes["B"]["role_lineage"]["imported_families"][0]["flows"][0]
     assert (entry["origin_post_uid"], entry["target_post_uid"]) == ("P1", "P2")
+
+
+def test_review_history_preserves_held_sources_for_reinspection() -> None:
+    frames = _frames()
+    frames["knowledge"].loc[
+        frames["knowledge"]["knowledge_id"].eq("KLES1"),
+        "knowledge_status",
+    ] = "hold"
+    frames["knowledge"].loc[
+        frames["knowledge"]["knowledge_id"].eq("KLES1"),
+        "review_decision",
+    ] = "hold"
+    frames["knowledge"].loc[
+        frames["knowledge"]["knowledge_id"].eq("KLES1"),
+        "review_note",
+    ] = "Evidence insufficient to promote cadence."
+    review = build_workspace_payloads(**frames)["lab.json"]["review"]
+    assert review["pending_sources"] == 1
+    assert review["reviewed_sources"] == 1
+    assert review["reviewed_items"][0]["review_source_id"] == "STR2"
+    assert review["reviewed_items"][0]["existing_review_decision"] == "hold"
