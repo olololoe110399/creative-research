@@ -615,3 +615,133 @@ class OperatingStore:
             for name,content in sorted(allfiles.items()):
                 zf.writestr(name,content)
         return buffer.getvalue()
+
+
+    def import_first_party_csv(self, rows: list[dict[str, str]]) -> dict[str, Any]:
+        """Atomic import into the SAME store as UI results, never production.json."""
+        sources = self._sources()
+        recipes = sources["recipes"]
+        accounts = sources["accounts"]
+        if len(rows) > MAX_RESULTS:
+            raise OperatingError("csv_results_limit_exceeded")
+        prepared: dict[str, dict[str, Any]] = {}
+        for i,row in enumerate(rows,1):
+            if not isinstance(row,dict):
+                raise OperatingError(f"invalid_result_row:{i}")
+            rid = _text(row.get("recipe_id",""),limit=90)
+            source = recipes.get(rid)
+            if source is None:
+                raise OperatingError(f"unknown_csv_recipe:{rid}")
+            account = _text(row.get("account_slot",""),limit=90)
+            if account not in accounts:
+                raise OperatingError(f"unknown_csv_owned_account:{account}")
+            url = _text(row.get("published_url",""),limit=1024)
+            if not _valid_tiktok_post(url):
+                raise OperatingError(f"invalid_csv_tiktok_post:{i}")
+            date = _text(row.get("posted_at",""),limit=60)
+            try:
+                parsed = datetime.fromisoformat(date.replace("Z","+00:00"))
+            except ValueError as exc:
+                raise OperatingError(f"invalid_csv_published_time:{i}") from exc
+            if parsed.tzinfo is None:
+                raise OperatingError(f"csv_published_time_requires_offset:{i}")
+            age = _int(row.get("measurement_age_hours"),minimum=1)
+            if age not in {24,72,168}:
+                raise OperatingError(f"invalid_csv_post_age:{i}")
+            views = _int(row.get("views"),minimum=0)
+            saves = _int(row.get("saves"),minimum=0)
+            shares = _int(row.get("shares"),minimum=0)
+            baseline = _int(row.get("account_median_views"),minimum=1)
+            family = _family_id(source)
+            oid = "import:"+_hash((family,url,age))[:26]
+            if oid in prepared:
+                raise OperatingError(f"duplicate_csv_result:{i}")
+            prepared[oid] = {
+                "outcome_id":oid,
+                "slot_id":None,
+                "account_slot":account,
+                "recipe_id_at_publication":rid,
+                "family_id_at_publication":family,
+                "source_signature":_recipe_signature(source),
+                "published_url":url,
+                "posted_at":date,
+                "age_hours":age,
+                "views":views,"saves":saves,"shares":shares,
+                "age_matched_baseline":baseline,
+                "views_vs_baseline":round(views/baseline,3),
+                "saves_per_view":round(saves/views,6) if views else None,
+                "shares_per_view":round(shares/views,6) if views else None,
+                "notes":_text(row.get("notes",""),limit=800),
+                "evidence_origin":"first_party_user_csv_import",
+                "causal_claim":False,
+                "result_not_linked_to_publishing_slot":True,
+                "recorded_at":_now(),
+            }
+        with self.lock:
+            state = self._load(sources["operator_id"])
+            for oid,item in prepared.items():
+                history=(state["outcomes"].get(oid) or {}).get("history",[])
+                if oid in state["outcomes"]:
+                    previous=dict(state["outcomes"][oid])
+                    previous.pop("history",None)
+                    history=[*history,previous][-25:]
+                item["history"]=history
+            if len(set(state["outcomes"])|set(prepared)) > MAX_RESULTS:
+                raise OperatingError("too_many_results")
+            state["outcomes"].update(prepared)
+            if prepared:
+                state["revision"] += 1
+                state["updated_at"] = _now()
+                self._save(sources["operator_id"],state)
+            return self._view_unlocked(sources,state)
+
+    def import_asset_attestations(self,rows: list[dict[str,str]]) -> dict[str,Any]:
+        """Import actual team rights CSV atomically; never self-authorize publishing."""
+        sources=self._sources()
+        recipes=sources["recipes"]
+        prepared={}
+        seen=set()
+        for row in rows:
+            asset_id=_text(row.get("asset_id",""),limit=90)
+            if asset_id in seen:
+                raise OperatingError("duplicate_csv_asset")
+            seen.add(asset_id)
+            asset=sources["assets"].get(asset_id)
+            if asset is None:
+                raise OperatingError("unknown_csv_asset")
+            status=_text(row.get("rights_status",""),limit=40)
+            if status != "team_attested_licensed":
+                raise OperatingError("csv_rights_must_be_team_attested_licensed")
+            family=_family_id(recipes[asset["recipe_id"]])
+            key=_asset_key(asset,family)
+            location=_text(row.get("file_or_licensed_source_url",""),limit=1500)
+            license_evidence=_text(row.get("license_evidence_url",""),limit=1500)
+            scope=_text(row.get("license_scope",""),limit=600)
+            reviewer=_text(row.get("verified_by",""),limit=120)
+            if not all((location,license_evidence,scope,reviewer)):
+                raise OperatingError("rights_evidence_required")
+            if "tiktok" not in scope.casefold():
+                raise OperatingError("target_platform_rights_scope_required")
+            prepared[key]={
+                "asset_key":key,"asset_id":asset_id,
+                "source_signature":_recipe_signature(sources["families"][family]),
+                "state":"rights_checked",
+                "location":location,"license_evidence":license_evidence,
+                "license_scope":scope,"rights_checked_by":reviewer,
+                "editorial_checked_by":"",
+                "notes":"Imported from team rights attestation CSV; editorial review pending.",
+                "updated_at":_now(),
+                "verified_by_team_not_independent_license_counsel":True,
+            }
+        with self.lock:
+            state=self._load(sources["operator_id"])
+            for key,item in prepared.items():
+                previous=state["assets"].get(key)
+                if previous and previous.get("source_signature")!=item["source_signature"]:
+                    raise OperatingError("source_changed_recheck_required")
+            state["assets"].update(prepared)
+            if prepared:
+                state["revision"] += 1
+                state["updated_at"]=_now()
+                self._save(sources["operator_id"],state)
+            return self._view_unlocked(sources,state)
