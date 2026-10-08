@@ -15,6 +15,7 @@ from creative_research.pathing import project_root
 
 COMMANDS = {
     "scrape": "creative_research.stages.scrape",
+    "operator-setup": "creative_research.stages.operator_setup",
     "select-accounts": "creative_research.stages.select_accounts",
     "prepare-media": "creative_research.stages.prepare_media",
     "manifest-slides": "creative_research.stages.manifest_slides",
@@ -58,7 +59,8 @@ Usage:
   creative-research <command> [options]
 
 Canonical evidence pipeline:
-  scrape             Apify TikTok profile scrape
+  operator-setup     Confirm operator/account grouping once, before scraping
+  scrape             Apify TikTok profile scrape (confirmed grouping required)
   select-accounts    Merge scrape runs and keep selected accounts
   prepare-media      Archive TikTok covers/slides/avatars locally
   manifest-slides    Build manifest for all slideshow posts
@@ -105,7 +107,9 @@ Examples:
   uv run creative-research init
   uv run creative-research status
   uv run creative-research validate
-  uv run creative-research scrape config/target_accounts.example.txt --out data/00_raw/apify/run-001
+  uv run creative-research operator-setup --accounts-file config/target_accounts.example.txt --operator-id OP-001 --name "Operator One" --confirm-same-operator
+  uv run creative-research scrape config/target_accounts.example.txt --operators config/operators.toml --preflight
+  uv run creative-research scrape config/target_accounts.example.txt --operators config/operators.toml --out data/00_raw/apify/run-001
   uv run creative-research prepare-media data/01_selected/targets --out data/02_media/tiktok
   uv run creative-research vision-slides data/03_manifests/slides/full_manifest.csv --out data/04_vision/slides
   uv run creative-research build-master --slides data/04_vision/slides/creative_study_v2.parquet --videos data/04_vision/videos/creative_video_study.parquet
