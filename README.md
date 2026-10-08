@@ -35,11 +35,14 @@ changed evidence. Selecting an experiment is NOT approval of an operator claim.
 
 See [Research Intelligence v3](docs/RESEARCH_INTELLIGENCE_V3.md).
 
-## Optional: AI Research Copilot
+## Optional: deeper AI investigation (loaded only on click)
 
-The Operator Intelligence Lab can investigate a hypothesis, challenge its
-counter-evidence, draft a provisional playbook and stress-test application
-ideas. AI reports remain **provisional research assessments**; every cited source ID
+Research Intelligence is available without AI or human approvals.
+Only when a user clicks **Investigate further with AI (optional)** does the
+Lab check AI availability and lazy-load the investigation dialog.
+The default page never fetches an AI status or loads the AI module.
+If explicitly requested, the model can investigate a hypothesis, challenge
+its counter-evidence, draft a provisional playbook and stress-test ideas. AI reports remain **provisional research assessments**; every cited source ID
 is validated against the materialized research data. AI does not approve
 or certify the operator's hidden actions.
 
