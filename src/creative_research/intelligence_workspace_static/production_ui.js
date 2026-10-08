@@ -273,7 +273,14 @@ function assetLibraryView(){
   return pageHead('Asset Library','Source and clear every visual and sound',
     'Observed sources are evidence. Only team-sourced originals/cleared licenses become production-ready.',
     '<a class="production-download" href="/api/operating/export">↓ Export asset and rights tasks</a>')+
-    productionAssets(data.production||{});
+    productionAssets(data.production||{})+
+    (((operatingState||{}).legacy_asset_clearance||[]).length?
+      '<section class="section"><h2>Historical team rights records (preserved)</h2>'+
+      '<p>Pre-refactor license attestations are retained for recheck, not silently applied to different media.</p>'+
+      '<ul>'+operatingState.legacy_asset_clearance.slice(0,40).map(function(a){
+        return '<li>'+esc(a.asset_id||'asset')+' · '+esc(a.file_or_licensed_source_url||'source missing')+
+          ' · '+badge('historical attestation','warn')+'</li>';
+      }).join('')+'</ul></section>':'');
 }
 function evidenceExplorerView(){
   const modes=[
