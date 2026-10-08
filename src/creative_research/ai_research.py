@@ -228,13 +228,11 @@ class LabCorpus:
     def _strategy_sources(self, source_type: str, source_id: str) -> list[dict[str, Any]]:
         if source_type == "hypothesis":
             item = self.strategy_index.get(source_id)
-            if item is None or not self.source_is_reviewable(source_type, source_id):
+            if item is None:
                 raise ResearchValidationError("unknown_review_source")
             return [item]
         if source_type == "family":
-            if source_id not in self.family_index or not self.source_is_reviewable(
-                source_type, source_id
-            ):
+            if source_id not in self.family_index:
                 raise ResearchValidationError("unknown_review_source")
             return []
         if source_type == "playbook_sources":
