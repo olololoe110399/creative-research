@@ -53,7 +53,12 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--reviews",
         default="config/knowledge_reviews.toml",
-        help="Local human-review registry written by Insight Review.",
+        help="Optional legacy research annotation registry; not a truth gate.",
+    )
+    parser.add_argument(
+        "--enable-legacy-review-actions", action="store_true",
+        help="Compatibility-only: re-enable the historical approve/hold/reject API. "
+             "Not part of automated Research Intelligence.",
     )
     parser.add_argument(
         "--read-only",
@@ -130,6 +135,7 @@ def _make_handler(
     media_records: dict[str, dict[str, Any]],
     ai_service: AIResearchService | None = None,
     experiment_service: ExperimentPlanStore | None = None,
+    allow_legacy_reviews: bool = False,
 ) -> type[http.server.SimpleHTTPRequestHandler]:
     class LabHandler(http.server.SimpleHTTPRequestHandler):
         def __init__(self, *args: Any, **kwargs: Any) -> None:
@@ -224,6 +230,13 @@ def _make_handler(
                 return
             if self.path != "/api/review":
                 _json_response(self, 404, {"error": "not_found"})
+                return
+            if not allow_legacy_reviews:
+                _json_response(
+                    self, 410,
+                    {"error": "human_truth_approval_retired",
+                     "help": "Use Research Intelligence and My Experiments."},
+                )
                 return
             if read_only:
                 _json_response(
@@ -435,6 +448,7 @@ def main() -> None:
         media_records=media_records,
         ai_service=ai_service,
         experiment_service=ExperimentPlanStore(root),
+        allow_legacy_reviews=args.enable_legacy_review_actions,
     )
     server = http.server.ThreadingHTTPServer(
         (args.host, args.port),
@@ -450,8 +464,12 @@ def main() -> None:
     print(f"Operator Intelligence Lab: {root}")
     print(f"Serving:                   {url}")
     print(
-        "Review actions:            "
-        + ("disabled" if args.read_only else f"enabled → {reviews_path}")
+        "Legacy review writes:      "
+        + (
+            f"opt-in enabled → {reviews_path}"
+            if args.enable_legacy_review_actions and not args.read_only
+            else "disabled (not required for Research Intelligence)"
+        )
     )
     print(
         "AI Research Copilot:      "
