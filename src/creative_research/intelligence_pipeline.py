@@ -38,6 +38,7 @@ class StageSpec:
     inputs: tuple[Path, ...]
     outputs: tuple[Path, ...]
     args: tuple[str, ...]
+    report_expectations: tuple[tuple[Path, str, object], ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -272,6 +273,13 @@ def build_stage_specs(config: PipelineConfig) -> tuple[StageSpec, ...]:
                 "--out",
                 str(master_dir),
             ),
+            report_expectations=(
+                (
+                    master_dir / "warehouse_report.json",
+                    "operator_registry",
+                    str(config.operators.resolve()),
+                ),
+            ),
         ),
         StageSpec(
             name="performance",
@@ -295,6 +303,13 @@ def build_stage_specs(config: PipelineConfig) -> tuple[StageSpec, ...]:
                 str(analytics),
                 "--timezone",
                 config.timezone,
+            ),
+            report_expectations=(
+                (
+                    analytics / "cadence_report.json",
+                    "timezone",
+                    config.timezone,
+                ),
             ),
         ),
         StageSpec(
@@ -370,6 +385,13 @@ def build_stage_specs(config: PipelineConfig) -> tuple[StageSpec, ...]:
                 "--out",
                 str(analytics),
             ),
+            report_expectations=(
+                (
+                    analytics / "strategy_timeline_report.json",
+                    "timezone",
+                    config.timezone,
+                ),
+            ),
         ),
         StageSpec(
             name="patterns",
@@ -438,6 +460,13 @@ def build_stage_specs(config: PipelineConfig) -> tuple[StageSpec, ...]:
             ),
             outputs=knowledge_outputs,
             args=tuple(knowledge_args),
+            report_expectations=(
+                (
+                    knowledge / "knowledge_report.json",
+                    "reviews_source",
+                    str(config.reviews.resolve()) if config.reviews is not None else None,
+                ),
+            ),
         ),
         StageSpec(
             name="workspace",
@@ -535,6 +564,18 @@ def stage_freshness(spec: StageSpec) -> tuple[str, str]:
         rendered = ", ".join(str(path) for path in missing_outputs[:4])
         suffix = " ..." if len(missing_outputs) > 4 else ""
         return "run", f"missing outputs: {rendered}{suffix}"
+
+    for report_path, key, expected in spec.report_expectations:
+        try:
+            import json
+            payload = json.loads(report_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            return "run", f"cannot verify stage parameters from {report_path}"
+        if payload.get(key) != expected:
+            return (
+                "run",
+                f"stage parameter {key} changed from {payload.get(key)!r} to {expected!r}",
+            )
 
     existing_inputs = _existing_inputs(spec.inputs)
     newest_input = max(path.stat().st_mtime_ns for path in existing_inputs)
