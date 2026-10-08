@@ -24,7 +24,7 @@ function researchIntelligenceView(){
       '<div class="research-meta">Model confidence: '+num(item.confidence_score)+
       ' · Not evidence of operator intent</div>'+
       '<button class="link-button" data-strategy="'+esc(sid)+'">Evidence, counters and alternatives →</button>'+
-      aiControlsMarkup('hypothesis',sid,['investigate','challenge'])+
+      optionalAiButton('hypothesis',sid,'investigate')+
       '</article>';
   }).join('');
   const unknown=(r.unknown||[]).map(function(item){
@@ -107,7 +107,7 @@ function researchPlaybookView(){
       '<p>The system generates candidate experiments automatically. Human approval of an operator hypothesis is never a prerequisite.</p></div>'+
       badge(num(rows.length)+' candidates','info')+'</div>'+
       '<button class="hero-link research-go" data-go="experiments">My Experiment Plan ('+num(selected.size)+') →</button>'+
-      aiControlsMarkup('operator',research.operator_id,['draft_playbook','stress_test'])+'</div>'+
+      optionalAiButton('operator',research.operator_id,'draft_playbook')+'</div>'+
     '<div class="playbook-grid">'+(cards||'<div class="empty-state">No experiment suggestions available.</div>')+'</div>'+
     '<p class="research-limitation">Research evidence is observational. Direct tests and outcome measures belong to your own accounts; avoid copying original creative verbatim.</p>';
 }
