@@ -41,7 +41,7 @@ Older Lab exports must be regenerated after upgrading; the workspace contract is
 |---|---|
 | fail | Missing/broken lineage, counts, trust state, or decision mapping. |
 | conditional_pass | Research contracts pass, but human-reviewed knowledge or catalog playbook is incomplete. |
-| ready_for_usability_test | Research contracts pass, reviewed source steps and a trusted catalog playbook exist; real user testing still outstanding. |
+| ready_for_usability_test | Research contracts pass, all three core claim-steps (explore/select/distribute) have human-approved sources, and the operator-specific catalog playbook is human-approved. Optional adaptation may remain unverified and must stay provisional; real user testing is still outstanding. |
 
 quality_report.json checks the engine's integrity. outcome_acceptance_report.json checks evidence-to-decision presentation. They do not replace each other.
 
@@ -79,3 +79,5 @@ Record elapsed time, task completion, where the user needed help and whether arc
 - A research draft is not silently inserted into the knowledge catalog. If there is no trusted playbook, the UI explicitly reports that absence.
 - An exported JSON URL for local media does not prove the actual file exists or plays in a different browser/environment.
 - The automated audit cannot validate the semantics of every family or human comprehension.
+
+**Never approve weak adaptation evidence just to pass an audit.** Core operating-model review is separate from optional adaptation validation. Unsupported adaptation remains provisional, even when the model is ready for real usability testing.
