@@ -967,6 +967,7 @@ def main() -> None:
                 str(sequence_path) if sequence is not None else None
             ),
             "dry_run": args.dry_run,
+            "max_api_calls": max(1, args.max_api_calls),
         }
     )
 
