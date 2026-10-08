@@ -201,5 +201,11 @@ function resultsAndLearningsView(){
       '</tbody></table></div></section>'+
     (legacy?'<section class="section"><h2>Migrated historical experiment selections</h2><ul>'+legacy+
       '</ul><p>Read-only import from previous My Experiments; no data silently discarded.</p></section>':'')+
+    ((op.legacy_results||[]).length?'<section class="section"><h2>Historical CSV outcomes ('+
+      num(op.legacy_results.length)+')</h2><p>Imported from old production.json before rebuild. These values were not necessarily age-matched or matched to a publishing slot and are NOT merged into validated results.</p>'+
+      '<ul>'+op.legacy_results.slice(0,50).map(function(r){
+        return '<li>'+esc(r.recipe_id||'recipe unknown')+' · '+num(r.views)+
+          ' views · '+esc(r.published_url||'URL missing')+'</li>';
+      }).join('')+'</ul></section>':'')+
     productionLearnings(kit);
 }
