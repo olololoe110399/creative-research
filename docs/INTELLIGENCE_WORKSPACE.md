@@ -1,4 +1,4 @@
-# Operator Intelligence Workspace
+# Operator Intelligence Lab
 
 The Operator Intelligence Workspace is a generated browser UI over the existing warehouse, analytics, strategy, and knowledge outputs.
 
@@ -14,9 +14,7 @@ uv run creative-research build-intelligence-workspace \
 Serve it locally:
 
 ```bash
-uv run creative-research intelligence \
-  --dir data/07_exports/operator-intelligence \
-  --open
+uv run creative-research lab --open
 ```
 
 ## Views
@@ -131,3 +129,44 @@ Keeping them separate prevents the research UI from becoming overloaded and prev
 ## Packaging
 
 The static intelligence assets are bundled in the Python wheel and checked in CI alongside the existing Reference Workspace assets.
+
+
+## Product views
+
+The Lab deliberately leads with research value instead of implementation stages:
+
+1. **Research Brief** — operating model, most useful findings, repeated-concept statistics, explicit claim guardrails, top creative families, and account roles.
+2. **Account Network** — visual origin → receiver chronology with evidence-gated role labels and strongest cross-account flows.
+3. **Creative Library** — repeated concepts shown as visual executions with thumbnails, member/account coverage, chronology, and post-level drill-down.
+4. **Insight Review** — source-level Tier 1/2/3 human review with Approve / Need more evidence / Reject actions.
+5. **Advanced** — strategy hypotheses, patterns, knowledge, timeline, and canonical evidence for expert inspection.
+
+Pipeline stages, schema versions, and generated artifacts remain implementation details rather than the default navigation.
+
+## Human review in the Lab
+
+When served locally without `--read-only`, Insight Review writes decisions to:
+
+```text
+config/knowledge_reviews.toml
+```
+
+A decision immediately rebuilds only the trust-dependent layers:
+
+```text
+knowledge → workspace → quality audit
+```
+
+It does not rerun scraping, Vision, family clustering, propagation, or strategy inference.
+
+Use:
+
+```bash
+uv run creative-research lab --open --read-only
+```
+
+when the research surface should be browse-only.
+
+## Product boundary
+
+The Lab does not invent new findings in the browser. `lab.json` is a productized projection of existing operator/account/family/strategy/knowledge evidence. Statements remain traceable to strategy hypotheses and canonical evidence.
