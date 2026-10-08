@@ -56,8 +56,15 @@ relative performance        account/operator chronology
              creative family candidates
                        |
                        v
+              analyze-propagation
+                       |
+                       v
+        cross-account propagation
+        + account role evidence
+                       |
+                       v
           future evidence intelligence
-      propagation -> patterns -> strategies
+      patterns -> strategy periods -> strategies
       -> rules -> lessons -> templates
       -> playbooks
 ```
@@ -72,7 +79,8 @@ relative performance        account/operator chronology
 6. Performance analytics: deterministic relative baselines over the observed historical metrics.
 7. Cadence analytics: deterministic account/operator posting chronology over stored timestamps.
 8. Creative families: deterministic candidate groupings of repeated concepts with per-member similarity evidence.
-9. Reference Workspace: a generated decision surface over the evidence, not a new truth source.
+9. Propagation analytics: observed family entries/movement across verified operator accounts plus descriptive account-role evidence.
+10. Reference Workspace: a generated decision surface over the evidence, not a new truth source.
 
 ## Invariants
 
@@ -86,6 +94,8 @@ relative performance        account/operator chronology
 - Creative families never cross verified operator boundaries.
 - Every post remains represented; unmatched posts become singleton families.
 - Family membership keeps origin/nearest-member scores and component-level evidence.
+- Propagation means later observed appearance inside a family; it is not causal proof.
+- Account-role evidence remains descriptive until a later strategy inference stage.
 - `creative_master` has one row per unique `account+post_id`.
 - Stable canonical post IDs are deterministic and shared with the Reference Workspace.
 - By default every observed account must map to a manually maintained operator registry entry.

@@ -11,6 +11,8 @@
 - Add `data/06_analytics/` as the deterministic analytics layer between canonical evidence and future strategy inference.
 - Add `build-families` for deterministic operator-scoped creative-family candidates using existing Vision features and ordered sequence evidence.
 - Preserve every post through singleton families and retain per-member similarity evidence, origin post, representative post, cohesion, lifecycle, cross-account coverage, and relative-performance summaries.
+- Add `analyze-propagation` to derive family account entries, cross-account propagation events, origin/sequence account edges, creative-dimension changes, and descriptive account-role evidence.
+- Keep propagation chronology explicitly non-causal and defer testing/scaling/conversion strategy labels to later inference.
 
 ## 0.9.1 - 2026-10-07
 
