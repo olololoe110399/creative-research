@@ -6,59 +6,6 @@
 let myExperimentPlan={entries:[],selected_keys:[],selected_count:0};
 let experimentLoadError='';
 
-/* Deep AI analysis is optional. The default research UI neither loads the
- * provider client nor requests an AI status, model or report. Only an explicit
- * click fetches capabilities and, if enabled, lazily loads the AI dialog.
- */
-let optionalAiScriptLoading=null;
-
-function optionalAiButton(kind,id,mode){
-  if(!id)return '';
-  const labelText=mode==='draft_playbook'?'Explore playbook further with AI':'Investigate further with AI';
-  return '<button type="button" class="research-optional-ai" '+
-    'data-deep-ai-kind="'+esc(kind)+'" data-deep-ai-id="'+esc(id)+
-    '" data-deep-ai-mode="'+esc(mode)+'">'+esc(labelText)+' (optional) ↗</button>';
-}
-
-async function launchOptionalAI(button){
-  const kind=button.dataset.deepAiKind;
-  const id=button.dataset.deepAiId;
-  const mode=button.dataset.deepAiMode;
-  button.disabled=true;
-  try{
-    // No request is made on page load. Preflight does not invoke Gemini.
-    const response=await fetch('/api/ai/status',{cache:'no-store'});
-    if(!response.ok)throw new Error('AI capability check failed');
-    const status=await response.json();
-    if(!status.enabled||!status.configured){
-      toast('AI is optional and currently off. To use it, start the Lab with --ai-enabled and GEMINI_API_KEY.');
-      return;
-    }
-    if(typeof startAiResearch!=='function'){
-      if(!optionalAiScriptLoading){
-        optionalAiScriptLoading=new Promise(function(resolve,reject){
-          const script=document.createElement('script');
-          script.src='ai_ui.js';
-          script.async=true;
-          script.onload=resolve;
-          script.onerror=function(){reject(new Error('Could not load optional AI tools'));};
-          document.head.appendChild(script);
-        }).catch(function(error){
-          optionalAiScriptLoading=null;
-          throw error;
-        });
-      }
-      await optionalAiScriptLoading;
-    }
-    if(typeof startAiResearch!=='function')throw new Error('AI research controls unavailable');
-    startAiResearch(status,mode,kind,id);
-  }catch(error){
-    toast('Optional AI investigation unavailable: '+error.message);
-  }finally{
-    button.disabled=false;
-  }
-}
-
 function researchIntelligenceView(){
   const r=data.lab.research_intelligence||{};
   const stats=r.counts||{}, qa=r.family_quality||{}, q=qa.counts||{};
@@ -77,7 +24,6 @@ function researchIntelligenceView(){
       '<div class="research-meta">Model confidence: '+num(item.confidence_score)+
       ' · Not evidence of operator intent</div>'+
       '<button class="link-button" data-strategy="'+esc(sid)+'">Evidence, counters and alternatives →</button>'+
-      optionalAiButton('hypothesis',sid,'investigate')+
       '</article>';
   }).join('');
   const unknown=(r.unknown||[]).map(function(item){
@@ -160,7 +106,7 @@ function researchPlaybookView(){
       '<p>The system generates candidate experiments automatically. Human approval of an operator hypothesis is never a prerequisite.</p></div>'+
       badge(num(rows.length)+' candidates','info')+'</div>'+
       '<button class="hero-link research-go" data-go="experiments">My Experiment Plan ('+num(selected.size)+') →</button>'+
-      optionalAiButton('operator',research.operator_id,'draft_playbook')+'</div>'+
+      '</div>'+
     '<div class="playbook-grid">'+(cards||'<div class="empty-state">No experiment suggestions available.</div>')+'</div>'+
     '<p class="research-limitation">Research evidence is observational. Direct tests and outcome measures belong to your own accounts; avoid copying original creative verbatim.</p>';
 }
@@ -239,9 +185,6 @@ async function editExperimentPlan(key,action){
 }
 
 function wireResearchControls(){
-  document.querySelectorAll('[data-deep-ai-kind]').forEach(function(button){
-    button.onclick=function(){launchOptionalAI(button);};
-  });
   document.querySelectorAll('[data-exp-key]').forEach(function(button){
     button.onclick=function(){
       editExperimentPlan(button.dataset.expKey,button.dataset.expAction);
