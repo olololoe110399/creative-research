@@ -2,12 +2,7 @@
 from __future__ import annotations
 import re
 from typing import Any
-
-def _text(value: Any) -> str:
-    return str(value or "").strip()
-
-def _slug(value: Any) -> str:
-    return " ".join(re.findall(r"\w+", _text(value).casefold(), flags=re.UNICODE))
+from creative_research.production_fields import _slug
 
 def _creative_kind(topic: str, angle: str, hook: str) -> str:
     t = " ".join([topic, angle, hook]).casefold()
