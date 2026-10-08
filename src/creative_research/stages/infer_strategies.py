@@ -61,6 +61,11 @@ ALTERNATIVE_EXPLANATIONS = {
         "Incomplete historical coverage can make one account look like the origin when earlier posts are missing.",
         "Cross-account family reuse does not prove an explicit internal test-then-scale process.",
     ],
+    "selective_cross_account_reuse_model": [
+        "Cross-account reuse may include routine cross-posting rather than deliberate portfolio-level propagation.",
+        "Family clustering thresholds affect which executions count as repeated concepts.",
+        "The historical sample may omit deleted or unsampled variants, changing the observed reuse rate.",
+    ],
     "preserve_core_vary_execution": [
         "The family clustering method already favors conceptual similarity, so preserved core dimensions are partly expected.",
         "Execution changes may be driven by account format constraints rather than deliberate creative iteration.",
@@ -412,6 +417,15 @@ def _account_role_hypotheses(
                     "receiver_signal": receiver,
                     "family_origin_rate": family_origin_rate,
                     "outbound_propagation_rate": outbound_rate,
+                    "cross_account_origin_rate": _numeric(
+                        metrics.get("cross_account_origin_rate")
+                    ),
+                    "cross_account_import_rate": _numeric(
+                        metrics.get("cross_account_import_rate")
+                    ),
+                    "cross_account_flow_observations": _int(
+                        metrics.get("cross_account_flow_observations")
+                    ),
                 },
                 confidence_cap=0.82,
             )
@@ -464,6 +478,15 @@ def _account_role_hypotheses(
                     "receiver_signal": receiver,
                     "amplifier_signal": amplifier,
                     "imported_family_rate": imported_rate,
+                    "cross_account_origin_rate": _numeric(
+                        metrics.get("cross_account_origin_rate")
+                    ),
+                    "cross_account_import_rate": _numeric(
+                        metrics.get("cross_account_import_rate")
+                    ),
+                    "cross_account_flow_observations": _int(
+                        metrics.get("cross_account_flow_observations")
+                    ),
                 },
                 alternative_explanations=ALTERNATIVE_EXPLANATIONS[
                     "account_reuse_amplification"
@@ -541,8 +564,19 @@ def _operator_explore_propagate_hypotheses(
         reuse_metrics: dict[str, Any] = {}
         if reuse is not None:
             reuse_metrics = _pattern_metrics(reuse)
-            cross_rate = _numeric(reuse_metrics.get("cross_account_family_rate"))
-            if cross_rate is not None and cross_rate >= 0.20:
+            cross_rate = _numeric(
+                reuse_metrics.get("cross_account_family_rate")
+            )
+            conditional_cross_rate = _numeric(
+                reuse_metrics.get("cross_account_share_of_repeated")
+            )
+            if (
+                (cross_rate is not None and cross_rate >= 0.20)
+                or (
+                    conditional_cross_rate is not None
+                    and conditional_cross_rate >= 0.70
+                )
+            ):
                 support_patterns.append(reuse)
 
         if len(support_patterns) < 2:
@@ -675,6 +709,71 @@ def _mutation_hypotheses(
                 counter_patterns,
             )
         )
+
+    return hypotheses, links
+
+
+def _selective_cross_account_reuse_hypotheses(
+    patterns: pd.DataFrame,
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    hypotheses: list[dict[str, Any]] = []
+    links: list[dict[str, Any]] = []
+
+    for pattern in _pattern_rows(
+        patterns,
+        pattern_type="cross_account_reuse_conditional",
+        scope_type="operator",
+    ):
+        operator_id = _clean(pattern.get("operator_id"))
+        if operator_id is None:
+            continue
+
+        metrics = _pattern_metrics(pattern)
+        repeated_rate = _numeric(metrics.get("multi_post_family_rate"))
+        repeated_families = _int(metrics.get("multi_post_families"))
+        cross_repeated = _int(
+            metrics.get("cross_account_repeated_families")
+        )
+        cross_share = _numeric(
+            metrics.get("cross_account_share_of_repeated")
+        )
+        if (
+            repeated_rate is None
+            or cross_share is None
+            or repeated_families < 5
+            or repeated_rate > 0.25
+            or cross_share < 0.70
+        ):
+            continue
+
+        hypothesis = _make_hypothesis(
+            hypothesis_type="selective_cross_account_reuse_model",
+            scope_type="operator",
+            scope_id=operator_id,
+            operator_id=operator_id,
+            account_id=None,
+            key="selective-cross-account-reuse",
+            title="Operator likely uses selective cross-account creative reuse",
+            claim=(
+                "Most observed creative families are one-offs, but when a family is reused, "
+                "the repeated executions usually appear across multiple verified accounts. "
+                "This is consistent with selective distributed propagation rather than "
+                "high-frequency iteration of every concept."
+            ),
+            supports=[pattern],
+            evidence_summary={
+                "multi_post_family_rate": repeated_rate,
+                "multi_post_families": repeated_families,
+                "cross_account_repeated_families": cross_repeated,
+                "cross_account_share_of_repeated": cross_share,
+            },
+            alternative_explanations=ALTERNATIVE_EXPLANATIONS[
+                "selective_cross_account_reuse_model"
+            ],
+            confidence_cap=0.88,
+        )
+        hypotheses.append(hypothesis)
+        links.extend(_pattern_link_rows(hypothesis, [pattern], []))
 
     return hypotheses, links
 
@@ -910,6 +1009,7 @@ def build_strategy_hypothesis_tables(
 
     generators = [
         _operator_explore_propagate_hypotheses(patterns, account_hypotheses),
+        _selective_cross_account_reuse_hypotheses(patterns),
         _mutation_hypotheses(patterns),
         _iterative_reuse_hypotheses(patterns),
         _cadence_hypotheses(patterns),
