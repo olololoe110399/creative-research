@@ -16,6 +16,7 @@ WORKSPACE_DIRS = (
     "data/04_vision/videos",
     "data/05_master",
     "data/06_analytics",
+    "data/07_knowledge",
     "data/07_exports",
 )
 
