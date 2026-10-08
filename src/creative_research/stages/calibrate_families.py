@@ -30,6 +30,7 @@ from creative_research.stages.build_families import (
     _normalize_text,
     _sequence_similarity,
     _text_similarity,
+    _text_similarity_upper_bound,
     compare_features,
 )
 from creative_research.validation import read_table
@@ -63,6 +64,7 @@ SEMANTIC_TEXT_WEIGHTS: dict[str, float] = {
 DEFAULT_MIN_STRUCTURE = 0.42
 DEFAULT_MIN_COMBINED = 0.55
 DEFAULT_MAX_PAIRS = 50_000
+DEFAULT_PROGRESS_EVERY = 5_000
 
 SCORE_THRESHOLDS = (0.50, 0.55, 0.60, 0.65, 0.70, 0.75, 0.80, 0.85)
 
@@ -310,6 +312,124 @@ def semantic_text_components(
     }
 
 
+def _informative(value: Any) -> str | None:
+    text = _normalize_text(value)
+    if not text or text in {"other", "uncertain", "unknown", "none"}:
+        return None
+    return text
+
+
+def _blocking_keys(item: CalibrationPost) -> tuple[tuple[str, ...], ...]:
+    angle = _informative(item.content_angle)
+    value = _informative(item.value_type)
+    hook = _informative(item.hook_technique)
+    fmt = _informative(item.format_value)
+    roles = "|".join(item.sequence_roles) if item.sequence_roles else None
+
+    keys: list[tuple[str, ...]] = []
+    for name, left, right in (
+        ("angle_value", angle, value),
+        ("angle_hook", angle, hook),
+        ("angle_format", angle, fmt),
+        ("value_hook", value, hook),
+    ):
+        if left and right:
+            keys.append((name, left, right))
+    if angle and roles:
+        keys.append(("angle_roles", angle, roles))
+    if roles and len(item.sequence_roles) >= 3:
+        keys.append(("roles", roles))
+    return tuple(keys)
+
+
+def _candidate_pairs(
+    items: list[CalibrationPost],
+    family_lookup: dict[str, str],
+) -> tuple[list[tuple[int, int]], dict[str, Any]]:
+    blocks: dict[tuple[str, ...], list[int]] = {}
+    for index, item in enumerate(items):
+        for key in _blocking_keys(item):
+            blocks.setdefault(key, []).append(index)
+
+    candidate_set: set[tuple[int, int]] = set()
+    for indexes in blocks.values():
+        if len(indexes) < 2:
+            continue
+        for position, left_index in enumerate(indexes):
+            for right_index in indexes[position + 1 :]:
+                if items[left_index].operator_id != items[right_index].operator_id:
+                    continue
+                pair = (
+                    left_index if left_index < right_index else right_index,
+                    right_index if left_index < right_index else left_index,
+                )
+                candidate_set.add(pair)
+
+    # Always retain already-grouped family pairs as positive controls so the
+    # blocker recall can be measured rather than assumed.
+    family_indexes: dict[str, list[int]] = {}
+    for index, item in enumerate(items):
+        family_id = family_lookup.get(item.post_uid)
+        if family_id:
+            family_indexes.setdefault(family_id, []).append(index)
+
+    existing_family_pairs: set[tuple[int, int]] = set()
+    for indexes in family_indexes.values():
+        if len(indexes) < 2:
+            continue
+        for position, left_index in enumerate(indexes):
+            for right_index in indexes[position + 1 :]:
+                pair = (
+                    left_index if left_index < right_index else right_index,
+                    right_index if left_index < right_index else left_index,
+                )
+                existing_family_pairs.add(pair)
+                candidate_set.add(pair)
+
+    candidate_pairs = sorted(candidate_set)
+    recovered = len(existing_family_pairs & candidate_set)
+    recall = (
+        float(recovered / len(existing_family_pairs))
+        if existing_family_pairs
+        else None
+    )
+    stats = {
+        "blocking_keys": len(blocks),
+        "candidate_pairs_generated": len(candidate_pairs),
+        "existing_family_pairs": len(existing_family_pairs),
+        "existing_family_pairs_recovered": recovered,
+        "existing_family_pair_recall": recall,
+    }
+    return candidate_pairs, stats
+
+
+def _semantic_upper_bound_components(
+    left: CalibrationPost,
+    right: CalibrationPost,
+) -> dict[str, float | None]:
+    return {
+        "niche": _text_similarity_upper_bound(left.niche, right.niche),
+        "topic": _text_similarity_upper_bound(left.topic, right.topic),
+        "pain_point": _text_similarity_upper_bound(left.pain_point, right.pain_point),
+        "desired_outcome": _text_similarity_upper_bound(
+            left.desired_outcome,
+            right.desired_outcome,
+        ),
+        "hook_formula": _text_similarity_upper_bound(
+            left.hook_formula,
+            right.hook_formula,
+        ),
+        "creative_formula": _text_similarity_upper_bound(
+            left.creative_formula,
+            right.creative_formula,
+        ),
+        "visual_description": _text_similarity_upper_bound(
+            left.visual_description,
+            right.visual_description,
+        ),
+    }
+
+
 def _family_lookup(
     members: pd.DataFrame | None,
 ) -> dict[str, str]:
@@ -415,6 +535,8 @@ def calibrate_family_pairs(
     min_structure: float = DEFAULT_MIN_STRUCTURE,
     min_combined: float = DEFAULT_MIN_COMBINED,
     max_pairs: int = DEFAULT_MAX_PAIRS,
+    progress_every: int = 0,
+    progress_callback: Any | None = None,
 ) -> tuple[pd.DataFrame, dict[str, Any]]:
     calibration_posts = _build_calibration_posts(posts, analysis, sequence)
     production_lookup = _production_feature_lookup(posts, analysis, sequence)
@@ -424,10 +546,19 @@ def calibrate_family_pairs(
     for item in calibration_posts:
         by_operator.setdefault(item.operator_id, []).append(item)
 
+    theoretical_pairs = sum(
+        len(items) * (len(items) - 1) // 2
+        for items in by_operator.values()
+    )
+    candidate_pairs, blocking_stats = _candidate_pairs(
+        calibration_posts,
+        family_lookup,
+    )
+
     pair_heap: list[tuple[float, int, dict[str, Any]]] = []
     pair_counter = 0
-    all_pairs = 0
     structure_screened = 0
+    semantic_upper_pruned = 0
     semantic_scored = 0
     retained_before_cap = 0
     cross_language_retained = 0
@@ -447,78 +578,169 @@ def calibrate_family_pairs(
         for threshold in SCORE_THRESHOLDS
     }
 
-    for operator_id in sorted(by_operator):
-        operator_posts = by_operator[operator_id]
-        for index, left in enumerate(operator_posts):
-            for right in operator_posts[index + 1 :]:
-                all_pairs += 1
-                structure_parts = structure_components(left, right)
-                structure = _weighted_score(
-                    structure_parts,
-                    STRUCTURE_WEIGHTS,
+    minimum_exact_combined = min(
+        min_combined,
+        min(SCORE_THRESHOLDS),
+    )
+    total_candidates = len(candidate_pairs)
+
+    for processed, (left_index, right_index) in enumerate(
+        candidate_pairs,
+        start=1,
+    ):
+        left = calibration_posts[left_index]
+        right = calibration_posts[right_index]
+
+        structure_parts = structure_components(left, right)
+        structure = _weighted_score(
+            structure_parts,
+            STRUCTURE_WEIGHTS,
+        )
+        if structure is None:
+            continue
+
+        for threshold in SCORE_THRESHOLDS:
+            if structure >= threshold:
+                structure_threshold_counts[f"{threshold:.2f}"] += 1
+
+        if structure < min_structure:
+            if (
+                progress_callback is not None
+                and progress_every > 0
+                and (
+                    processed % progress_every == 0
+                    or processed == total_candidates
                 )
-                if structure is None:
-                    continue
-                for threshold in SCORE_THRESHOLDS:
-                    if structure >= threshold:
-                        structure_threshold_counts[f"{threshold:.2f}"] += 1
-
-                if structure < min_structure:
-                    continue
-                structure_screened += 1
-
-                semantic_parts = semantic_text_components(left, right)
-                semantic_text = _weighted_score(
-                    semantic_parts,
-                    SEMANTIC_TEXT_WEIGHTS,
+            ):
+                progress_callback(
+                    processed,
+                    total_candidates,
+                    structure_screened,
+                    semantic_scored,
+                    retained_before_cap,
                 )
-                semantic_scored += 1
+            continue
+        structure_screened += 1
 
-                production_score: float | None = None
-                left_prod = production_lookup.get(left.post_uid)
-                right_prod = production_lookup.get(right.post_uid)
-                if left_prod is not None and right_prod is not None:
-                    production_score = compare_features(
-                        left_prod,
-                        right_prod,
-                    )[0]
+        semantic_upper_parts = _semantic_upper_bound_components(
+            left,
+            right,
+        )
+        semantic_upper = _weighted_score(
+            semantic_upper_parts,
+            SEMANTIC_TEXT_WEIGHTS,
+        )
+        if semantic_upper is None:
+            combined_upper = structure
+        else:
+            combined_upper = (
+                0.72 * structure + 0.28 * semantic_upper
+            )
+        if combined_upper < minimum_exact_combined:
+            semantic_upper_pruned += 1
+            continue
 
-                row = _pair_row(
-                    left,
-                    right,
-                    structure=structure,
-                    semantic_text=semantic_text,
-                    production_score=production_score,
-                    current_family_lookup=family_lookup,
-                    structure_parts=structure_parts,
-                    semantic_parts=semantic_parts,
+        semantic_parts = semantic_text_components(left, right)
+        semantic_text = _weighted_score(
+            semantic_parts,
+            SEMANTIC_TEXT_WEIGHTS,
+        )
+        semantic_scored += 1
+
+        combined = (
+            0.72 * structure + 0.28 * semantic_text
+            if semantic_text is not None
+            else structure
+        )
+
+        left_family = family_lookup.get(left.post_uid)
+        right_family = family_lookup.get(right.post_uid)
+        same_current_family = (
+            left_family is not None
+            and right_family is not None
+            and left_family == right_family
+        )
+        cross_language = (
+            bool(left.primary_language_code)
+            and bool(right.primary_language_code)
+            and left.primary_language_code != right.primary_language_code
+        )
+        cross_account = left.account_id != right.account_id
+
+        for threshold in SCORE_THRESHOLDS:
+            if combined >= threshold:
+                bucket = threshold_counts[f"{threshold:.2f}"]
+                bucket["combined"] += 1
+                bucket["cross_language"] += int(cross_language)
+                bucket["cross_account"] += int(cross_account)
+                bucket["currently_split"] += int(
+                    not same_current_family
                 )
-                combined = float(row["combined_score"])
 
-                for threshold in SCORE_THRESHOLDS:
-                    if combined >= threshold:
-                        bucket = threshold_counts[f"{threshold:.2f}"]
-                        bucket["combined"] += 1
-                        bucket["cross_language"] += int(row["cross_language"])
-                        bucket["cross_account"] += int(row["cross_account"])
-                        bucket["currently_split"] += int(
-                            not row["same_current_family"]
-                        )
+        if combined < min_combined:
+            if (
+                progress_callback is not None
+                and progress_every > 0
+                and (
+                    processed % progress_every == 0
+                    or processed == total_candidates
+                )
+            ):
+                progress_callback(
+                    processed,
+                    total_candidates,
+                    structure_screened,
+                    semantic_scored,
+                    retained_before_cap,
+                )
+            continue
 
-                if combined < min_combined:
-                    continue
+        production_score: float | None = None
+        left_prod = production_lookup.get(left.post_uid)
+        right_prod = production_lookup.get(right.post_uid)
+        if left_prod is not None and right_prod is not None:
+            production_score = compare_features(
+                left_prod,
+                right_prod,
+            )[0]
 
-                retained_before_cap += 1
-                cross_language_retained += int(row["cross_language"])
-                same_family_retained += int(row["same_current_family"])
-                pair_counter += 1
-                heap_item = (combined, pair_counter, row)
-                if max_pairs <= 0:
-                    continue
-                if len(pair_heap) < max_pairs:
-                    heapq.heappush(pair_heap, heap_item)
-                elif combined > pair_heap[0][0]:
-                    heapq.heapreplace(pair_heap, heap_item)
+        row = _pair_row(
+            left,
+            right,
+            structure=structure,
+            semantic_text=semantic_text,
+            production_score=production_score,
+            current_family_lookup=family_lookup,
+            structure_parts=structure_parts,
+            semantic_parts=semantic_parts,
+        )
+
+        retained_before_cap += 1
+        cross_language_retained += int(row["cross_language"])
+        same_family_retained += int(row["same_current_family"])
+        pair_counter += 1
+        heap_item = (combined, pair_counter, row)
+        if max_pairs > 0:
+            if len(pair_heap) < max_pairs:
+                heapq.heappush(pair_heap, heap_item)
+            elif combined > pair_heap[0][0]:
+                heapq.heapreplace(pair_heap, heap_item)
+
+        if (
+            progress_callback is not None
+            and progress_every > 0
+            and (
+                processed % progress_every == 0
+                or processed == total_candidates
+            )
+        ):
+            progress_callback(
+                processed,
+                total_candidates,
+                structure_screened,
+                semantic_scored,
+                retained_before_cap,
+            )
 
     retained = [
         item[2]
@@ -561,8 +783,10 @@ def calibrate_family_pairs(
         "calibration_schema_version": CALIBRATION_SCHEMA_VERSION,
         "posts": len(calibration_posts),
         "operators": len(by_operator),
-        "all_operator_pairs": all_pairs,
+        "theoretical_operator_pairs": theoretical_pairs,
+        **blocking_stats,
         "structure_screened_pairs": structure_screened,
+        "semantic_upper_pruned_pairs": semantic_upper_pruned,
         "semantic_scored_pairs": semantic_scored,
         "retained_pairs_before_cap": retained_before_cap,
         "retained_pairs_written": len(pairs),
@@ -574,14 +798,18 @@ def calibrate_family_pairs(
         "retained_currently_split_pairs": (
             retained_before_cap - same_family_retained
         ),
-        "structure_threshold_counts": structure_threshold_counts,
-        "combined_threshold_counts": threshold_counts,
+        "structure_threshold_counts_on_candidates": (
+            structure_threshold_counts
+        ),
+        "combined_threshold_counts_on_candidates": threshold_counts,
         "score_quantiles_on_written_pairs": score_quantiles,
         "notes": [
             "Calibration does not mutate production family assignments.",
-            "Structure score is language-independent and uses fixed Vision taxonomy plus ordered sequence roles/visual types.",
-            "Semantic text score uses existing Vision descriptive text and may still be language-sensitive.",
-            "Production family score is recorded only for comparison with the current clustering model.",
+            "Candidate blocking uses language-independent Vision taxonomy/sequence signatures before expensive pair scoring.",
+            "Threshold counts are over blocked candidate pairs, not every theoretical pair.",
+            "Existing production-family pairs are force-included so blocker recall is measurable.",
+            "Semantic text is scored only when a cheap upper bound can still reach a reported/retained threshold.",
+            "Production family score is recorded only for retained calibration pairs.",
             "Threshold counts are diagnostic evidence, not automatically selected production thresholds.",
         ],
     }
@@ -670,6 +898,12 @@ def main() -> None:
         type=int,
         default=30,
     )
+    parser.add_argument(
+        "--progress-every",
+        type=int,
+        default=DEFAULT_PROGRESS_EVERY,
+        help="Print progress every N blocked candidate pairs; use 0 to disable.",
+    )
     args = parser.parse_args()
 
     posts_path = Path(args.posts).expanduser().resolve()
@@ -684,6 +918,22 @@ def main() -> None:
     sequence = read_table(sequence_path)
     members = read_table(members_path) if members_path.exists() else None
 
+    def progress(
+        processed: int,
+        total: int,
+        structure_screened: int,
+        semantic_scored: int,
+        retained: int,
+    ) -> None:
+        print(
+            "Family calibration: "
+            f"{processed}/{total} candidate pairs · "
+            f"{structure_screened} structure-screened · "
+            f"{semantic_scored} semantic-scored · "
+            f"{retained} retained",
+            flush=True,
+        )
+
     pairs, report = calibrate_family_pairs(
         posts,
         analysis,
@@ -692,6 +942,8 @@ def main() -> None:
         min_structure=args.min_structure,
         min_combined=args.min_combined,
         max_pairs=args.max_pairs,
+        progress_every=max(0, args.progress_every),
+        progress_callback=progress,
     )
     review = _review_sample(
         pairs,
