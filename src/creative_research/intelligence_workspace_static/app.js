@@ -224,8 +224,7 @@ function openFamily(id){
     '<div class="badges">'+badge((f.member_count||0)+' executions','info')+badge((f.accounts_count||0)+' accounts')+badge(f.cross_account?'cross-account':'single-account',f.cross_account?'good':'')+'</div>'+
     '<h3>What appears preserved</h3><dl><dt>Angle</dt><dd>'+esc(label(f.core_angle))+'</dd><dt>Hook formula</dt><dd>'+esc(label(f.core_hook_formula))+'</dd><dt>Creative formula</dt><dd>'+esc(label(f.core_creative_formula))+'</dd><dt>First observed account</dt><dd>@'+esc(f.origin_account||'—')+'</dd></dl>'+
     '<h3>Executions</h3><div class="link-list">'+members+'</div>'+
-    '<p class="research-limitation">These are machine-generated grouping candidates. AI can compare normalized creative and sequence evidence, not certify raw visual identity or intent.</p>'+
-    optionalAiButton('family',f.family_id,'investigate')+
+    '<p class="research-limitation">Creative family matches are algorithmic candidates based on normalized creative and sequence evidence, not proof of identical visual execution or operator intent.</p>'+
     '<h3>Cross-account chronology</h3><div class="link-list">'+(prop||'<p>No cross-account propagation in this family.</p>')+'</div>');
 }
 
@@ -284,7 +283,6 @@ function wire(){
   const search=$('#search'); if(search)search.oninput=function(){query=search.value;render();};
   const ff=$('#family-filter'); if(ff)ff.onchange=function(){familyFilter=ff.value;render();};
   wireResearchControls();
-  if(typeof wireAiControls==='function')wireAiControls();
 }
 
 function render(){
