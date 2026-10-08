@@ -14,24 +14,10 @@ function aiModeName(mode){
   })[mode]||'AI Research';
 }
 
-function aiControlsMarkup(kind,id,modes){
-  if(!id)return '';
-  const controls=modes.map(function(mode){
-    return '<button type="button" class="ai-action" data-ai-mode="'+esc(mode)+
-      '" data-ai-kind="'+esc(kind)+'" data-ai-target="'+esc(id)+'">'+
-      '<span aria-hidden="true">✦</span> '+esc(aiModeName(mode))+'</button>';
-  }).join('');
-  return '<section class="ai-controls"><div class="row"><div><b>AI Research Copilot</b>'+
-    '<small>Research proposals only · citations checked · human approval required</small></div>'+
-    '<button class="ai-history-link" data-ai-history-kind="'+esc(kind)+
-      '" data-ai-history-target="'+esc(id)+'">Saved AI reports ↗</button>'+
-    (aiLastReport?'<button class="ai-history-link" data-ai-last="1">Last AI report ↗</button>':'')+'</div>'+
-    '<div class="ai-control-row">'+controls+'</div>'+
-    '<small class="ai-status-note">'+
-      (aiServiceStatus&&aiServiceStatus.enabled?
-        (aiServiceStatus.configured?'Gemini enabled with a per-session call limit.':'GEMINI_API_KEY is missing.'):
-        'AI calls are off by default. Launch Lab with --ai-enabled to run; evidence previews are free.')+
-    '</small></section>';
+// Called only after a user explicitly requested deeper investigation.
+function startAiResearch(status,mode,sourceType,sourceId){
+  aiServiceStatus=status;
+  aiPreview(mode,sourceType,sourceId);
 }
 
 async function aiFetch(path,payload){
@@ -104,9 +90,8 @@ function aiDrawReport(report){
     '<div class="badges">'+badge('proposal only','warn')+badge(report.model)+
       badge(report.from_cache?'cached snapshot':'validated output','info')+'</div>'+
     (report.snapshot_is_current===false?'<p class="method-note"><b>STALE EVIDENCE SNAPSHOT.</b> Data or review status changed after this report. Re-run research before relying on it.</p>':'')+
-    '<p class="method-note"><b>NOT HUMAN REVIEWED.</b> AI cannot approve, reject, or edit knowledge. '+
-      'Check each source link and counterexample before accepting any suggestion.</p>'+
-    '<h3>Review target</h3><p><b>'+esc(report.review_question||'')+'</b></p>'+
+    '<p class="method-note"><b>AI INTERPRETATION ONLY.</b> This does not prove operator intent and cannot change research evidence or your experiment plan. Check source posts and counterexamples.</p>'+
+    '<h3>Research question</h3><p><b>'+esc(report.review_question||'')+'</b></p>'+
     '<div class="badges">'+badge(report.review_basis||'research task','info')+'</div>'+
     '<h3>Research summary</h3><p>'+esc(answer.summary||'')+'</p>'+
     (reviewMode?'<h3>'+esc(report.source_type==='family'?'Family evidence assessment: ':'Hypothesis evidence assessment: ')+
@@ -217,8 +202,8 @@ async function aiConfirm(){
   }catch(e){
     drawer('AI research did not validate',
       '<p class="method-note">'+esc(e.message)+'</p>'+
-      '<p>No human-review decision or trusted knowledge was changed. '+
-      'If a citation was invented or the model failed, the report is rejected rather than published.</p>');
+      '<p>No research evidence or experiment decision was changed. '+
+      'Invalid citations or model responses are rejected rather than published.</p>');
   }
 }
 
@@ -262,11 +247,3 @@ function wireAiControls(){
       aiLastReport.mode,aiLastReport.source_type,aiLastReport.source_id);};
   });
 }
-
-fetch('/api/ai/status',{cache:'no-store'}).then(function(response){
-  return response.json();
-}).then(function(status){
-  aiServiceStatus=status;
-}).catch(function(){
-  aiServiceStatus={enabled:false,configured:false};
-});
