@@ -896,8 +896,27 @@ def sync_intelligence_workspace(out_dir: Path) -> list[str]:
 
 
 def validate_intelligence_workspace(root: Path) -> list[str]:
+    """Refuse mixed v2/v3 workspaces, not only missing filenames."""
     required = (*STATIC_FILES, *REQUIRED_DATA_FILES)
-    return [name for name in required if not (root / name).is_file()]
+    issues = [name for name in required if not (root / name).is_file()]
+    if "workspace.json" not in issues:
+        try:
+            manifest = json.loads((root / "workspace.json").read_text(encoding="utf-8"))
+            if manifest.get("workspace_schema_version") != WORKSPACE_SCHEMA_VERSION:
+                issues.append(
+                    f"workspace.json: expected {WORKSPACE_SCHEMA_VERSION} "
+                    "(stale export; regenerate the workspace)"
+                )
+        except (OSError, ValueError, AttributeError):
+            issues.append("workspace.json: unreadable manifest")
+    if "lab.json" not in issues:
+        try:
+            lab = json.loads((root / "lab.json").read_text(encoding="utf-8"))
+            if not isinstance(lab.get("research_intelligence"), dict):
+                issues.append("lab.json: missing Research Intelligence v3")
+        except (OSError, ValueError, AttributeError):
+            issues.append("lab.json: unreadable research data")
+    return issues
 
 
 def write_intelligence_workspace(
@@ -931,7 +950,7 @@ def write_intelligence_workspace(
         "notes": [
             "This lab is a generated research surface, not a new source of truth.",
             "It does not rerun scraping, Vision, analytics, strategy inference, or knowledge promotion.",
-            "Knowledge statuses remain visible so review_candidate/rejected/hold items are not confused with active guidance.",
+            "Historic knowledge-review statuses are annotations, not a required Research Intelligence approval workflow.",
         ],
     }
     (out_dir / "workspace.json").write_text(
