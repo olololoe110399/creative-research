@@ -160,7 +160,8 @@ async function aiPreview(mode,source_type,source_id){
       '<dl><dt>Operator target</dt><dd>'+esc(source_type+': '+source_id)+'</dd>'+
       '<dt>Evidence sources</dt><dd>'+num(plan.source_count)+'</dd>'+
       '<dt>Flow pairs</dt><dd>'+num(plan.flow_count)+' / '+num(plan.available_flow_count)+' available</dd>'+
-      '<dt>Estimated input tokens (upper bound)</dt><dd>'+num(plan.estimated_input_tokens_upper_bound)+'</dd>'+
+      '<dt>Estimated input tokens (rough)</dt><dd>'+num(plan.estimated_input_tokens_approx)+'</dd>'+ 
+      '<dt>Input chars / max chars</dt><dd>'+num(plan.input_chars)+' / '+num(plan.max_input_chars)+'</dd>'+
       '<dt>Max output tokens</dt><dd>'+num(plan.max_output_tokens)+'</dd>'+
       '<dt>Model</dt><dd>'+esc(plan.model)+'</dd></dl>'+
       '<p class="method-note">Token estimate is not a price quote. There are no automatic retries. '+
