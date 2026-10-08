@@ -29,7 +29,7 @@ function initMaps(){
   data.knowledgeById=byId(data.knowledge.knowledge,'knowledge_id');
   data.accountById=byId(data.lab.account_network.nodes,'account_id');
   data.reviewBySource=new Map();
-  (data.lab.review.items||[]).forEach(function(r){data.reviewBySource.set(String(r.review_source_type)+':'+String(r.review_source_id),r);});
+  (data.lab.review.items||[]).concat(data.lab.review.reviewed_items||[]).forEach(function(r){data.reviewBySource.set(String(r.review_source_type)+':'+String(r.review_source_id),r);});
 }
 
 function setHeader(){
@@ -151,13 +151,20 @@ function familiesView(){
 }
 
 function reviewView(){
-  const review=data.lab.review||{}, items=review.items||[], tiers=review.tier_counts||{};
+  const review=data.lab.review||{}, items=review.items||[], tiers=review.tier_counts||{}, reviewed=review.reviewed_items||[];
   const cards=items.map(function(r){
     return '<article class="review-card" data-review="'+esc(r.review_source_type)+':'+esc(r.review_source_id)+'"><span class="tier">TIER '+esc(r.priority_tier)+'</span><div class="eyebrow">'+esc(label(r.priority_reason))+'</div><h3>'+esc(r.title||r.review_source_id)+'</h3><p>'+esc(r.statement||'')+'</p><div class="badges">'+confidenceBadge(null,r.confidence_max)+badge(r.review_source_type)+badge(JSON.parse(r.knowledge_types_json||'[]').join(' + '),'info')+'</div><div class="review-evidence"><span>'+num(r.evidence_post_count)+' posts</span><span>'+num(r.evidence_family_count)+' families</span><span>'+num(r.evidence_pattern_count)+' patterns</span></div></article>';
   }).join('');
   return pageHead('Human review','Decide what becomes trusted knowledge','Review high-value operating-model findings first. Approval is scope-bound evidence judgment, not universal truth.')+
     '<div class="review-summary"><span class="tier-pill"><b>'+num(review.pending_sources)+'</b> pending sources</span><span class="tier-pill">Tier 1 · <b>'+num(tiers['1']||0)+'</b></span><span class="tier-pill">Tier 2 · <b>'+num(tiers['2']||0)+'</b></span><span class="tier-pill">Tier 3 · <b>'+num(tiers['3']||0)+'</b></span></div>'+
-    '<section class="section"><div class="grid">'+(cards||'<div class="empty-state"><h3>Review queue is clear</h3><p>No promoted or review-candidate sources remain in the current queue.</p></div>')+'</div></section>';
+    '<section class="section"><div class="grid">'+(cards||'<div class="empty-state"><h3>Review queue is clear</h3><p>No promoted or review-candidate sources remain in the current queue.</p></div>')+'</div></section>'+
+    '<section class="section"><div class="section-head"><div><h2>Reviewed sources ('+num(review.reviewed_sources||0)+')</h2><p>Every decision remains inspectable. Re-review if new evidence changes your judgment.</p></div></div>'+
+    '<div class="grid">'+(reviewed.map(function(r){
+      return '<article class="review-card" data-review="'+esc(r.review_source_type)+':'+esc(r.review_source_id)+'">'+
+        '<div class="badges">'+badge(r.existing_review_decision,r.existing_review_decision==='approve'?'good':r.existing_review_decision==='hold'?'warn':'bad')+
+        badge(r.review_source_type)+'</div><h3>'+esc(r.title||r.review_source_id)+'</h3>'+
+        '<p>'+esc(r.statement||'')+'</p><small>'+esc(r.existing_review_note||'')+'</small></article>';
+    }).join('')||'<div class="empty-state">No human review decisions yet.</div>')+'</div></section>';
 }
 
 function advancedView(){
@@ -292,7 +299,7 @@ function openReview(key){
           strategyFlowHtml(s)+'</div>';
       }).join('');
   }
-  drawer(r.title||r.review_source_id,'<div class="badges">'+badge('Tier '+r.priority_tier,'info')+confidenceBadge(null,r.confidence_max)+badge(r.review_source_type)+'</div><p>'+esc(r.statement||'')+'</p><h3>What to check</h3><p>'+esc(r.review_focus||'')+'</p><div class="review-evidence"><span>'+num(r.evidence_post_count)+' posts</span><span>'+num(r.evidence_family_count)+' families</span><span>'+num(r.evidence_pattern_count)+' patterns</span></div>'+evidence+'<h3>Your judgment</h3><div class="review-form"><input id="reviewed-by" placeholder="Your name (optional)"><textarea id="review-note" placeholder="Required: which supporting/counter evidence did you check, and why?"></textarea><label class="review-confirm"><input id="evidence-inspected" type="checkbox"> I inspected source evidence and alternatives, not just the confidence score.</label><div class="review-actions"><button class="reject" data-review-decision="reject" data-review-key="'+esc(key)+'">Reject</button><button class="hold" data-review-decision="hold" data-review-key="'+esc(key)+'">Need more evidence</button><button class="approve" data-review-decision="approve" data-review-key="'+esc(key)+'">Approve</button></div><small style="color:#6b7280">The decision is saved locally and the knowledge/workspace trust layer is rebuilt automatically.</small></div>');
+  drawer(r.title||r.review_source_id,'<div class="badges">'+badge('Tier '+r.priority_tier,'info')+confidenceBadge(null,r.confidence_max)+badge(r.review_source_type)+'</div><p>'+esc(r.statement||'')+'</p><h3>What to check</h3><p>'+esc(r.review_focus||'')+'</p><div class="review-evidence"><span>'+num(r.evidence_post_count)+' posts</span><span>'+num(r.evidence_family_count)+' families</span><span>'+num(r.evidence_pattern_count)+' patterns</span></div>'+evidence+'<h3>Your judgment</h3>'+(r.existing_review_decision?'<p class="method-note">Previous decision: '+esc(r.existing_review_decision)+(r.existing_review_note?' · '+esc(r.existing_review_note):'')+'. This review replaces that decision.</p>':'')+'<div class="review-form"><input id="reviewed-by" placeholder="Your name (optional)"><textarea id="review-note" placeholder="Required: which supporting/counter evidence did you check, and why?"></textarea><label class="review-confirm"><input id="evidence-inspected" type="checkbox"> I inspected source evidence and alternatives, not just the confidence score.</label><div class="review-actions"><button class="reject" data-review-decision="reject" data-review-key="'+esc(key)+'">Reject</button><button class="hold" data-review-decision="hold" data-review-key="'+esc(key)+'">Need more evidence</button><button class="approve" data-review-decision="approve" data-review-key="'+esc(key)+'">Approve</button></div><small style="color:#6b7280">The decision is saved locally and the knowledge/workspace trust layer is rebuilt automatically.</small></div>');
 }
 
 async function submitReview(key,decision){
