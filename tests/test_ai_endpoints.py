@@ -35,6 +35,13 @@ def _workspace(tmp_path: Path) -> Path:
             "operator_id": "OP1", "family_id": "F1",
             "member_count": 2, "cross_account": True,
             "family_origin_post_uid": "P1",
+            "core_topic": "Student study schedules",
+            "core_creative_formula": "Categorized study schedules followed by tool reveal",
+            "members": [
+                {"post_uid": "P1", "family_member_index": 1},
+                {"post_uid": "P2", "family_member_index": 2,
+                 "match_score_to_origin": 0.82},
+            ],
             "propagation": [{
                 "operator_id": "OP1", "family_id": "F1",
                 "family_origin_post_uid": "P1", "target_first_post_uid": "P2",
@@ -45,9 +52,15 @@ def _workspace(tmp_path: Path) -> Path:
         }]},
         "evidence": {"posts": [
             {"post_uid": "P1", "operator_id": "OP1", "account_id": "A",
-             "account": "A", "url": "https://example.test/a", "creative": {}},
+             "account": "A", "url": "https://example.test/a",
+             "family": {"family_id": "F1"},
+             "creative": {"topic": "Student schedules", "hook_text": "Study schedules for students"},
+             "sequence": [{"position": 1, "role": "hook", "primary_text": "Study schedules"}]},
             {"post_uid": "P2", "operator_id": "OP1", "account_id": "B",
-             "account": "B", "url": "https://example.test/b", "creative": {}},
+             "account": "B", "url": "https://example.test/b",
+             "family": {"family_id": "F1"},
+             "creative": {"topic": "Student schedules", "hook_text": "Schedules for learners"},
+             "sequence": [{"position": 1, "role": "hook", "primary_text": "Student routines"}]},
         ]},
         "knowledge": {"knowledge": [], "active": []},
     }
@@ -58,16 +71,24 @@ def _workspace(tmp_path: Path) -> Path:
 
 def _model(_: str) -> dict:
     return {
-        "summary": "The family moved across accounts, but causal intent is not known.",
+        "summary": "Both posts introduce student schedules using a similar hook formula.",
         "proposed_review": "hold",
-        "review_rationale": "A family chronology does not establish operator intent.",
+        "review_rationale": "The creative identity is plausible but the original media needs visual checking.",
+        "family_assessment": {
+            "core_concept": "Study schedules organized by student type",
+            "checked_member_post_refs": ["post:P1", "post:P2"],
+            "identity_support_post_refs": ["post:P1", "post:P2"],
+            "outlier_post_refs": [],
+            "identity_rationale": "Both posts share a scheduling premise and a hook-focused sequence.",
+            "visual_media_inspected": False,
+        },
         "findings": [{
-            "interpretation": "counterexample",
-            "statement": "The receiving post did not outperform the originating execution.",
-            "evidence_refs": ["family:F1", "post:P2"],
+            "interpretation": "observed",
+            "statement": "The two posts share categorized student-schedule hooks.",
+            "evidence_refs": ["family:F1", "post:P1", "post:P2"],
         }],
-        "alternative_explanations": ["Cross-posting is possible."],
-        "missing_evidence": ["No verified internal testing records."],
+        "alternative_explanations": ["A broad shared study topic may hide creative differences."],
+        "missing_evidence": ["Human visual verification of original media remains necessary."],
         "experiments": [],
     }
 
