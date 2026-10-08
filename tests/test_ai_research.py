@@ -269,7 +269,7 @@ def test_ai_can_draft_playbook_but_cannot_promote_or_use_blocked_knowledge(
     with pytest.raises(ResearchValidationError, match="blocked_knowledge_used_as_guidance"):
         validate_answer(
             rejected,
-            allowed_refs={"knowledge:K1", "post:P1", "family:F1"},
+            allowed_refs={"knowledge:K1", "post:P1", "post:P2", "family:F1"},
             mode="draft_playbook",
             blocked_source_refs={"knowledge:K1"},
         )
