@@ -6,13 +6,16 @@
 let productionMode='calendar';
 
 function productionStatus(){
-  const k=data.production||{}, quality=k.quality||{};
+  const k=data.production||{}, quality=k.quality||{}, op=operatingState||{};
+  const readySlots=(op.slot_work||[]).filter(s=>s.state==='ready'&&!s.needs_recheck).length;
+  const completedAssets=(op.asset_work||[]).filter(s=>s.state==='ready'&&!s.needs_recheck).length;
   return '<div class="production-status">'+
     '<div class="production-status-label"><b>Team handoff · Editorial draft</b>'+
     '<span>'+num(quality.recipes_generated)+' recipes · '+num(quality.calendar_slots)+
     ' content slots · '+num(quality.slides_drafted)+' draft slides</span></div>'+
-    '<p><b>'+num(quality.ready_to_publish)+' ready to publish.</b> '+num(quality.asset_candidates)+
-    ' asset tasks need sourcing/clearance. TikTok/Pinterest reference content is not licensed for reuse. '+
+    '<p><b>'+num(readySlots)+' slots marked ready after team review.</b> '+
+    num(completedAssets)+' / '+num(quality.asset_candidates)+
+    ' cleared asset tasks. TikTok/Pinterest references are NOT licensed for reuse. '+
     'Publishing hours and creative variations are proposed experiments, not proven operator strategy.</p>'+
     '</div>';
 }
