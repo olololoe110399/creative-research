@@ -69,7 +69,7 @@ def _analysis() -> pd.DataFrame:
             },
             {
                 "post_uid": "P4",
-                "hook_text": "Study schedules after school",
+                "hook_text": "Study schedules for different students after school",
                 "topic": "after school study schedule",
                 "content_angle": "study_method",
                 "primary_language_code": "en",
@@ -119,7 +119,7 @@ def _pairs() -> pd.DataFrame:
                 "cross_language": False,
                 "same_current_family": False,
                 "left_hook_text": "Study schedules for different students",
-                "right_hook_text": "Study schedules after school",
+                "right_hook_text": "Study schedules for different students after school",
                 "left_topic": "study schedules for student types",
                 "right_topic": "after school study schedule",
             },
