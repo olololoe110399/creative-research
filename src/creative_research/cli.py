@@ -33,6 +33,8 @@ COMMANDS = {
     "promote-knowledge": "creative_research.stages.promote_knowledge",
     "build-intelligence-workspace": "creative_research.stages.build_intelligence_workspace",
     "intelligence": "creative_research.stages.intelligence",
+    "intelligence-build": "creative_research.stages.intelligence_build",
+    "quality-audit": "creative_research.stages.quality_audit",
     "rank-posts": "creative_research.stages.rank_posts",
     "extract-references": "creative_research.stages.extract_references",
     "query": "creative_research.stages.query",
@@ -68,6 +70,8 @@ Canonical evidence pipeline:
   promote-knowledge   Build strategies/rules/lessons/templates/playbooks bank
   build-intelligence-workspace Build static operator intelligence workspace
   intelligence       Serve a generated operator intelligence workspace
+  intelligence-build Build/reuse the full deterministic intelligence pipeline
+  quality-audit      Audit coverage, freshness, integrity, lineage, and trust status
   rank-posts         Rank master posts for reference selection
   extract-references Build whole-system map + representative reference workspace
   query              Filter normalized creative tables without ad-hoc Pandas
@@ -102,6 +106,8 @@ Examples:
   uv run creative-research promote-knowledge
   uv run creative-research build-intelligence-workspace
   uv run creative-research intelligence --open
+  uv run creative-research intelligence-build --operators config/operators.toml
+  uv run creative-research quality-audit
   uv run creative-research rank-posts data/05_master/creative_master.parquet --content-type slideshow --top 50
   uv run creative-research extract-references data/05_master/creative_master.parquet --out data/07_exports/study-reference-pack --top 30 --strategy system --media remote
   uv run creative-research references --dir data/07_exports/study-reference-pack --open
@@ -120,6 +126,8 @@ Detailed stage help:
   uv run creative-research promote-knowledge --help
   uv run creative-research build-intelligence-workspace --help
   uv run creative-research intelligence --help
+  uv run creative-research intelligence-build --help
+  uv run creative-research quality-audit --help
   uv run creative-research extract-references --help
   uv run creative-research references --help
 """
@@ -330,6 +338,7 @@ def status_rows(root: Path) -> list[dict[str, object]]:
         ("strategy hypotheses", root / "data/06_analytics/strategy_hypotheses.parquet", "file"),
         ("knowledge catalog", root / "data/07_knowledge/knowledge_catalog.parquet", "file"),
         ("intelligence workspace", root / "data/07_exports/operator-intelligence/workspace.json", "file"),
+        ("intelligence quality", root / "data/07_exports/operator-intelligence/quality_report.json", "file"),
     ]
     rows: list[dict[str, object]] = []
     for label, path, kind in candidates:
