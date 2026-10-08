@@ -148,6 +148,20 @@ Account role denominators count unique originated/imported **families**, not the
 
 Pipeline stages, schema versions, and generated artifacts remain implementation details rather than the default navigation.
 
+## AI-assisted evidence research (optional)
+
+Open any Insight Review item for **AI Investigate** and **AI Challenge**,
+or open Operator Playbook for **AI Draft Playbook** and **AI Stress Test**.
+The AI preflight samples both supporting and skeptical evidence without
+calling the provider; a separate confirmation performs one bounded Gemini
+call only when the local Lab has been started with --ai-enabled.
+
+AI findings and experiment proposals link to canonical post/family/pattern/
+hypothesis/knowledge IDs. Unknown citations are rejected. Results are saved
+outside the static Lab export and remain unreviewed; human Approve / Hold /
+Reject is always a separate, evidence-inspected action. See
+[AI_RESEARCH_COPILOT.md](AI_RESEARCH_COPILOT.md).
+
 ## Human review in the Lab
 
 When served locally without `--read-only`, Insight Review writes decisions to:
