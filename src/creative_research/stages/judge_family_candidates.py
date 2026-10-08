@@ -36,7 +36,7 @@ from creative_research.validation import read_table
 
 JUDGE_SCHEMA_VERSION = "family-ai-judge-v1"
 PROMPT_VERSION = "family-ai-judge-prompt-v1"
-DEFAULT_MODEL = "gemini-2.5-flash-lite"
+DEFAULT_MODEL = "gemini-3.5-flash-lite"
 
 DEFAULT_MIN_COMBINED = 0.74
 DEFAULT_CROSS_LANGUAGE_MIN_COMBINED = 0.68
@@ -48,7 +48,7 @@ DEFAULT_MAX_ESTIMATED_INPUT_TOKENS = 900_000
 DEFAULT_MAX_OUTPUT_TOKENS = 320
 
 MODEL_PRICING_USD_PER_MILLION: dict[str, tuple[float, float]] = {
-    "gemini-2.5-flash-lite": (0.10, 0.40),
+    "gemini-3.5-flash-lite": (0.30, 2.50),
 }
 
 TEXT_FIELDS = (
@@ -503,6 +503,33 @@ def _usage_metadata(response: Any) -> dict[str, int | None]:
     }
 
 
+def _http_status_from_error(exc: Exception) -> int | None:
+    for name in ("status_code", "code"):
+        value = getattr(exc, name, None)
+        try:
+            if value is not None:
+                return int(value)
+        except (TypeError, ValueError):
+            pass
+
+    text = str(exc)
+    for status in (400, 401, 403, 404, 408, 409, 429, 500, 502, 503, 504):
+        if f"{status}" in text:
+            return status
+    return None
+
+
+def _retryable_api_error(exc: Exception) -> bool:
+    status = _http_status_from_error(exc)
+    if status is None:
+        return True
+    if status in {408, 409, 429}:
+        return True
+    if status >= 500:
+        return True
+    return False
+
+
 def _generation_config(types: Any, max_output_tokens: int) -> Any:
     base = {
         "response_mime_type": "application/json",
@@ -640,8 +667,8 @@ def build_plan(
         ),
         "pricing_note": (
             "Static model pricing is a convenience estimate verified against Google "
-            "Gemini Developer API standard pricing on 2026-10-08; override with CLI "
-            "price flags when needed."
+            "Gemini Developer API standard pricing on 2026-10-08 for "
+            "gemini-3.5-flash-lite; override with CLI price flags when needed."
         ),
     }
     return selected, report, evidence_lookup
@@ -724,6 +751,12 @@ def execute_judgments(
                     break
                 except Exception as exc:
                     last_error = f"{type(exc).__name__}: {exc}"
+                    if not _retryable_api_error(exc):
+                        print(
+                            f"  non-retryable API error: {last_error}",
+                            flush=True,
+                        )
+                        break
                     if attempt < retries and api_attempts < max_api_calls:
                         wait = retry_base_seconds * (2**attempt) + random.random()
                         print(
