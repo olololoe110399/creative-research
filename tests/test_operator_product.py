@@ -151,6 +151,7 @@ def _payloads() -> dict:
     return {
         "lab": {
             "research_brief": {
+                "operator": {"operator_id": "OP1"},
                 "hero": {"hypothesis_id": "S1"},
                 "stats": {
                     "posts": 2,
