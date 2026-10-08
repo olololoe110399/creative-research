@@ -183,8 +183,10 @@ async function aiConfirm(){
     const result=await aiFetch('/api/ai/run',request);
     aiPending=null;
     aiDrawReport(result.report);
-    const status=await fetch('/api/ai/status',{cache:'no-store'}).then(r=>r.json());
-    aiServiceStatus=status;
+    fetch('/api/ai/status',{cache:'no-store'})
+      .then(r=>r.json())
+      .then(status=>{aiServiceStatus=status;})
+      .catch(()=>{});
   }catch(e){
     drawer('AI research did not validate',
       '<p class="method-note">'+esc(e.message)+'</p>'+
