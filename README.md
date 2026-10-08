@@ -51,6 +51,7 @@ build-warehouse
 analyze-performance
 analyze-cadence
 build-families
+analyze-propagation
 
 rank-posts
 extract-references
@@ -283,6 +284,44 @@ Every post remains represented. Posts without a sufficiently similar sibling bec
 
 A family therefore means **deterministic candidate for a shared creative concept**, not “proven strategy.” The next stages can use family origin, chronology, cross-account reuse, and relative performance to study propagation and operator behavior.
 
+### 12. Analyze cross-account propagation
+
+After families exist, derive how each family appears across the manually verified accounts of the same operator:
+
+```bash
+uv run creative-research analyze-propagation \
+  --members data/06_analytics/creative_family_members.parquet \
+  --analysis data/05_master/creative_analysis.parquet \
+  --performance data/06_analytics/post_performance.parquet \
+  --out data/06_analytics
+```
+
+This writes:
+
+```text
+data/06_analytics/
+├── family_account_entries.parquet
+├── cross_account_propagation.parquet
+├── account_propagation_edges.parquet
+├── account_sequence_edges.parquet
+├── account_role_evidence.parquet
+└── propagation_report.json
+```
+
+The layer records observable facts such as:
+
+- which account first introduced a family;
+- when the same family first appeared on another verified account;
+- delay from family origin to that account entry;
+- nearest prior observed family member/account;
+- which creative dimensions changed or stayed the same;
+- relative performance of origin and receiving executions;
+- how often each account originates versus imports families.
+
+`account_role_evidence` exposes descriptive signals such as `originator_signal`, `receiver_signal`, and `amplifier_signal`. These are **not** final strategy labels. A later inference layer may use repeated evidence to propose hypotheses such as testing/scaling roles, but it must cite these propagation records and supporting posts.
+
+The nearest-prior account sequence is observational chronology only. It must not be interpreted as proof that one account caused another account to publish.
+
 ## System-first reference workflow
 
 The default workflow is deliberately **not "take the global top 30"**.
@@ -474,10 +513,11 @@ raw evidence
 -> operator-aware canonical warehouse
 -> relative performance + account/operator cadence
 -> creative families
+-> cross-account propagation + account role evidence
 -> system/reference workspace
 ```
 
-The operator warehouse is intentionally built before strategy inference. Relative performance, historical cadence, and deterministic creative-family candidates are now analytics layers. Future stages can derive cross-account propagation, strategy periods, patterns, rules, lessons, templates, and playbooks from these canonical tables. Those future knowledge assets must retain evidence lineage instead of being unsupported LLM summaries.
+The operator warehouse is intentionally built before strategy inference. Relative performance, historical cadence, deterministic creative-family candidates, and cross-account propagation/account-role evidence are now analytics layers. Future stages can derive strategy periods, patterns, rules, lessons, templates, and playbooks from these canonical tables. Those future knowledge assets must retain evidence lineage instead of being unsupported LLM summaries.
 
 Brief/variant production and first-party experiment outcomes remain downstream concerns.
 
