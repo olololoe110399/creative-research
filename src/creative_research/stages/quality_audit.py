@@ -188,6 +188,25 @@ def build_quality_report(
     cadence_post_ids = _unique_values(cadence, "post_uid")
     family_member_post_ids = _unique_values(family_members, "post_uid")
 
+    canonical_relations = (
+        ("posts.account_id", _unique_values(posts, "account_id"), account_ids),
+        ("posts.operator_id", _unique_values(posts, "operator_id"), operator_ids),
+        ("accounts.operator_id", _unique_values(accounts, "operator_id"), operator_ids),
+        ("analysis.post_uid", analysis_post_ids, post_ids),
+        ("performance.post_uid", performance_post_ids, post_ids),
+        ("cadence.post_uid", cadence_post_ids, post_ids),
+    )
+    for label, values, valid in canonical_relations:
+        orphans = _orphan_count(values, valid)
+        if orphans:
+            _issue(
+                issues,
+                level="fail",
+                code="lineage." + label.replace(".", "_"),
+                message=f"{orphans} {label} references are orphaned.",
+                metric=orphans,
+            )
+
     coverage = {
         "analysis_post_coverage": _coverage_check(
             issues,
@@ -409,12 +428,18 @@ def build_quality_report(
             str(key): int(value)
             for key, value in knowledge["knowledge_status"].value_counts().items()
         } if "knowledge_status" in knowledge.columns else {}
-        active_ids = set(
-            knowledge.loc[
-                knowledge["knowledge_status"].astype(str).isin(["approved", "promoted"]),
-                "knowledge_id",
-            ].astype(str)
-        ) if "knowledge_status" in knowledge.columns else set()
+        active_ids = (
+            set(
+                knowledge.loc[
+                    knowledge["knowledge_status"].astype(str).isin(
+                        ["approved", "promoted"]
+                    ),
+                    "knowledge_id",
+                ].astype(str)
+            )
+            if {"knowledge_status", "knowledge_id"}.issubset(knowledge.columns)
+            else set()
+        )
         if not active_ids:
             _issue(
                 issues,
