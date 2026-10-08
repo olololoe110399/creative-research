@@ -18,7 +18,7 @@
 - Add `pattern_evidence_links.parquet` so every emitted pattern can trace back to supporting/counter posts, families, and accounts.
 - Add `infer-strategies` to promote deterministic patterns into reviewable account/operator strategy hypotheses with confidence, counter evidence, alternative explanations, and promotion readiness.
 - Add `strategy_pattern_links.parquet` and inherited `strategy_evidence_links.parquet` so every hypothesis can trace through patterns to supporting/counter post, family, and account evidence.
-
+- Add `promote-knowledge` to build typed strategies, rules, lessons, templates, and playbooks with explicit promotion/review status, scope, validity, confidence, exceptions, and lineage.\n- Add Parquet + JSONL knowledge catalog/source/evidence-link exports plus an optional local `knowledge_reviews.toml` approval/reject/hold registry.\n- Promote creative-family structure templates only from repeated/cohesive families and keep singleton families out of the reusable template bank.\n
 ## 0.9.1 - 2026-10-07
 
 - Rename machine-selected account/group counts to **Suggested** so they are not confused with human Selected posts.
