@@ -121,11 +121,19 @@ function productionAssets(k){
         a.rights_status==='team_attested_licensed'?'good':'warn')+'</td>'+
       '</tr>';
   }).join('');
-  const sounds=(k.music_bank||[]).map(function(sound){
+  const sounds=(k.music_bank||[]).slice(0,30).map(function(sound){
     return '<li><b>'+esc(sound.music_name||sound.music_id||sound.sound_key)+'</b> · '+
-      esc(sound.music_author||'unknown author')+' · '+num((sound.source_post_uids||[]).length)+
+      esc(sound.music_author||'unknown author')+' · '+num(sound.observed_post_count||0)+
       ' observed posts · '+badge('rights not verified','warn')+'</li>';
   }).join('');
+  const captions=(k.caption_bank||[]).slice(0,12).map(function(c){
+    return '<li>'+postButton(c.post_uid,'@'+c.account)+' · '+
+      esc(c.caption_reference_only||'')+
+      '<small>Observed reference only · not rights-cleared copy</small></li>';
+  }).join('');
+  const hashtags=(k.hashtag_bank||[]).slice(0,35).map(function(h){
+    return badge('#'+h.hashtag+' · '+num(h.observed_post_count)+' posts','info');
+  }).join(' ');
   return '<section class="section"><div class="section-head"><div><h2>Reusable asset sourcing tasks</h2>'+
     '<p>Visual search queries are starting points, not Pinterest licenses. Original TikTok covers/music are evidence references, not assets you can reuse automatically.</p></div></div>'+
     '<div class="production-status"><strong>'+num(q.assets_with_verified_rights)+
@@ -135,7 +143,14 @@ function productionAssets(k){
     '<th>Asset ID</th><th>Type</th><th>Search brief</th><th>Reference</th><th>Rights</th>'+
     '</tr></thead><tbody>'+rows+'</tbody></table></div>'+
     '<h3>Observed sound bank ('+num((k.music_bank||[]).length)+')</h3>'+
-    (sounds?'<ul>'+sounds+'</ul>':'<p class="method-note">No historical music metadata in the current export. Use production-kit --raw-root on local scrape archives to recover sound IDs/names; that does not grant music usage rights.</p>')+
+    (sounds?'<ul>'+sounds+'</ul><p class="research-limitation">Showing 30 of '+num((k.music_bank||[]).length)+' sound candidates. Full source IDs and post links are in SOUND_BANK.csv.</p>':
+      '<p class="method-note">No historical music metadata in the current export. Use production-kit --raw-root on local scrape archives to recover sound IDs/names; that does not grant music usage rights.</p>')+
+    '<h3>Observed caption bank ('+num((k.caption_bank||[]).length)+')</h3>'+
+    (captions?'<ul class="production-caption-bank">'+captions+'</ul>':
+       '<p class="research-limitation">No source captions were recovered. Do not invent historical captions.</p>')+
+    '<h3>Observed hashtag bank ('+num((k.hashtag_bank||[]).length)+')</h3>'+
+    (hashtags?'<div class="production-hashtags">'+hashtags+'</div>':
+       '<p class="research-limitation">No observed hashtags in this export.</p>')+
     '</section>';
 }
 
@@ -196,6 +211,10 @@ function openProductionRecipe(id){
       '<h3>New Vietnamese overlay draft</h3><p>'+esc(slide.new_draft_text_vi)+'</p>'+
       '<h3>Original visual direction</h3><p>'+esc(slide.production_visual_brief)+'</p>'+
       '<p class="production-visual-query"><b>Search query:</b> '+esc(slide.visual_search_query)+'</p>'+
+      '<div class="production-search-links">'+
+      '<a href="https://www.pinterest.com/search/pins/?q='+encodeURIComponent(slide.visual_search_query)+'" target="_blank" rel="noopener noreferrer">Pinterest moodboard ↗</a>'+
+      '<a href="https://unsplash.com/s/photos/'+encodeURIComponent(slide.visual_search_query.trim().replaceAll(' ','-'))+'" target="_blank" rel="noopener noreferrer">Search original stock alternative ↗</a>'+
+      '</div><small>Search results are inspiration only. Check the original rights/license before downloading and posting.</small>'+
       '<details><summary>What source media showed (reference only)</summary>'+
       '<p>'+esc(slide.source_text_reference_only)+'</p>'+
       '<p>'+esc(slide.source_visual_description)+'</p></details>'+
