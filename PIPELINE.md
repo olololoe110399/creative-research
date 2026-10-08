@@ -62,11 +62,21 @@ relative performance        account/operator chronology
         cross-account propagation
         + account role evidence
                        |
+             +---------+---------+
+             |                   |
+             v                   v
+       analyze-timeline     discover-patterns
+             |                   ^
+             v                   |
+       strategy windows           |
+       + change points -----------+
+             |                   |
+             +---------+---------+
+                       |
                        v
-          future evidence intelligence
-      patterns -> strategy periods -> strategies
-      -> rules -> lessons -> templates
-      -> playbooks
+          future knowledge promotion
+      strategy hypotheses -> rules
+      -> lessons -> templates -> playbooks
 ```
 
 ## Sources of truth
@@ -80,7 +90,9 @@ relative performance        account/operator chronology
 7. Cadence analytics: deterministic account/operator posting chronology over stored timestamps.
 8. Creative families: deterministic candidate groupings of repeated concepts with per-member similarity evidence.
 9. Propagation analytics: observed family entries/movement across verified operator accounts plus descriptive account-role evidence.
-10. Reference Workspace: a generated decision surface over the evidence, not a new truth source.
+10. Strategy timeline: fixed historical operator/account windows with deterministic adjacent-window change points.
+11. Evidence patterns: recurring observations with sample/effect metrics and explicit post/family/account evidence links.
+12. Reference Workspace: a generated decision surface over the evidence, not a new truth source.
 
 ## Invariants
 
@@ -96,6 +108,9 @@ relative performance        account/operator chronology
 - Family membership keeps origin/nearest-member scores and component-level evidence.
 - Propagation means later observed appearance inside a family; it is not causal proof.
 - Account-role evidence remains descriptive until a later strategy inference stage.
+- Strategy change points identify measurable shifts; they do not name the business strategy.
+- Patterns always set `causal_claim=false` and remain observations until promoted later.
+- Pattern evidence must remain traceable to stable post/family/account IDs.
 - `creative_master` has one row per unique `account+post_id`.
 - Stable canonical post IDs are deterministic and shared with the Reference Workspace.
 - By default every observed account must map to a manually maintained operator registry entry.

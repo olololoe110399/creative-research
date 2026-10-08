@@ -52,6 +52,8 @@ analyze-performance
 analyze-cadence
 build-families
 analyze-propagation
+analyze-timeline
+discover-patterns
 
 rank-posts
 extract-references
@@ -322,6 +324,75 @@ The layer records observable facts such as:
 
 The nearest-prior account sequence is observational chronology only. It must not be interpreted as proof that one account caused another account to publish.
 
+### 13. Build strategy timeline and change points
+
+The timeline stage summarizes how content mix and operating behavior change across fixed monthly or weekly windows:
+
+```bash
+uv run creative-research analyze-timeline \
+  --posts data/05_master/posts.parquet \
+  --analysis data/05_master/creative_analysis.parquet \
+  --performance data/06_analytics/post_performance.parquet \
+  --cadence data/06_analytics/posting_cadence.parquet \
+  --family-members data/06_analytics/creative_family_members.parquet \
+  --family-entries data/06_analytics/family_account_entries.parquet \
+  --frequency month \
+  --timezone UTC \
+  --out data/06_analytics
+```
+
+It writes:
+
+```text
+data/06_analytics/
+├── strategy_windows.parquet
+├── strategy_window_members.parquet
+├── strategy_change_points.parquet
+└── strategy_timeline_report.json
+```
+
+Each window exists at both operator and account scope and stores:
+
+- posting volume / active days / posts per active day;
+- slideshow versus video mix;
+- product and CTA rates;
+- relative performance and cadence medians when available;
+- family origins / family entries / imported family entries;
+- distributions and top values for hook technique, angle, format, audience, product placement, CTA, and dominant visual type.
+
+Adjacent windows are compared with deterministic distribution distance plus scalar changes. A change point records its score and exact dimensions that shifted. It does **not** assign a semantic label such as “conversion phase” or “testing phase.”
+
+### 14. Discover evidence-backed patterns
+
+After timeline/change points exist:
+
+```bash
+uv run creative-research discover-patterns \
+  --out data/06_analytics
+```
+
+This writes:
+
+```text
+data/06_analytics/
+├── patterns.parquet
+├── pattern_evidence_links.parquet
+└── patterns_report.json
+```
+
+Current pattern classes include:
+
+1. **creative dimension ↔ performance** — e.g. a hook technique performs above/below the operator's historical account-relative baseline;
+2. **cadence after performance** — e.g. high-performing posts are followed by longer/shorter next-post gaps than low performers;
+3. **cross-account mutation behavior** — dimensions usually changed or preserved when a family enters another verified account;
+4. **family reuse baseline** — multi-post and cross-account family reuse rates;
+5. **account flow profile** — medium/high evidence originator/receiver leaning from propagation analytics;
+6. **strategy change point** — material adjacent-window shifts with post-level evidence from both windows.
+
+Every pattern stores sample size, support/counter evidence, effect size where meaningful, evidence strength, metrics JSON, and `causal_claim=false`.
+
+`pattern_evidence_links.parquet` links patterns back to stable `post_uid`, `family_id`, and/or `account_id`. These patterns are structured observations — **not yet rules, strategies, lessons, templates, or playbooks**.
+
 ## System-first reference workflow
 
 The default workflow is deliberately **not "take the global top 30"**.
@@ -514,10 +585,12 @@ raw evidence
 -> relative performance + account/operator cadence
 -> creative families
 -> cross-account propagation + account role evidence
+-> strategy timeline + change points
+-> evidence patterns
 -> system/reference workspace
 ```
 
-The operator warehouse is intentionally built before strategy inference. Relative performance, historical cadence, deterministic creative-family candidates, and cross-account propagation/account-role evidence are now analytics layers. Future stages can derive strategy periods, patterns, rules, lessons, templates, and playbooks from these canonical tables. Those future knowledge assets must retain evidence lineage instead of being unsupported LLM summaries.
+The operator warehouse is intentionally built before strategy inference. Relative performance, historical cadence, creative families, propagation/account-role evidence, strategy windows/change points, and evidence-backed recurring patterns are now analytics layers. Future stages can promote sufficiently supported patterns into strategy hypotheses, rules, lessons, templates, and playbooks while retaining lineage. Those future knowledge assets must retain evidence lineage instead of being unsupported LLM summaries.
 
 Brief/variant production and first-party experiment outcomes remain downstream concerns.
 
