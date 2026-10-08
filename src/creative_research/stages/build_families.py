@@ -736,6 +736,17 @@ def main() -> None:
 
     families = tables["creative_families"]
     members = tables["creative_family_members"]
+    multi_post_families = (
+        int(families["member_count"].gt(1).sum())
+        if "member_count" in families.columns
+        else 0
+    )
+    cross_account_families = (
+        int(families["cross_account"].fillna(False).astype(bool).sum())
+        if "cross_account" in families.columns
+        else 0
+    )
+
     report = {
         "analytics_schema_version": ANALYTICS_SCHEMA_VERSION,
         "family_schema_version": FAMILY_SCHEMA_VERSION,
@@ -746,8 +757,8 @@ def main() -> None:
         "performance_source": str(performance_path) if performance is not None else None,
         "posts": int(len(posts)),
         "families": int(len(families)),
-        "multi_post_families": int((families.get("member_count", 0) > 1).sum()),
-        "cross_account_families": int((families.get("cross_account", False) == True).sum()),  # noqa: E712
+        "multi_post_families": multi_post_families,
+        "cross_account_families": cross_account_families,
         "family_members": int(len(members)),
         "threshold": args.threshold,
         "bridge_floor": args.bridge_floor,
