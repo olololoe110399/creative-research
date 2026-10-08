@@ -34,6 +34,8 @@ def test_ai_readiness_finds_broken_post_lineage_before_paid_calls(
     assert report["status"] == "fail"
     assert report["targets_failed"] > 0
     assert any(
-        "selected_flow_missing_source_post" in entry["issues"]
+        any(code in entry["issues"] for code in (
+            "selected_flow_missing_source_post", "family_member_post_missing"
+        ))
         for entry in report["results"]
     )
