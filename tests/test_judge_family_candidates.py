@@ -218,3 +218,11 @@ def test_client_model_not_found_is_not_retryable() -> None:
 def test_rate_limit_and_server_errors_are_retryable() -> None:
     assert _retryable_api_error(_FakeApiError(429)) is True
     assert _retryable_api_error(_FakeApiError(503)) is True
+
+
+def test_prompt_requests_compact_json_output() -> None:
+    lookup = build_evidence_lookup(_analysis(), _sequence())
+    prompt = build_prompt("P1", "P2", lookup["P1"], lookup["P2"])
+    assert "reason: one sentence" in prompt
+    assert "preserved_dimensions: at most 3" in prompt
+    assert "Do not add prose outside the JSON" in prompt
