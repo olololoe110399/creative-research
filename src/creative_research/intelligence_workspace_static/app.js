@@ -278,6 +278,19 @@ function openReview(key){
     if(s)evidence='<h3>Claim</h3><p>'+esc(s.claim||'')+'</p><h3>Evidence summary</h3><pre>'+esc(json(s.evidence_summary||{}))+'</pre><h3>Counter evidence</h3><pre>'+esc(json(s.counter_evidence||{}))+'</pre><h3>Alternative explanations</h3><ul>'+(s.alternative_explanations||[]).map(function(x){return '<li>'+esc(x)+'</li>';}).join('')+'</ul><div class="link-list">'+(s.pattern_links||[]).map(function(l){return patternButton(l.pattern_id,l.pattern_id+' · '+(l.relation||'support'));}).join('')+'</div>'+strategyFlowHtml(s);
   }else if(r.review_source_type==='family'){
     evidence='<h3>Family evidence</h3>'+familyButton(r.review_source_id,'Open complete creative family');
+  }else if(r.review_source_type==='playbook_sources'){
+    const sources=String(r.review_source_id||'').split('|').filter(Boolean);
+    evidence='<p class="method-note">A bundle approval does not override constituent source reviews. Review each hypothesis individually first; held/rejected components block the playbook.</p>'+
+      '<h3>Component hypotheses and counter evidence</h3>'+
+      sources.map(function(id){
+        const s=data.strategyById.get(id);
+        if(!s)return '<p class="method-note">Missing source: '+esc(id)+'</p>';
+        return '<div class="panel">'+strategyButton(id,s.title||id)+
+          '<p>'+esc(s.claim||'')+'</p>'+
+          '<details><summary>Counter evidence and alternatives</summary><pre>'+esc(json(s.counter_evidence||{}))+'</pre>'+
+          '<ul>'+(s.alternative_explanations||[]).map(function(x){return '<li>'+esc(x)+'</li>';}).join('')+'</ul></details>'+
+          strategyFlowHtml(s)+'</div>';
+      }).join('');
   }
   drawer(r.title||r.review_source_id,'<div class="badges">'+badge('Tier '+r.priority_tier,'info')+confidenceBadge(null,r.confidence_max)+badge(r.review_source_type)+'</div><p>'+esc(r.statement||'')+'</p><h3>What to check</h3><p>'+esc(r.review_focus||'')+'</p><div class="review-evidence"><span>'+num(r.evidence_post_count)+' posts</span><span>'+num(r.evidence_family_count)+' families</span><span>'+num(r.evidence_pattern_count)+' patterns</span></div>'+evidence+'<h3>Your judgment</h3><div class="review-form"><input id="reviewed-by" placeholder="Your name (optional)"><textarea id="review-note" placeholder="Required: which supporting/counter evidence did you check, and why?"></textarea><label class="review-confirm"><input id="evidence-inspected" type="checkbox"> I inspected source evidence and alternatives, not just the confidence score.</label><div class="review-actions"><button class="reject" data-review-decision="reject" data-review-key="'+esc(key)+'">Reject</button><button class="hold" data-review-decision="hold" data-review-key="'+esc(key)+'">Need more evidence</button><button class="approve" data-review-decision="approve" data-review-key="'+esc(key)+'">Approve</button></div><small style="color:#6b7280">The decision is saved locally and the knowledge/workspace trust layer is rebuilt automatically.</small></div>');
 }
