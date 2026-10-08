@@ -117,7 +117,9 @@ def _concat_text(*values: Any) -> str:
 
 
 def _format_value(record: dict[str, Any]) -> str | None:
-    return _clean(record.get("content_format") or record.get("video_format"))
+    content_format = _clean(record.get("content_format"))
+    video_format = _clean(record.get("video_format"))
+    return content_format or video_format
 
 
 @dataclass(frozen=True, slots=True)
