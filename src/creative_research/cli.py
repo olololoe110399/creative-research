@@ -26,6 +26,7 @@ COMMANDS = {
     "analyze-performance": "creative_research.stages.analyze_performance",
     "analyze-cadence": "creative_research.stages.analyze_cadence",
     "build-families": "creative_research.stages.build_families",
+    "calibrate-families": "creative_research.stages.calibrate_families",
     "analyze-propagation": "creative_research.stages.analyze_propagation",
     "analyze-timeline": "creative_research.stages.analyze_timeline",
     "discover-patterns": "creative_research.stages.discover_patterns",
@@ -63,6 +64,7 @@ Canonical evidence pipeline:
   analyze-performance Build account/operator relative performance baselines
   analyze-cadence     Build account/operator historical posting cadence
   build-families      Group repeated creative concepts with auditable similarity evidence
+  calibrate-families  Measure family similarity/threshold behavior without changing families
   analyze-propagation Track family movement across verified operator accounts
   analyze-timeline    Build historical strategy windows + change points
   discover-patterns   Discover deterministic evidence-backed recurring patterns
@@ -99,6 +101,7 @@ Examples:
   uv run creative-research analyze-performance
   uv run creative-research analyze-cadence --timezone UTC
   uv run creative-research build-families
+  uv run creative-research calibrate-families
   uv run creative-research analyze-propagation
   uv run creative-research analyze-timeline --timezone UTC
   uv run creative-research discover-patterns
@@ -119,6 +122,7 @@ Detailed stage help:
   uv run creative-research analyze-performance --help
   uv run creative-research analyze-cadence --help
   uv run creative-research build-families --help
+  uv run creative-research calibrate-families --help
   uv run creative-research analyze-propagation --help
   uv run creative-research analyze-timeline --help
   uv run creative-research discover-patterns --help
