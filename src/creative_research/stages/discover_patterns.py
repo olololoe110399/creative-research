@@ -452,14 +452,7 @@ def _cadence_performance_patterns(
                         "low_median_gap_hours": low_median,
                         "normalized_gap_difference": normalized_effect,
                     },
-                    counter_evidence={
-                        "all_families_participated": int(
-                            _numeric(row.get("families_participated")) or 0
-                        ),
-                        "cross_account_participation_rate": _numeric(
-                            row.get("cross_account_participation_rate")
-                        ),
-                    },
+                    counter_evidence={},
                 )
             )
             for post_uid in high.loc[high[gap_col].notna(), "post_uid"].astype(str):
@@ -819,7 +812,14 @@ def _role_evidence_patterns(
                             "evidence_strength",
                         )
                     },
-                    counter_evidence={},
+                    counter_evidence={
+                        "all_families_participated": int(
+                            _numeric(row.get("families_participated")) or 0
+                        ),
+                        "cross_account_participation_rate": _numeric(
+                            row.get("cross_account_participation_rate")
+                        ),
+                    },
                 ),
                 "evidence_strength": strength,
             }
