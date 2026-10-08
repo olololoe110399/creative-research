@@ -47,6 +47,7 @@ vision-slides
 download-videos
 vision-videos
 build-master
+build-warehouse
 
 rank-posts
 extract-references
