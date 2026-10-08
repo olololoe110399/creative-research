@@ -15,8 +15,9 @@ import unicodedata
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from difflib import SequenceMatcher
+from functools import lru_cache
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 import pandas as pd
 
@@ -57,10 +58,8 @@ def _clean(value: Any) -> str | None:
     return text
 
 
-def _normalize_text(value: Any) -> str:
-    text = _clean(value)
-    if not text:
-        return ""
+@lru_cache(maxsize=None)
+def _normalize_clean_text(text: str) -> str:
     normalized = unicodedata.normalize("NFKC", text).casefold()
     tokens = [
         token
@@ -70,9 +69,18 @@ def _normalize_text(value: Any) -> str:
     return " ".join(tokens)
 
 
-def _tokens(value: Any) -> frozenset[str]:
-    normalized = _normalize_text(value)
+def _normalize_text(value: Any) -> str:
+    text = _clean(value)
+    return _normalize_clean_text(text) if text else ""
+
+
+@lru_cache(maxsize=None)
+def _tokens_from_normalized(normalized: str) -> frozenset[str]:
     return frozenset(normalized.split()) if normalized else frozenset()
+
+
+def _tokens(value: Any) -> frozenset[str]:
+    return _tokens_from_normalized(_normalize_text(value))
 
 
 def _text_similarity(left: Any, right: Any) -> float | None:
@@ -82,13 +90,37 @@ def _text_similarity(left: Any, right: Any) -> float | None:
         return None
     if not left_text or not right_text:
         return 0.0
+    if left_text == right_text:
+        return 1.0
 
-    left_tokens = frozenset(left_text.split())
-    right_tokens = frozenset(right_text.split())
+    left_tokens = _tokens_from_normalized(left_text)
+    right_tokens = _tokens_from_normalized(right_text)
     union = left_tokens | right_tokens
     jaccard = len(left_tokens & right_tokens) / len(union) if union else 0.0
     sequence = SequenceMatcher(None, left_text, right_text).ratio()
     return float(0.65 * jaccard + 0.35 * sequence)
+
+
+def _text_similarity_upper_bound(left: Any, right: Any) -> float | None:
+    """Cheap upper bound for _text_similarity without SequenceMatcher.
+
+    SequenceMatcher.ratio() is at most 1, so replacing its contribution with
+    0.35 is guaranteed not to under-estimate the real score.
+    """
+    left_text = _normalize_text(left)
+    right_text = _normalize_text(right)
+    if not left_text and not right_text:
+        return None
+    if not left_text or not right_text:
+        return 0.0
+    if left_text == right_text:
+        return 1.0
+
+    left_tokens = _tokens_from_normalized(left_text)
+    right_tokens = _tokens_from_normalized(right_text)
+    union = left_tokens | right_tokens
+    jaccard = len(left_tokens & right_tokens) / len(union) if union else 0.0
+    return float(0.65 * jaccard + 0.35)
 
 
 def _exact_similarity(left: Any, right: Any) -> float | None:
