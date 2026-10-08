@@ -39,6 +39,7 @@ jobs:
           node --check src/creative_research/intelligence_workspace_static/product_ui.js
           node --check src/creative_research/intelligence_workspace_static/ai_ui.js
           node --check src/creative_research/intelligence_workspace_static/research_ui.js
+          node tests/ui_research_smoke.cjs
 
       - name: Test
         run: uv run pytest --cov=creative_research --cov-report=term-missing
