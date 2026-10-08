@@ -83,6 +83,7 @@ Canonical evidence pipeline:
   lab                Friendly alias for the Operator Intelligence Lab
   intelligence-build Build/reuse the full deterministic intelligence pipeline
   quality-audit      Audit coverage, freshness, integrity, lineage, and trust status
+  outcome-audit      Validate research brief, role flows, playbook and trust boundaries
   rank-posts         Rank master posts for reference selection
   extract-references Build whole-system map + representative reference workspace
   query              Filter normalized creative tables without ad-hoc Pandas
