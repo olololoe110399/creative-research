@@ -114,6 +114,22 @@ and explicitly chooses Approve / Hold / Reject. AI never does so automatically.
 Do not expose --ai-enabled over a LAN/public network. A hosted multi-user
 version would first need auth, tenancy and per-user billing budgets.
 
+## Free full-queue evidence readiness audit
+
+After rebuilding the current Lab, run:
+
+    uv run creative-research ai-research-audit --strict
+
+No API key or Gemini call is required. It checks every pending/reviewed review
+source plus the operator playbook modes for input packet bounds and resolvable
+original/receiving post references. It produces:
+
+    data/07_exports/operator-intelligence/ai_research_readiness.json
+
+A failed audit must be investigated before enabling paid AI calls. Passing
+means the retriever works on the materialized dataset, **not** that Gemini has
+produced reliable reasoning or that the user has approved the proposals.
+
 ## What CI can and cannot establish
 
 Offline tests with fake model responses check source scoping, both positive
