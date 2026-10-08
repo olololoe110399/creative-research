@@ -491,6 +491,11 @@ def build_stage_specs(config: PipelineConfig) -> tuple[StageSpec, ...]:
                     "reviews_source",
                     str(config.reviews.resolve()) if config.reviews is not None else None,
                 ),
+                (
+                    knowledge / "knowledge_report.json",
+                    "knowledge_schema_version",
+                    "operator-knowledge-v2",
+                ),
             ),
         ),
         StageSpec(
@@ -522,6 +527,13 @@ def build_stage_specs(config: PipelineConfig) -> tuple[StageSpec, ...]:
             ),
             outputs=workspace_outputs,
             args=tuple(workspace_args),
+            report_expectations=(
+                (
+                    workspace / "workspace.json",
+                    "workspace_schema_version",
+                    "operator-intelligence-lab-v2",
+                ),
+            ),
         ),
         StageSpec(
             name="audit",
