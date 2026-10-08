@@ -8,6 +8,8 @@ import urllib.error
 import urllib.request
 from pathlib import Path
 
+import pytest
+
 from creative_research.ai_research import AIResearchService
 from creative_research.stages.intelligence import _make_handler
 
@@ -139,6 +141,13 @@ def test_ai_http_plan_run_report_origin_and_no_review_mutation(tmp_path: Path) -
 
         status, saved = _get(base + "/api/ai/report/" + report_id)
         assert status == 200 and saved["request_id"] == report_id
+        assert saved["snapshot_is_current"] is True
+        status, history = _get(
+            base + "/api/ai/history?source_type=family&source_id=F1"
+        )
+        assert status == 200
+        assert len(history["reports"]) == 1
+        assert history["reports"][0]["request_id"] == report_id
         status, result = _get(base + "/api/ai/report/..%2f..%2fsecret")
         assert status == 404
         assert result["error"] in {"invalid_report_id", "report_not_found"}
@@ -172,6 +181,41 @@ def test_ai_http_read_only_refuses_spending(tmp_path: Path) -> None:
             headers={"Content-Type": "text/plain"},
         )
         assert status == 403
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=5)
+
+
+
+def test_dns_rebinding_host_cannot_read_or_trigger_ai(tmp_path: Path) -> None:
+    root = _workspace(tmp_path)
+    service = AIResearchService(root, enabled=True, generator=_model)
+    handler = _make_handler(
+        root=root, reviews_path=tmp_path / "reviews.toml",
+        read_only=False, media_records={}, ai_service=service,
+    )
+    server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), handler)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    base = f"http://127.0.0.1:{server.server_address[1]}"
+    body = {"mode": "investigate", "source_type": "family", "source_id": "F1"}
+    try:
+        status, result = _post(
+            base + "/api/ai/run", body,
+            headers={"Host": "attacker.example", "Origin": "http://attacker.example"},
+        )
+        assert status == 403
+        assert result["error"] == "loopback_host_required"
+        assert service.call_count == 0
+        request = urllib.request.Request(
+            base + "/api/ai/status", headers={"Host": "attacker.example"},
+        )
+        try:
+            with urllib.request.urlopen(request, timeout=6):
+                pytest.fail("DNS-rebinding host unexpectedly allowed")
+        except urllib.error.HTTPError as exc:
+            assert exc.code == 403
     finally:
         server.shutdown()
         server.server_close()
