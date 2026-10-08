@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+import json
 import tomllib
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Iterable
 
 REVIEW_SCHEMA_VERSION = "knowledge-review-v1"
 ALLOWED_DECISIONS = {"approve", "reject", "hold"}
@@ -82,3 +84,70 @@ def load_knowledge_reviews(path: Path | None) -> dict[tuple[str, str], Knowledge
             ),
         )
     return result
+
+
+
+def _toml_string(value: str) -> str:
+    return json.dumps(value, ensure_ascii=False)
+
+
+def write_knowledge_reviews(
+    path: Path,
+    reviews: Iterable[KnowledgeReview],
+) -> None:
+    rows = sorted(
+        reviews,
+        key=lambda item: (
+            item.source_type,
+            item.source_id,
+        ),
+    )
+    lines = [
+        f'schema_version = "{REVIEW_SCHEMA_VERSION}"',
+        "",
+        "# Local human review decisions. This file is intentionally gitignored.",
+        "# Decisions: approve | reject | hold",
+    ]
+    for review in rows:
+        if review.decision not in ALLOWED_DECISIONS:
+            raise ValueError(
+                f"Unsupported review decision {review.decision!r}"
+            )
+        lines.extend(
+            [
+                "",
+                "[[reviews]]",
+                f"source_type = {_toml_string(review.source_type)}",
+                f"source_id = {_toml_string(review.source_id)}",
+                f"decision = {_toml_string(review.decision)}",
+            ]
+        )
+        if review.note is not None:
+            lines.append(f"note = {_toml_string(review.note)}")
+        if review.reviewed_by is not None:
+            lines.append(
+                f"reviewed_by = {_toml_string(review.reviewed_by)}"
+            )
+        if review.reviewed_at is not None:
+            lines.append(
+                f"reviewed_at = {_toml_string(review.reviewed_at)}"
+            )
+
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text("\n".join(lines).rstrip() + "\n", encoding="utf-8")
+
+
+def upsert_knowledge_reviews(
+    path: Path,
+    incoming: Iterable[KnowledgeReview],
+) -> dict[tuple[str, str], KnowledgeReview]:
+    existing = load_knowledge_reviews(path) if path.exists() else {}
+    for review in incoming:
+        if review.decision not in ALLOWED_DECISIONS:
+            raise ValueError(
+                f"Unsupported review decision {review.decision!r}"
+            )
+        existing[(review.source_type, review.source_id)] = review
+
+    write_knowledge_reviews(path, existing.values())
+    return existing
