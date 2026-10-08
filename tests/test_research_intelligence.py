@@ -125,7 +125,6 @@ def test_research_product_separates_observed_inferred_unknown_with_no_approvals(
         members=members,
         posts=posts,
         creative_analysis=analysis,
-        account_nodes=[],
         playbook_steps=playbook,
     )
     assert result["no_human_truth_approval_required"] is True
