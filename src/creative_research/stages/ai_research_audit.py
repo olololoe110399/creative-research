@@ -27,12 +27,22 @@ def audit_ai_readiness(workspace: Path) -> dict[str, Any]:
         identifier = row.get("review_source_id")
         if kind and identifier:
             sources[(kind, identifier)] = row
+    all_sources = set(sources)
+    all_sources.update(
+        ("hypothesis", hypothesis_id)
+        for hypothesis_id in corpus.strategy_index
+    )
+    all_sources.update(
+        ("family", family_id)
+        for family_id, row in corpus.family_index.items()
+        if int(row.get("member_count") or 0) > 1
+    )
     targets = [
         ("draft_playbook", "operator", corpus.operator_id),
         ("stress_test", "operator", corpus.operator_id),
     ] + [
         ("investigate", kind, identifier)
-        for (kind, identifier) in sorted(sources)
+        for (kind, identifier) in sorted(all_sources)
     ]
     results = []
     errors = []
