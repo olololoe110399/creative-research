@@ -28,6 +28,8 @@ def test_canonical_commands_exist() -> None:
         "promote-knowledge",
         "build-intelligence-workspace",
         "intelligence",
+        "intelligence-build",
+        "quality-audit",
         "rank-posts",
         "extract-references",
         "query",
