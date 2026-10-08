@@ -150,6 +150,16 @@ _COPY_VI = {
     ),
 }
 
+_VARIANT_HOOK_VI = {
+    "schedule": "Lịch học nào hợp nhịp sống của bạn nhất?",
+    "exam": "Tuần thi tới rồi: bạn đã có cách ôn lại bài sai chưa?",
+    "specialist": "Thử quy trình 4 bước ôn môn nhiều thuật ngữ",
+    "notes": "Ghi chú thế nào để tự kiểm tra lại mà không học vẹt?",
+    "tool": "Thử một buổi học có ghi chú, câu hỏi và tự kiểm tra",
+    "motivation": "Chỉ có 20 phút để học: bạn sẽ bắt đầu thế nào?",
+    "study_method": "Bạn đã thử học bằng cách tự giải thích chưa?",
+}
+
 _VISUAL_QUERY = {
     "study_desk_photo": "cozy study desk overhead notebook warm natural light portrait photography",
     "lifestyle_photo": "student lifestyle studying at desk warm minimal vertical photography",
@@ -610,10 +620,21 @@ def build_production_kit(
             "recipe_id": rec["recipe_id"],
             "family_id": rec["family_id"],
             "variant": variant,
-            "test_dimension": (
-                "hook wording" if day % 3 == 0 else
-                "original visual treatment" if day % 3 == 1 else
-                "CTA phrasing"
+            "test_dimension": "hook wording",
+            "hook_to_publish_draft_vi": (
+                rec["new_hook_draft_vi"] if variant == "A" else
+                _VARIANT_HOOK_VI.get(rec["creative_kind"], _VARIANT_HOOK_VI["study_method"])
+            ),
+            "controlled_test": (
+                "A/B test changes only the first-slide hook; keep account, "
+                "visual style, CTA, content structure and slot constant "
+                "unless separately tracked."
+            ),
+            "stop_or_recheck": (
+                "Do not scale on a single post. Review at least five age-matched "
+                "A/B pairs or stop earlier if copyright/fact review fails. "
+                "Five pairs is a proposed experimental guardrail, NOT an "
+                "operator-derived threshold."
             ),
             "planned_local_time": account["proposed_local_time"],
             "timezone": account["time_zone"],
@@ -623,7 +644,7 @@ def build_production_kit(
             "publish_gate": "blocked_until_rights_and_copy_review",
             "measure_at": ["24h", "72h", "7d"],
             "tracking": "new_tracking_required",
-            "primary_metric": "own_post_views_vs_own_account_baseline",
+            "primary_metric": "views_at_same_age_vs_own_recent_age_matched_baseline",
             "secondary_metrics": ["saves_per_view", "shares_per_view"],
             "post_url": "", "owner": "", "asset_clearance": "pending",
         })
@@ -1174,7 +1195,9 @@ def production_kit_artifacts(kit: dict[str, Any]) -> dict[str, bytes]:
         "PRODUCTION.json": json.dumps(kit,ensure_ascii=False,indent=2,default=str).encode("utf-8"),
         "CONTENT_PLAN.csv": _csv_bytes(kit["calendar"], [
             "day", "slot_id", "pilot_account", "recipe_id", "family_id",
-            "variant", "test_dimension", "planned_local_time", "timezone",
+            "variant", "test_dimension", "hook_to_publish_draft_vi",
+            "controlled_test", "stop_or_recheck",
+            "planned_local_time", "timezone",
             "time_basis", "content_type", "work_status", "publish_gate",
             "tracking", "primary_metric", "secondary_metrics",
             "post_url", "owner", "asset_clearance",
