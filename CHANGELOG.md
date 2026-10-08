@@ -9,6 +9,8 @@
 - Add `analyze-performance` for account/operator/global historical performance percentiles and baselines.
 - Add `analyze-cadence` for account-level and cross-account operator posting chronology, daily activity, and cadence summaries.
 - Add `data/06_analytics/` as the deterministic analytics layer between canonical evidence and future strategy inference.
+- Add `build-families` for deterministic operator-scoped creative-family candidates using existing Vision features and ordered sequence evidence.
+- Preserve every post through singleton families and retain per-member similarity evidence, origin post, representative post, cohesion, lifecycle, cross-account coverage, and relative-performance summaries.
 
 ## 0.9.1 - 2026-10-07
 
