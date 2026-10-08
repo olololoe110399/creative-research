@@ -884,6 +884,11 @@ def build_workspace_payloads(
 
 def sync_intelligence_workspace(out_dir: Path) -> list[str]:
     out_dir.mkdir(parents=True, exist_ok=True)
+    # The v2/v3 opt-in Copilot panel was retired from the standard Lab.
+    # Rebuilt workspaces must not retain its executable JS from older exports.
+    old_ai_ui = out_dir / "ai_ui.js"
+    if old_ai_ui.exists() or old_ai_ui.is_symlink():
+        old_ai_ui.unlink()
     static_root = resources.files("creative_research").joinpath(
         "intelligence_workspace_static"
     )
