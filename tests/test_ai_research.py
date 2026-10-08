@@ -5,6 +5,7 @@ No network/model calls are made by these tests.
 from __future__ import annotations
 
 import json
+import stat
 from pathlib import Path
 
 import pytest
@@ -218,6 +219,9 @@ def test_ai_plan_is_free_and_cached_validated_report_is_immutable(tmp_path: Path
     assert service.load(one["request_id"])["snapshot_sha256"] == one["snapshot_sha256"]
     assert not (tmp_path / "config/knowledge_reviews.toml").exists()
     assert service.report_dir.is_dir()
+    stored = service.report_dir / (one["request_id"] + ".json")
+    assert stat.S_IMODE(stored.stat().st_mode) == 0o600
+    assert not list(service.report_dir.glob("*.tmp"))
     with pytest.raises(ResearchValidationError, match="ai_call_limit_reached"):
         service.run("challenge", "hypothesis", "STR1")
 
