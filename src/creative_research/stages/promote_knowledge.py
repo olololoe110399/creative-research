@@ -27,7 +27,7 @@ from creative_research.knowledge_reviews import (
 )
 from creative_research.validation import read_table
 
-KNOWLEDGE_SCHEMA_VERSION = "operator-knowledge-v1"
+KNOWLEDGE_SCHEMA_VERSION = "operator-knowledge-v2"
 PROMOTION_METHOD = "deterministic-knowledge-promotion-v1"
 
 KNOWLEDGE_PREFIX = {
@@ -801,13 +801,21 @@ def _playbook_items(
 ) -> list[dict[str, Any]]:
     rows: list[dict[str, Any]] = []
     for operator_id, group in sorted(_operator_hypothesis_map(hypotheses).items()):
-        by_type = {str(row["hypothesis_type"]): row for row in group}
+        # When multiple hypotheses share a type, use the strongest grounded
+        # candidate rather than depending on insertion order.
+        by_type: dict[str, dict[str, Any]] = {}
+        for candidate in sorted(
+            group,
+            key=lambda row: (-row["_confidence"], str(row["hypothesis_id"])),
+        ):
+            by_type.setdefault(str(candidate["hypothesis_type"]), candidate)
         required = by_type.get("operator_explore_propagate_model")
         if required is None or required["_confidence"] < 0.65:
             continue
 
         components = [required]
         for htype in (
+            "selective_cross_account_reuse_model",
             "iterative_reuse_model",
             "preserve_core_vary_execution",
         ):
@@ -823,22 +831,38 @@ def _playbook_items(
         source_ids = [str(row["hypothesis_id"]) for row in components]
         source_key = "|".join(sorted(source_ids))
         review = _review_for(reviews, "playbook_sources", source_key)
-        if review is not None:
-            status = {
-                "approve": "approved",
-                "reject": "rejected",
-                "hold": "hold",
-            }[review.decision]
+        component_reviews = [
+            _review_for(reviews, "hypothesis", str(row["hypothesis_id"]))
+            for row in components
+        ]
+        component_decisions = {
+            component.decision
+            for component in component_reviews
+            if component is not None
+        }
+        # Knowledge derived from held/rejected inputs must never be promoted
+        # through a bundle-level approval. Automatic confidence alone cannot
+        # graduate an actionable playbook to trusted knowledge.
+        if "reject" in component_decisions or (
+            review is not None and review.decision == "reject"
+        ):
+            status = "rejected"
+        elif "hold" in component_decisions or (
+            review is not None and review.decision == "hold"
+        ):
+            status = "hold"
+        elif (
+            review is not None
+            and review.decision == "approve"
+            and len(component_reviews) == len(components)
+            and all(
+                component is not None and component.decision == "approve"
+                for component in component_reviews
+            )
+        ):
+            status = "approved"
         else:
-            all_no_counters = all(
-                _int(row.get("counter_patterns_count")) == 0
-                for row in components
-            )
-            status = (
-                "promoted"
-                if confidence >= 0.80 and len(components) >= 3 and all_no_counters
-                else "review_candidate"
-            )
+            status = "review_candidate"
 
         model_summary = required["_summary"]
         origin_accounts = model_summary.get("origin_accounts", [])
@@ -866,6 +890,21 @@ def _playbook_items(
                 "evidence_basis": required["hypothesis_id"],
             },
         ]
+
+        selective = by_type.get("selective_cross_account_reuse_model")
+        if selective is not None and selective["_confidence"] >= 0.65:
+            steps.append(
+                {
+                    "step": len(steps) + 1,
+                    "action": (
+                        "Compare repeated concepts against all one-offs, and test "
+                        "selective cross-account reuse without assuming that "
+                        "operator performance caused the selection."
+                    ),
+                    "evidence_basis": selective["hypothesis_id"],
+                    "selection_rule_proven": False,
+                }
+            )
 
         mutation = by_type.get("preserve_core_vary_execution")
         if mutation is not None and mutation["_confidence"] >= 0.65:
@@ -915,18 +954,31 @@ def _playbook_items(
         rows.append(
             _base_item(
                 knowledge_type="playbook",
-                subtype="explore_propagate_iterate",
+                subtype=(
+                    "explore_selective_cross_account_reuse"
+                    if selective is not None and selective in components
+                    else "explore_propagate_iterate"
+                ),
                 scope_type="operator",
                 scope_id=operator_id,
                 operator_id=operator_id,
                 account_id=None,
                 source_key=source_key,
-                title="Observed explore → propagate → adapt → iterate playbook",
+                title=(
+                    "Observed explore → selective cross-account reuse (review draft)"
+                    if selective is not None and selective in components
+                    else "Observed explore → propagate → iterate (review draft)"
+                ),
                 statement=(
-                    "A reusable operating sequence inferred from the operator's repeated account-flow and family behavior."
+                    "A reviewable set of observations about account-origin and "
+                    "cross-account creative reuse; neither formal test→scale "
+                    "nor performance-based concept selection is established."
                 ),
                 guidance=(
-                    "Use as a baseline operating model for this operator only; validate each step against current-period evidence before automating."
+                    "Use only to design evidence-linked experiments for this "
+                    "operator's observed scope. Review every constituent "
+                    "hypothesis and the source bundle before treating it as a "
+                    "trusted playbook. Do not copy source creative verbatim."
                 ),
                 confidence=confidence,
                 status=status,
@@ -948,6 +1000,8 @@ def _playbook_items(
                     "component_hypothesis_types": [
                         row["hypothesis_type"] for row in components
                     ],
+                    "formal_test_scale_proven": False,
+                    "manual_component_approvals_required": True,
                 },
             )
         )

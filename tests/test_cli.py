@@ -35,6 +35,7 @@ def test_canonical_commands_exist() -> None:
         "lab",
         "intelligence-build",
         "quality-audit",
+        "outcome-audit",
         "rank-posts",
         "extract-references",
         "query",

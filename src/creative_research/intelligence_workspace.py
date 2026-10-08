@@ -8,14 +8,21 @@ from typing import Any
 
 import pandas as pd
 
+from creative_research.operator_product import (
+    build_provisional_playbook,
+    build_role_flow_index,
+    empty_role_lineage,
+    hypothesis_trust_status,
+    strategy_role_lineage,
+)
 from creative_research.reference_media import (
     local_media_sources_for_post,
     preview_media_for_post,
 )
 from creative_research.stages.review_knowledge import build_review_queue
 
-WORKSPACE_SCHEMA_VERSION = "operator-intelligence-lab-v1"
-STATIC_FILES = ("index.html", "app.js", "style.css", "favicon.svg")
+WORKSPACE_SCHEMA_VERSION = "operator-intelligence-lab-v2"
+STATIC_FILES = ("index.html", "app.js", "product_ui.js", "style.css", "favicon.svg")
 REQUIRED_DATA_FILES = (
     "workspace.json",
     "overview.json",
@@ -242,6 +249,7 @@ def _strategies_payload(
     strategies: pd.DataFrame | None,
     pattern_links: pd.DataFrame | None,
     evidence_links: pd.DataFrame | None,
+    role_index: dict[str, dict[str, Any]],
 ) -> dict[str, Any]:
     pattern_by_strategy = _group_rows(pattern_links, "hypothesis_id")
     evidence_by_strategy = _group_rows(evidence_links, "hypothesis_id")
@@ -259,6 +267,9 @@ def _strategies_payload(
         )
         strategy["pattern_links"] = pattern_by_strategy.get(strategy_id, [])
         strategy["evidence_links"] = evidence_by_strategy.get(strategy_id, [])
+        role_lineage = strategy_role_lineage(strategy, role_index)
+        if role_lineage is not None:
+            strategy["flow_evidence"] = role_lineage
         rows.append(strategy)
     return {"strategies": rows}
 
@@ -336,6 +347,7 @@ def _account_network_payload(
     role_evidence: pd.DataFrame | None,
     propagation: pd.DataFrame | None,
     strategies: pd.DataFrame | None,
+    role_index: dict[str, dict[str, Any]],
 ) -> dict[str, Any]:
     role_by_id = _index_rows(role_evidence, "account_id")
     strategy_by_account = _group_rows(strategies, "account_id")
@@ -350,6 +362,7 @@ def _account_network_payload(
             role.get("cross_account_flow_observations")
         )
         strength = str(role.get("evidence_strength") or "")
+        lineage = role_index.get(account_id, empty_role_lineage())
         if (
             flow_observations >= 5
             and strength != "low"
@@ -376,6 +389,10 @@ def _account_network_payload(
                 "receiver_signal": receiver,
                 "amplifier_signal": amplifier,
                 "flow_observations": flow_observations,
+                "role_lineage": lineage,
+                "lineage_matches_summary": (
+                    flow_observations == lineage["total_family_observations"]
+                ),
                 "evidence_strength": role.get("evidence_strength"),
                 "strategy_hypotheses": strategy_by_account.get(account_id, []),
             }
@@ -441,6 +458,7 @@ def _lab_payload(
     strategies: pd.DataFrame | None,
     knowledge: pd.DataFrame | None,
     knowledge_evidence_links: pd.DataFrame | None,
+    role_index: dict[str, dict[str, Any]],
 ) -> dict[str, Any]:
     operator_rows = _records(operators)
     operator = operator_rows[0] if operator_rows else {}
@@ -462,6 +480,7 @@ def _lab_payload(
     )
 
     strategy_rows = _records(strategies)
+    knowledge_rows = _records(knowledge)
     strategy_by_type: dict[str, list[dict[str, Any]]] = {}
     for row in strategy_rows:
         strategy_by_type.setdefault(
@@ -484,8 +503,16 @@ def _lab_payload(
             ),
         )
         for row in rows:
+            trust_status = hypothesis_trust_status(
+                knowledge_rows,
+                str(row.get("hypothesis_id") or ""),
+                str(operator.get("operator_id") or ""),
+            )
+            if trust_status in {"hold", "rejected"}:
+                continue
             key_findings.append(
                 {
+                    "trust_status": trust_status,
                     "hypothesis_id": row.get("hypothesis_id"),
                     "hypothesis_type": hypothesis_type,
                     "scope_type": row.get("scope_type"),
@@ -564,6 +591,15 @@ def _lab_payload(
         knowledge_evidence_links,
     )
     review_rows = _records(review_queue)
+    all_review_queue, _ = build_review_queue(
+        knowledge if knowledge is not None else pd.DataFrame(),
+        knowledge_evidence_links,
+        include_reviewed=True,
+    )
+    reviewed_rows = [
+        row for row in _records(all_review_queue)
+        if row.get("existing_review_decision") in {"approve", "hold", "reject"}
+    ]
     tier_counts = (
         {
             str(int(key)): int(value)
@@ -610,6 +646,9 @@ def _lab_payload(
             if hero_strategy
             else None
         ),
+        "trust_status": (
+            hero_strategy.get("trust_status") if hero_strategy else "hypothesis_only"
+        ),
         "hypothesis_id": (
             hero_strategy.get("hypothesis_id")
             if hero_strategy
@@ -651,10 +690,18 @@ def _lab_payload(
             role_evidence,
             propagation,
             strategies,
+            role_index,
+        ),
+        "playbook": build_provisional_playbook(
+            strategy_rows,
+            knowledge_rows,
+            operator_id=str(operator.get("operator_id") or ""),
         ),
         "family_highlights": family_highlights,
         "review": {
             "pending_sources": int(len(review_queue)),
+            "reviewed_sources": len(reviewed_rows),
+            "reviewed_items": reviewed_rows,
             "tier_counts": tier_counts,
             "unresolved_review_targets": review_meta.get(
                 "unresolved_review_targets", 0
@@ -756,6 +803,7 @@ def build_workspace_payloads(
     knowledge_source_links: pd.DataFrame | None = None,
     knowledge_evidence_links: pd.DataFrame | None = None,
 ) -> dict[str, Any]:
+    role_index = build_role_flow_index(_records(propagation))
     return {
         "overview.json": _overview_payload(
             operators,
@@ -789,6 +837,7 @@ def build_workspace_payloads(
             strategies,
             strategy_pattern_links,
             strategy_evidence_links,
+            role_index,
         ),
         "knowledge.json": _knowledge_payload(
             knowledge,
@@ -812,6 +861,7 @@ def build_workspace_payloads(
             strategies,
             knowledge,
             knowledge_evidence_links,
+            role_index,
         ),
     }
 
@@ -857,6 +907,7 @@ def write_intelligence_workspace(
             "network",
             "families",
             "review",
+            "playbook",
             "advanced",
         ],
         "counts": payloads["overview.json"]["counts"],

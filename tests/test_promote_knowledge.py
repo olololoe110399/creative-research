@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from creative_research.knowledge_reviews import load_knowledge_reviews
+from creative_research.knowledge_reviews import KnowledgeReview, load_knowledge_reviews
 from creative_research.stages.promote_knowledge import build_knowledge_tables
 
 
@@ -342,3 +342,76 @@ def test_low_confidence_hypotheses_are_not_promoted_to_knowledge() -> None:
     )
     lessons = tables["lessons"]
     assert not lessons["source_ids_json"].str.contains("STR-CADENCE").any()
+
+
+
+def test_selective_reuse_and_explore_model_build_reviewable_playbook() -> None:
+    hypotheses = _hypotheses()
+    hypotheses = hypotheses.loc[
+        hypotheses["hypothesis_type"].isin([
+            "operator_explore_propagate_model",
+            "selective_cross_account_reuse_model",
+        ])
+    ].copy()
+    tables = build_knowledge_tables(
+        hypotheses, _evidence(), _families(), _members()
+    )
+    playbooks = tables["playbooks"]
+    assert len(playbooks) == 1
+    row = playbooks.iloc[0]
+    assert row["knowledge_status"] == "review_candidate"
+    sources = set(json.loads(row["source_ids_json"]))
+    assert sources == {"STR-MODEL", "STR-SELECTIVE"}
+    steps = json.loads(row["payload_json"])["steps"]
+    selective = [
+        step for step in steps
+        if step.get("evidence_basis") == "STR-SELECTIVE"
+    ]
+    assert len(selective) == 1
+    assert selective[0]["selection_rule_proven"] is False
+    assert "scale" in row["statement"]
+
+
+def test_bundle_review_cannot_override_unreviewed_or_rejected_inputs() -> None:
+    hypotheses = _hypotheses()
+    hypotheses = hypotheses.loc[
+        hypotheses["hypothesis_type"].isin([
+            "operator_explore_propagate_model",
+            "selective_cross_account_reuse_model",
+        ])
+    ].copy()
+    source_key = "STR-MODEL|STR-SELECTIVE"
+    reviews = {
+        ("playbook_sources", source_key): KnowledgeReview(
+            source_type="playbook_sources",
+            source_id=source_key,
+            decision="approve",
+        )
+    }
+    def outcome(decisions: dict) -> str:
+        tables = build_knowledge_tables(
+            hypotheses, _evidence(), _families(), _members(),
+            reviews=decisions,
+        )
+        return str(tables["playbooks"].iloc[0]["knowledge_status"])
+
+    assert outcome(reviews) == "review_candidate"
+
+    reviewed = dict(reviews)
+    reviewed[("hypothesis", "STR-MODEL")] = KnowledgeReview(
+        source_type="hypothesis", source_id="STR-MODEL", decision="approve"
+    )
+    reviewed[("hypothesis", "STR-SELECTIVE")] = KnowledgeReview(
+        source_type="hypothesis", source_id="STR-SELECTIVE", decision="approve"
+    )
+    assert outcome(reviewed) == "approved"
+
+    reviewed[("hypothesis", "STR-SELECTIVE")] = KnowledgeReview(
+        source_type="hypothesis", source_id="STR-SELECTIVE", decision="hold"
+    )
+    assert outcome(reviewed) == "hold"
+
+    reviewed[("hypothesis", "STR-SELECTIVE")] = KnowledgeReview(
+        source_type="hypothesis", source_id="STR-SELECTIVE", decision="reject"
+    )
+    assert outcome(reviewed) == "rejected"

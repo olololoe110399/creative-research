@@ -71,6 +71,37 @@ def _json_response(
     handler.wfile.write(raw)
 
 
+def review_request_error(payload: dict[str, Any]) -> str | None:
+    """Validate explicit evidence review; a click alone is not human validation."""
+    note = str(payload.get("note") or "").strip()
+    if len(note) < 10:
+        return "review_note_required"
+    if payload.get("decision") == "approve" and payload.get("evidence_inspected") is not True:
+        return "evidence_confirmation_required"
+    return None
+
+
+def review_source_in_queue(
+    workspace: Path,
+    source_type: str,
+    source_id: str,
+) -> bool:
+    """Prevent arbitrary IDs from being given an approval outside the review queue."""
+    try:
+        lab = json.loads((workspace / "lab.json").read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return False
+    return any(
+        isinstance(item, dict)
+        and item.get("review_source_type") == source_type
+        and item.get("review_source_id") == source_id
+        for item in (
+            lab.get("review", {}).get("items", [])
+            + lab.get("review", {}).get("reviewed_items", [])
+        )
+    )
+
+
 def _make_handler(
     *,
     root: Path,
@@ -237,6 +268,13 @@ def _make_handler(
                     400,
                     {"error": "invalid_decision"},
                 )
+                return
+            error = review_request_error(payload)
+            if error:
+                _json_response(self, 400, {"error": error})
+                return
+            if not review_source_in_queue(root, source_type, source_id):
+                _json_response(self, 404, {"error": "unknown_review_source"})
                 return
 
             review = KnowledgeReview(

@@ -129,12 +129,22 @@ A playbook is assembled only when multiple operator hypotheses support the same 
 The current playbook can combine:
 
 1. concept origin/exploration surfaces;
-2. family-level tracking and reuse;
-3. propagation to receiving/amplification surfaces;
-4. preserve-core/vary-execution adaptation;
-5. continued family-level iteration.
+2. family-level tracking and observed account chronology;
+3. **selective cross-account reuse** when the operator-level evidence is strong — without claiming that only winning posts were selected;
+4. preserve-core/vary-execution adaptation, only when sufficiently supported;
+5. continued family-level iteration, only when sufficiently supported.
 
-Automatic promotion requires stronger evidence than a single strategy item. Otherwise it remains a review candidate.
+An operator explore/propagate hypothesis plus a strong selective-reuse hypothesis
+is enough to produce a **review candidate**, even if adaptation and iteration
+are not established. The generated playbook explicitly avoids claiming formal
+test → scale, causation, or a proven selection rule.
+
+**Playbooks are never auto-promoted.** Unlike narrower descriptive knowledge,
+a playbook is a prescriptive artifact. Manual approval of the bundle **and of
+every constituent hypothesis** is required for trusted status. A held/rejected
+constituent blocks approval even when the bundle itself was approved.
+A provisional Playbook view in the Lab is separate from this knowledge catalog:
+it is a reviewable application/validation draft, not trusted knowledge.
 
 ## Human review workflow
 

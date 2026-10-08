@@ -18,6 +18,7 @@ PIPELINE_STAGE_NAMES = (
     "knowledge",
     "workspace",
     "audit",
+    "outcome",
 )
 
 
@@ -176,6 +177,7 @@ def build_stage_specs(config: PipelineConfig) -> tuple[StageSpec, ...]:
             "lab.json",
             "index.html",
             "app.js",
+            "product_ui.js",
             "style.css",
             "favicon.svg",
         )
@@ -489,6 +491,11 @@ def build_stage_specs(config: PipelineConfig) -> tuple[StageSpec, ...]:
                     "reviews_source",
                     str(config.reviews.resolve()) if config.reviews is not None else None,
                 ),
+                (
+                    knowledge / "knowledge_report.json",
+                    "knowledge_schema_version",
+                    "operator-knowledge-v2",
+                ),
             ),
         ),
         StageSpec(
@@ -520,6 +527,13 @@ def build_stage_specs(config: PipelineConfig) -> tuple[StageSpec, ...]:
             ),
             outputs=workspace_outputs,
             args=tuple(workspace_args),
+            report_expectations=(
+                (
+                    workspace / "workspace.json",
+                    "workspace_schema_version",
+                    "operator-intelligence-lab-v2",
+                ),
+            ),
         ),
         StageSpec(
             name="audit",
@@ -544,6 +558,24 @@ def build_stage_specs(config: PipelineConfig) -> tuple[StageSpec, ...]:
                     if config.reviews is not None
                     else []
                 )
+            ),
+        ),
+        StageSpec(
+            name="outcome",
+            module="creative_research.stages.outcome_audit",
+            inputs=tuple(workspace / name for name in (
+                "lab.json",
+                "families.json",
+                "strategies.json",
+                "knowledge.json",
+                "evidence.json",
+            )) + (config.quality_out.resolve(),),
+            outputs=(workspace / "outcome_acceptance_report.json",),
+            args=(
+                "--workspace",
+                str(workspace),
+                "--out",
+                str(workspace / "outcome_acceptance_report.json"),
             ),
         ),
     )

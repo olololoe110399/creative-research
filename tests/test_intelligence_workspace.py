@@ -424,12 +424,13 @@ def test_write_workspace_copies_static_and_required_data(tmp_path: Path) -> None
     assert validate_intelligence_workspace(tmp_path) == []
 
     workspace = json.loads((tmp_path / "workspace.json").read_text(encoding="utf-8"))
-    assert workspace["workspace_schema_version"] == "operator-intelligence-lab-v1"
+    assert workspace["workspace_schema_version"] == "operator-intelligence-lab-v2"
     assert workspace["views"] == [
         "brief",
         "network",
         "families",
         "review",
+        "playbook",
         "advanced",
     ]
     assert (tmp_path / "lab.json").is_file()
@@ -474,3 +475,88 @@ def test_workspace_prefers_local_archived_media_urls(
         "/api/media/video/P2"
     )
     assert posts["P2"]["preview"]["video_source"] == "local_archive"
+
+
+def test_rejected_and_held_hypotheses_are_not_featured_as_findings() -> None:
+    frames = _frames()
+    selected = pd.DataFrame(
+        [{
+            "hypothesis_id": "STR2",
+            "hypothesis_type": "selective_cross_account_reuse_model",
+            "scope_type": "operator",
+            "operator_id": "OP1",
+            "scope_id": "OP1",
+            "title": "Selective cross-account reuse",
+            "claim": "Repeated concepts sometimes move across accounts.",
+            "confidence_score": 0.9,
+            "confidence_band": "high",
+            "evidence_summary_json": '{"multi_post_families": 1}',
+        }]
+    )
+    frames["strategies"] = pd.concat(
+        [frames["strategies"], selected], ignore_index=True
+    )
+    frames["knowledge"].loc[
+        frames["knowledge"]["knowledge_id"].eq("KLES1"),
+        "knowledge_status",
+    ] = "rejected"
+    lab = build_workspace_payloads(**frames)["lab.json"]
+    assert not any(
+        x["hypothesis_id"] == "STR2"
+        for x in lab["research_brief"]["key_findings"]
+    )
+    assert lab["research_brief"]["hero"]["hypothesis_id"] is None
+
+    frames["knowledge"].loc[
+        frames["knowledge"]["knowledge_id"].eq("KLES1"),
+        "knowledge_status",
+    ] = "approved"
+    lab = build_workspace_payloads(**frames)["lab.json"]
+    assert lab["research_brief"]["hero"]["hypothesis_id"] == "STR2"
+    assert lab["research_brief"]["key_findings"][0]["trust_status"] == "approved"
+
+
+def test_lab_projects_flow_lineage_without_changing_role_denominator() -> None:
+    frames = _frames()
+    frames["propagation"].loc[0, "family_origin_post_uid"] = "P1"
+    frames["role_evidence"].loc[
+        frames["role_evidence"]["account_id"].eq("A"),
+        "cross_account_flow_observations",
+    ] = 1
+    frames["role_evidence"].loc[
+        frames["role_evidence"]["account_id"].eq("B"),
+        "cross_account_flow_observations",
+    ] = 1
+    payloads = build_workspace_payloads(**frames)
+    nodes = {
+        item["account_id"]: item
+        for item in payloads["lab.json"]["account_network"]["nodes"]
+    }
+    assert nodes["A"]["role_lineage"]["origin_family_count"] == 1
+    assert nodes["A"]["role_lineage"]["imported_family_count"] == 0
+    assert nodes["B"]["role_lineage"]["imported_family_count"] == 1
+    assert nodes["A"]["lineage_matches_summary"]
+    assert nodes["B"]["lineage_matches_summary"]
+    entry = nodes["B"]["role_lineage"]["imported_families"][0]["flows"][0]
+    assert (entry["origin_post_uid"], entry["target_post_uid"]) == ("P1", "P2")
+
+
+def test_review_history_preserves_held_sources_for_reinspection() -> None:
+    frames = _frames()
+    frames["knowledge"].loc[
+        frames["knowledge"]["knowledge_id"].eq("KLES1"),
+        "knowledge_status",
+    ] = "hold"
+    frames["knowledge"].loc[
+        frames["knowledge"]["knowledge_id"].eq("KLES1"),
+        "review_decision",
+    ] = "hold"
+    frames["knowledge"].loc[
+        frames["knowledge"]["knowledge_id"].eq("KLES1"),
+        "review_note",
+    ] = "Evidence insufficient to promote cadence."
+    review = build_workspace_payloads(**frames)["lab.json"]["review"]
+    assert review["pending_sources"] == 1
+    assert review["reviewed_sources"] == 1
+    assert review["reviewed_items"][0]["review_source_id"] == "STR2"
+    assert review["reviewed_items"][0]["existing_review_decision"] == "hold"
