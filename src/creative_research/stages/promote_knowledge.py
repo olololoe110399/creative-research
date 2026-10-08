@@ -90,6 +90,17 @@ def _int(value: Any) -> int:
     return int(number) if number is not None else 0
 
 
+def _as_bool(value: Any) -> bool:
+    if value is None or value is pd.NA:
+        return False
+    try:
+        if pd.isna(value):
+            return False
+    except (TypeError, ValueError):
+        pass
+    return bool(value)
+
+
 def _parse_json(value: Any, default: Any) -> Any:
     if isinstance(value, (dict, list)):
         return value
@@ -632,7 +643,7 @@ def _template_items(
             "member_count": _int(row.get("member_count")),
             "variant_count": _int(row.get("variant_count")),
             "accounts_count": _int(row.get("accounts_count")),
-            "cross_account": bool(row.get("cross_account", False)),
+            "cross_account": _as_bool(row.get("cross_account", False)),
             "family_confidence": _clean(row.get("family_confidence")),
             "anchor_cohesion_mean": _numeric(row.get("anchor_cohesion_mean")),
             "median_views_percentile_account": _numeric(
