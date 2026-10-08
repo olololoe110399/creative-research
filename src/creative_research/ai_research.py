@@ -695,6 +695,57 @@ class AIResearchService:
             temporary.replace(report_path)
             return report
 
+    def history(self, source_type: str, source_id: str) -> list[dict[str, Any]]:
+        """Find persisted proposals for a current known source without model calls."""
+        corpus = LabCorpus(self.workspace)
+        if source_type == "operator":
+            if source_id != corpus.operator_id:
+                raise ResearchValidationError("invalid_operator_scope")
+        elif source_type == "hypothesis":
+            if source_id not in corpus.strategy_index:
+                raise ResearchValidationError("unknown_research_source")
+        elif source_type == "family":
+            if source_id not in corpus.family_index:
+                raise ResearchValidationError("unknown_research_source")
+        elif source_type == "playbook_sources":
+            ids = source_id.split("|")
+            if not ids or any(i not in corpus.strategy_index for i in ids):
+                raise ResearchValidationError("unknown_research_source")
+        else:
+            raise ResearchValidationError("invalid_research_source_type")
+        if not self.report_dir.exists():
+            return []
+        reports: list[dict[str, Any]] = []
+        candidates = sorted(
+            self.report_dir.glob("*.json"),
+            key=lambda path: path.stat().st_mtime_ns,
+            reverse=True,
+        )[:200]
+        for path in candidates:
+            if not REPORT_NAME.fullmatch(path.stem):
+                continue
+            try:
+                row = json.loads(path.read_text(encoding="utf-8"))
+            except (OSError, ValueError):
+                continue
+            if (
+                row.get("source_type") != source_type
+                or row.get("source_id") != source_id
+                or row.get("ai_status") != "proposal_only"
+                or row.get("request_id") != path.stem
+            ):
+                continue
+            reports.append({
+                "request_id": path.stem,
+                "mode": row.get("mode"),
+                "model": row.get("model"),
+                "generated_at": row.get("generated_at"),
+                "snapshot_sha256": row.get("snapshot_sha256"),
+            })
+            if len(reports) >= 10:
+                break
+        return reports
+
     def load(self, report_id: str) -> dict[str, Any]:
         if not REPORT_NAME.fullmatch(report_id):
             raise ResearchValidationError("invalid_report_id")
@@ -706,4 +757,13 @@ class AIResearchService:
             raise ResearchValidationError("report_not_found") from exc
         if report.get("request_id") != report_id or report.get("ai_status") != "proposal_only":
             raise ResearchValidationError("invalid_saved_report")
+        try:
+            _packet, latest_meta = self.plan(
+                report["mode"], report["source_type"], report["source_id"]
+            )
+            report["snapshot_is_current"] = (
+                latest_meta["snapshot_sha256"] == report.get("snapshot_sha256")
+            )
+        except (KeyError, ResearchValidationError):
+            report["snapshot_is_current"] = False
         return report
