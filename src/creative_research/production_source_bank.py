@@ -2,6 +2,9 @@
 from __future__ import annotations
 import json
 import re
+import os
+import hashlib
+import tempfile
 from pathlib import Path
 from typing import Any
 from creative_research.production_fields import _text, _slug, _num, _clean_copy, _pct
@@ -11,6 +14,7 @@ def enrich_production_kit_from_raw(
     raw_root: Path,
     *,
     evidence_posts: list[dict[str, Any]] | None = None,
+    cache_path: Path | None = None,
     max_files: int = 300,
     max_rows: int = 200_000,
 ) -> dict[str, Any]:
@@ -55,76 +59,143 @@ def enrich_production_kit_from_raw(
         *raw_root.rglob("posts.jsonl"),
     })
     files = available_files[:max_files]
-    scanned = 0
-    for path in files:
-        if scanned >= max_rows or len(located) == len(expected):
-            break
+    # The index stores ONLY normalized, publicly observable text/sound IDs,
+    # keyed to one exact operator, corpus and local raw-file signature.
+    # No raw media bytes, API keys, or usage-rights assertions are persisted.
+    fingerprint = hashlib.sha256(json.dumps({
+        "schema":"observed-source-metadata-index-v1",
+        "operator_id":kit.get("operator_id"),
+        "expected":[
+            [k[0],k[1],v.get("post_uid"),v.get("account_relative_views_percentile")]
+            for k,v in sorted(expected.items())
+        ],
+        "raw_files":[
+            [str(path.relative_to(raw_root)),path.stat().st_size,path.stat().st_mtime_ns]
+            for path in files
+        ],
+        "limits":[max_files,max_rows],
+    },ensure_ascii=False,default=str,sort_keys=True).encode("utf-8")).hexdigest()
+    cache_hit=False
+    scanned=0
+    if cache_path is not None and cache_path.is_file():
         try:
-            stream = path.open("r", encoding="utf-8-sig")
-        except OSError:
-            continue
-        with stream:
-            for line in stream:
-                if scanned >= max_rows or len(located) == len(expected):
-                    break
-                if not line.strip():
-                    continue
-                scanned += 1
-                try:
-                    raw = json.loads(line)
-                except ValueError:
-                    continue
-                if not isinstance(raw, dict):
-                    continue
-                pid = _text(
-                    raw.get("post_id") or raw.get("id") or raw.get("idStr")
-                    or raw.get("postId") or raw.get("awemeId")
-                )
-                author = raw.get("authorMeta") or raw.get("author") or {}
-                if not isinstance(author, dict):
-                    author = {}
-                handle = _text(
-                    raw.get("input") or raw.get("account")
-                    or author.get("name") or author.get("uniqueId")
-                ).casefold().lstrip("@").split("?")[0].split("/")[-1]
-                key = (handle, pid)
-                if key not in expected or key in located:
-                    continue
-                music = raw.get("musicMeta") or raw.get("music") or {}
-                if not isinstance(music, dict):
-                    music = {}
-                hashtags = raw.get("hashtags") or []
-                if isinstance(hashtags, str):
-                    hashtags = [part for part in re.split(r"[,| ]+", hashtags) if part]
-                clean_tags: list[str] = []
-                if isinstance(hashtags, list):
-                    for tag in hashtags[:30]:
-                        name = (
-                            tag.get("name") or tag.get("hashtagName")
-                            if isinstance(tag, dict) else str(tag)
-                        )
-                        if name:
-                            clean_tags.append(str(name).lstrip("#")[:60])
-                located[key] = {
-                    **expected[key],
-                    "caption": _clean_copy(
-                        raw.get("text") or raw.get("caption") or raw.get("desc"),
-                        600,
-                    ),
-                    "hashtags": list(dict.fromkeys(clean_tags)),
-                    "music_id": _text(
-                        music.get("musicId") or music.get("id")
-                        or raw.get("music_id")
-                    ),
-                    "music_name": _text(
-                        music.get("musicName") or music.get("title")
-                        or raw.get("music_name")
-                    ),
-                    "music_author": _text(
-                        music.get("musicAuthor") or music.get("authorName")
-                        or raw.get("music_author")
-                    ),
-                }
+            cache=json.loads(cache_path.read_text(encoding="utf-8"))
+            if (cache.get("schema_version")=="observed-source-metadata-index-v1"
+                    and cache.get("operator_id")==kit.get("operator_id")
+                    and cache.get("input_fingerprint")==fingerprint
+                    and isinstance(cache.get("records"),list)):
+                parsed={}
+                for row in cache["records"]:
+                    key=(row["account_key"],row["post_id"])
+                    if key in parsed or key not in expected:
+                        raise ValueError("invalid_cached_post_identity")
+                    parsed[key]=row["metadata"]
+                located=parsed
+                scanned=int(cache.get("raw_rows_scanned") or 0)
+                cache_hit=True
+        except (OSError,ValueError,TypeError,KeyError):
+            # Corrupted or unrelated caches never make an inferred observation.
+            cache_hit=False
+            located={}
+    if not cache_hit:
+        scanned = 0
+        for path in files:
+            if scanned >= max_rows or len(located) == len(expected):
+                break
+            try:
+                stream = path.open("r", encoding="utf-8-sig")
+            except OSError:
+                continue
+            with stream:
+                for line in stream:
+                    if scanned >= max_rows or len(located) == len(expected):
+                        break
+                    if not line.strip():
+                        continue
+                    scanned += 1
+                    try:
+                        raw = json.loads(line)
+                    except ValueError:
+                        continue
+                    if not isinstance(raw, dict):
+                        continue
+                    pid = _text(
+                        raw.get("post_id") or raw.get("id") or raw.get("idStr")
+                        or raw.get("postId") or raw.get("awemeId")
+                    )
+                    author = raw.get("authorMeta") or raw.get("author") or {}
+                    if not isinstance(author, dict):
+                        author = {}
+                    handle = _text(
+                        raw.get("input") or raw.get("account")
+                        or author.get("name") or author.get("uniqueId")
+                    ).casefold().lstrip("@").split("?")[0].split("/")[-1]
+                    key = (handle, pid)
+                    if key not in expected or key in located:
+                        continue
+                    music = raw.get("musicMeta") or raw.get("music") or {}
+                    if not isinstance(music, dict):
+                        music = {}
+                    hashtags = raw.get("hashtags") or []
+                    if isinstance(hashtags, str):
+                        hashtags = [part for part in re.split(r"[,| ]+", hashtags) if part]
+                    clean_tags: list[str] = []
+                    if isinstance(hashtags, list):
+                        for tag in hashtags[:30]:
+                            name = (
+                                tag.get("name") or tag.get("hashtagName")
+                                if isinstance(tag, dict) else str(tag)
+                            )
+                            if name:
+                                clean_tags.append(str(name).lstrip("#")[:60])
+                    located[key] = {
+                        **expected[key],
+                        "caption": _clean_copy(
+                            raw.get("text") or raw.get("caption") or raw.get("desc"),
+                            600,
+                        ),
+                        "hashtags": list(dict.fromkeys(clean_tags)),
+                        "music_id": _text(
+                            music.get("musicId") or music.get("id")
+                            or raw.get("music_id")
+                        ),
+                        "music_name": _text(
+                            music.get("musicName") or music.get("title")
+                            or raw.get("music_name")
+                        ),
+                        "music_author": _text(
+                            music.get("musicAuthor") or music.get("authorName")
+                            or raw.get("music_author")
+                        ),
+                    }
+
+
+        if cache_path is not None:
+            cache_path.parent.mkdir(parents=True,exist_ok=True)
+            payload={
+                "schema_version":"observed-source-metadata-index-v1",
+                "operator_id":kit.get("operator_id"),
+                "input_fingerprint":fingerprint,
+                "raw_rows_scanned":scanned,
+                "records":[
+                    {"account_key":account,"post_id":pid,"metadata":meta}
+                    for (account,pid),meta in sorted(located.items())
+                ],
+                "license_scope":"reference_only_not_copyright_clearance",
+            }
+            fd,name=tempfile.mkstemp(
+                prefix=".source-bank-",suffix=".tmp",dir=cache_path.parent,
+            )
+            tmp=Path(name)
+            try:
+                with os.fdopen(fd,"w",encoding="utf-8") as handle:
+                    os.fchmod(handle.fileno(),0o600)
+                    json.dump(payload,handle,ensure_ascii=False,indent=2)
+                    handle.flush()
+                    os.fsync(handle.fileno())
+                tmp.replace(cache_path)
+            finally:
+                tmp.unlink(missing_ok=True)
 
     sound_index: dict[str, dict[str, Any]] = {}
     hashtag_index: dict[str, dict[str, Any]] = {}
@@ -197,7 +268,11 @@ def enrich_production_kit_from_raw(
         key=lambda h: (-h["observed_post_count"],h["hashtag"].casefold()),
     )[:500]
     q = kit["quality"]
-    q["raw_enrichment"] = "scanned_public_local_archive"
+    q["raw_enrichment"] = (
+        "cached_public_metadata_index" if cache_hit else "scanned_public_local_archive"
+    )
+    q["raw_metadata_cache_hit"] = cache_hit
+    q["raw_metadata_source_fingerprint"] = fingerprint
     q["raw_files_scanned"] = len(files)
     q["raw_file_candidates"] = len(available_files)
     q["raw_rows_scanned"] = scanned
