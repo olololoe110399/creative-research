@@ -10,6 +10,7 @@ from creative_research.stages.judge_family_candidates import (
     build_evidence_lookup,
     build_plan,
     build_prompt,
+    merge_judgment_frames,
     select_candidate_pairs,
 )
 
@@ -232,3 +233,97 @@ def test_analysis_lookup_does_not_include_performance_fields() -> None:
     lookup = build_evidence_lookup(_analysis(), _sequence())
     assert "views" not in lookup["P1"]
     assert "likes" not in lookup["P1"]
+
+
+def test_merge_judgment_frames_preserves_unselected_existing_pairs() -> None:
+    existing = pd.DataFrame(
+        [
+            {
+                "pair_id": "AIP-1",
+                "model": "gemini-3.5-flash-lite",
+                "prompt_version": "family-ai-judge-prompt-v1",
+                "judge_schema_version": "family-ai-judge-v1",
+                "decision": "same_core_concept",
+                "relationship": "translation_adaptation",
+                "confidence": 0.95,
+            },
+            {
+                "pair_id": "AIP-2",
+                "model": "gemini-3.5-flash-lite",
+                "prompt_version": "family-ai-judge-prompt-v1",
+                "judge_schema_version": "family-ai-judge-v1",
+                "decision": "different_core_concept",
+                "relationship": "thematic_only",
+                "confidence": 0.92,
+            },
+        ]
+    )
+    batch = pd.DataFrame(
+        [
+            {
+                "pair_id": "AIP-3",
+                "model": "gemini-3.5-flash-lite",
+                "prompt_version": "family-ai-judge-prompt-v1",
+                "judge_schema_version": "family-ai-judge-v1",
+                "decision": "same_core_concept",
+                "relationship": "paraphrase",
+                "confidence": 0.90,
+            }
+        ]
+    )
+    merged, stats = merge_judgment_frames(
+        existing,
+        batch,
+        model="gemini-3.5-flash-lite",
+    )
+    assert set(merged["pair_id"]) == {"AIP-1", "AIP-2", "AIP-3"}
+    assert stats["existing_compatible_rows"] == 2
+    assert stats["batch_judged_rows"] == 1
+    assert stats["cumulative_judged_rows"] == 3
+
+
+def test_merge_judgment_frames_replaces_same_pair_and_ignores_stale_versions() -> None:
+    existing = pd.DataFrame(
+        [
+            {
+                "pair_id": "AIP-1",
+                "model": "gemini-3.5-flash-lite",
+                "prompt_version": "family-ai-judge-prompt-v1",
+                "judge_schema_version": "family-ai-judge-v1",
+                "decision": "same_core_concept",
+                "relationship": "paraphrase",
+                "confidence": 0.70,
+            },
+            {
+                "pair_id": "AIP-OLD",
+                "model": "old-model",
+                "prompt_version": "old-prompt",
+                "judge_schema_version": "old-schema",
+                "decision": "same_core_concept",
+                "relationship": "exact_reuse",
+                "confidence": 1.0,
+            },
+        ]
+    )
+    batch = pd.DataFrame(
+        [
+            {
+                "pair_id": "AIP-1",
+                "model": "gemini-3.5-flash-lite",
+                "prompt_version": "family-ai-judge-prompt-v1",
+                "judge_schema_version": "family-ai-judge-v1",
+                "decision": "different_core_concept",
+                "relationship": "thematic_only",
+                "confidence": 0.96,
+            }
+        ]
+    )
+    merged, stats = merge_judgment_frames(
+        existing,
+        batch,
+        model="gemini-3.5-flash-lite",
+    )
+    assert list(merged["pair_id"]) == ["AIP-1"]
+    assert merged.iloc[0]["decision"] == "different_core_concept"
+    assert stats["existing_incompatible_rows_ignored"] == 1
+    assert stats["cumulative_judged_rows"] == 1
