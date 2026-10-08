@@ -16,6 +16,7 @@ from creative_research.operator_product import (
     strategy_role_lineage,
 )
 from creative_research.research_intelligence import build_research_intelligence
+from creative_research.operating_state import OperatingStore
 from creative_research.production_kit import (
     build_production_kit,
     write_production_kit,
@@ -29,7 +30,7 @@ from creative_research.reference_media import (
 from creative_research.stages.review_knowledge import build_review_queue
 
 WORKSPACE_SCHEMA_VERSION = "operator-intelligence-lab-v3"
-STATIC_FILES = ("index.html", "app.js", "product_ui.js", "research_ui.js", "production_ui.js", "style.css", "favicon.svg")
+STATIC_FILES = ("index.html", "app.js", "product_ui.js", "research_ui.js", "operating_ui.js", "production_ui.js", "style.css", "favicon.svg")
 REQUIRED_DATA_FILES = (
     "workspace.json",
     "overview.json",
@@ -959,6 +960,21 @@ def write_intelligence_workspace(
 ) -> dict[str, Any]:
     out_dir.mkdir(parents=True, exist_ok=True)
     payloads = build_workspace_payloads(**frames)
+    # Recover older user-entered CSV outcomes BEFORE replacing the old
+    # generated production.json. The new store lives outside this directory.
+    old_kit_path = out_dir / "production.json"
+    if old_kit_path.is_file():
+        try:
+            old_kit = json.loads(old_kit_path.read_text(encoding="utf-8"))
+        except (OSError, ValueError) as exc:
+            raise ValueError("Cannot safely replace unreadable old production data") from exc
+        if not isinstance(old_kit, dict):
+            raise ValueError("Cannot safely replace malformed old production data")
+        if old_kit.get("own_experiment_outcomes") or any(
+            isinstance(asset,dict) and asset.get("rights_status")=="team_attested_licensed"
+            for asset in old_kit.get("asset_bank",[]) or []
+        ):
+            OperatingStore(out_dir).migrate_embedded_legacy_results(old_kit)
     for filename, payload in payloads.items():
         (out_dir / filename).write_text(
             json.dumps(payload, ensure_ascii=False, indent=2, default=str),
@@ -972,7 +988,8 @@ def write_intelligence_workspace(
     )
     if raw_root is not None and raw_root.is_dir():
         enrich_production_kit_from_raw(
-            kit, raw_root, evidence_posts=payloads["evidence.json"]["posts"]
+            kit, raw_root, evidence_posts=payloads["evidence.json"]["posts"],
+            cache_path=out_dir.parent.parent / "05_master" / "source_asset_index.json",
         )
     production_report = write_production_kit(kit, workspace=out_dir)
 
@@ -980,16 +997,8 @@ def write_intelligence_workspace(
         "workspace_schema_version": WORKSPACE_SCHEMA_VERSION,
         "generated_at": datetime.now(UTC).isoformat(),
         "sources": sources,
-        "views": [
-            "brief",
-            "network",
-            "families",
-            "intelligence",
-            "production",
-            "playbook",
-            "experiments",
-            "advanced",
-        ],
+        "views": ["production", "assets", "results", "evidence"],
+        "evidence_modes": ["brief", "families", "network", "intelligence", "advanced"],
         "counts": payloads["overview.json"]["counts"],
         "notes": [
             "This lab is a generated research surface, not a new source of truth.",
