@@ -24,6 +24,9 @@
 - Add `build-intelligence-workspace` + `intelligence` for a static Overview → Accounts → Timeline → Families → Patterns → Strategies → Knowledge → Evidence research workspace.
 - Add browser drill-down from knowledge/strategy/pattern/family layers to canonical post evidence while keeping trust status and counter evidence visible.
 - Package and CI-verify a separate lightweight Operator Intelligence Workspace without replacing the creative-selection Reference Workspace.
+- Add `intelligence-build` to plan and execute the deterministic post-Vision pipeline with dependency-aware freshness reuse, parameter-provenance checks, dry-run/force controls, and stage slicing.
+- Add `quality-audit` for coverage, duplicate-ID, referential-integrity, evidence-lineage, trust-status, workspace-completeness, and stale-stage checks.
+- Emit `pipeline_report.json` and `quality_report.json` so automation/downstream consumers can inspect what was reused, rebuilt, blocked, warned, or failed.
 
 ## 0.9.1 - 2026-10-07
 
