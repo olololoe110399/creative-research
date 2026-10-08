@@ -217,6 +217,7 @@ class OperatingStore:
             ):
                 raise OperatingError("operating_state_wrong_operator_or_schema")
             doc.setdefault("source_migrations",[])
+            doc.setdefault("legacy_results",[])
             return doc
         return {
             "schema_version": SCHEMA,
@@ -229,6 +230,7 @@ class OperatingStore:
             "accounts": {},
             "outcomes": {},
             "legacy_experiments": self._legacy(operator_id),
+            "legacy_results": [],
             "source_migrations": [],
             "migration": "legacy_read_only_experiment_history_imported_once",
         }
@@ -356,6 +358,7 @@ class OperatingStore:
                 key=lambda r: (r.get("recorded_at", ""),r.get("outcome_id", "")),
             ),
             "legacy_experiments": state["legacy_experiments"],
+            "legacy_results": state["legacy_results"],
             "source_migrations_count": len(state["source_migrations"]),
             "stale_work": stale,
             "stale_count": stale_count,
@@ -810,3 +813,42 @@ class OperatingStore:
                 state["updated_at"]=_now()
                 self._save(sources["operator_id"],state)
             return self._view_unlocked(sources,state)
+
+
+    def migrate_embedded_legacy_results(self, old_kit: dict[str, Any]) -> int:
+        """Pre-rebuild preservation of v1 result CSV embedded in production.json.
+
+        Existing historical records were not necessarily time-normalized or
+        attached to a publishing task: keep them read-only, not in canonical
+        first-party results. Never drop them during a workspace refresh.
+        """
+        operator_id=str(old_kit.get("operator_id") or "")
+        embedded=old_kit.get("own_experiment_outcomes") or []
+        if not embedded:
+            return 0
+        if not operator_id or not isinstance(embedded,list):
+            raise OperatingError("invalid_legacy_embedded_results")
+        prepared=[]
+        for item in embedded:
+            if not isinstance(item,dict):
+                raise OperatingError("invalid_legacy_embedded_result_row")
+            entry={
+                **item,
+                "legacy_outcome_key":_hash(item)[:25],
+                "migrated_from":"creator-production-kit-v1-json",
+                "evidence_origin":"historical_user_csv_unverified_age",
+                "not_causal_proof":True,
+            }
+            prepared.append(entry)
+        with self.lock:
+            state=self._load(operator_id)
+            existing={item.get("legacy_outcome_key") for item in state["legacy_results"]}
+            additions=[
+                row for row in prepared if row["legacy_outcome_key"] not in existing
+            ]
+            if additions:
+                state["legacy_results"].extend(additions)
+                state["revision"] += 1
+                state["updated_at"]=_now()
+                self._save(operator_id,state)
+            return len(additions)
