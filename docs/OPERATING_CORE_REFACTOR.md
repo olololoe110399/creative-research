@@ -29,14 +29,14 @@ pipeline. Team-owned mutable state is independent:
 
 The file is operator scoped, gitignored, mode 0600, atomically updated with
 fsync and protected by a process-level lock. All browser edits use **one
-loopback-only, same-origin JSON API**: \`GET /api/operating\` and
-\`POST /api/operating\`. \`GET /api/operating/export\` produces a live ZIP with
+loopback-only, same-origin JSON API**: `GET /api/operating` and
+`POST /api/operating`. `GET /api/operating/export` produces a live ZIP with
 the generated source evidence **plus** TEAM_STATE.json,
 TEAM_EDITED_BRIEFS, TEAM_TASKS.csv, TEAM_ASSET_RIGHTS.csv and
 TEAM_OWN_OUTCOMES.csv. The ZIP is generated on demand; it does not change
 the source research or commit credentials.
 
-Every mutation requires the current integer \`expected_revision\`: stale
+Every mutation requires the current integer `expected_revision`: stale
 browser tabs cannot silently overwrite one another.
 
 ### Durable source identity
@@ -49,7 +49,7 @@ browser tabs cannot silently overwrite one another.
 - A recipe's source fingerprint includes family ID, representative original
   post, linked posts and the source structure of each slide.
 - Existing results reference their actual post and historical signature.
-- If the source changes, the UI flags \`needs_recheck\` and refuses further
+- If the source changes, the UI flags `needs_recheck` and refuses further
   writes. An intentional **recheck** action preserves the full previous
   record in immutable migration history, then resets editorial, rights
   and publication gates. Missing families remain in the orphan listing.
@@ -85,18 +85,18 @@ are preserved with update history.
 
 ## Historic data is retained without creating two writable systems
 
-The old \`data/07_knowledge/experiment_plans/\` files are imported as
+The old `data/07_knowledge/experiment_plans/` files are imported as
 **read-only legacy hypothesis-level selections** when a team state first
-materializes. The normal Lab no longer writes through \`/api/experiments\`
+materializes. The normal Lab no longer writes through `/api/experiments`
 (HTTP 410 when legacy not explicitly injected by compatibility consumers).
 
 An old production.json containing user CSV results is migrated to
-\`legacy_results\` **BEFORE** being replaced by a new workspace build. Those
+`legacy_results` **BEFORE** being replaced by a new workspace build. Those
 older metrics may not be age-matched; they are displayed as historical
 unverified items, separate from new outcomes, rather than silently deleted
 or falsely treated as validated. Duplicate rebuilds do not duplicate history.
 
-CLI imports previously supported by \`production-kit\` now write to the
+CLI imports previously supported by `production-kit` now write to the
 **same** private state:
 
     uv run creative-research production-kit \
@@ -106,7 +106,7 @@ CLI imports previously supported by \`production-kit\` now write to the
       --clearance-csv path/to/team_rights_attestation.csv
 
 Imports are atomic per file. Invalid rows fail without partial file writes.
-A positive rights CSV import reaches \`rights_checked\` but does not
+A positive rights CSV import reaches `rights_checked` but does not
 automatically complete editorial review. Own-results CSV must identify a
 real TikTok URL, valid pilot account/recipe, timestamp with timezone, post
 age 24/72/168h and positive same-age baseline.
@@ -117,30 +117,30 @@ The private state is not wiped by running:
 
 ## Smaller functional modules
 
-\`production_kit.py\` used to combine copying templates, post ranking,
+`production_kit.py` used to combine copying templates, post ranking,
 raw scrape metadata, licensing, outcomes, audit, CSV, Markdown and ZIP.
 It now delegates to:
 
-- \`production_fields.py\`: common numerical/text normalization and
+- `production_fields.py`: common numerical/text normalization and
   source percentile access.
-- \`production_copy.py\`: source-aware Vietnamese editorial archetypes
+- `production_copy.py`: source-aware Vietnamese editorial archetypes
   and original visual prompts.
-- \`production_source_bank.py\`: offline caption/hashtag/sound extraction
+- `production_source_bank.py`: offline caption/hashtag/sound extraction
   from existing public raw files. Never grants rights.
-- \`production_quality.py\` and \`production_contracts.py\`: one handoff
+- `production_quality.py` and `production_contracts.py`: one handoff
   schema, limits and source/rights safety invariants.
-- \`production_handoff.py\`: deterministic CSV/Markdown/ZIP writer.
-- \`production_kit.py\`: family/recipe selection, account blueprint and
+- `production_handoff.py`: deterministic CSV/Markdown/ZIP writer.
+- `production_kit.py`: family/recipe selection, account blueprint and
   candidate calendar generation.
-- \`operating_state.py\`: **only mutable first-party workflow** (stored
+- `operating_state.py`: **only mutable first-party workflow** (stored
   outside the regenerated JSON).
-- \`operating_endpoints.py\` / \`http_local.py\`: strict local API and
+- `operating_endpoints.py` / `http_local.py`: strict local API and
   reusable security separate from Gemini.
-- UI split: \`production_ui.js\` read-only research-derived presentation,
-  \`operating_ui.js\` user edits, outcomes and stateful task forms;
-  \`research_ui.js\` bounded Evidence Explorer projections.
+- UI split: `production_ui.js` read-only research-derived presentation,
+  `operating_ui.js` user edits, outcomes and stateful task forms;
+  `research_ui.js` bounded Evidence Explorer projections.
 
-The legacy \`ai_research.py\`, human-reviewed knowledge catalog and older
+The legacy `ai_research.py`, human-reviewed knowledge catalog and older
 reference workspace are retained for backwards compatibility, **not**
 part of the production UI. Their existing consumer references/tests
 still work; deleting them prematurely would destroy lineage.
@@ -161,10 +161,10 @@ To preview:
       --operators config/operators.toml --from-stage workspace --force
     uv run creative-research lab --open
 
-The generated source ZIP at \`production-kit.zip\` is intentionally a
+The generated source ZIP at `production-kit.zip` is intentionally a
 research-only draft. The button **Download live team handoff ZIP** obtains
 the same public sources and current team-owned work from
-\`/api/operating/export\`; use that ZIP when handing the project to another
+`/api/operating/export`; use that ZIP when handing the project to another
 team. Neither file contains a verified/cleared source media download.
 
 **Remaining work outside this refactor:** a canonical one-time music/caption/
