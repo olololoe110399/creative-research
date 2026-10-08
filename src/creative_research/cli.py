@@ -34,6 +34,7 @@ COMMANDS = {
     "discover-patterns": "creative_research.stages.discover_patterns",
     "infer-strategies": "creative_research.stages.infer_strategies",
     "promote-knowledge": "creative_research.stages.promote_knowledge",
+    "review-knowledge": "creative_research.stages.review_knowledge",
     "build-intelligence-workspace": "creative_research.stages.build_intelligence_workspace",
     "intelligence": "creative_research.stages.intelligence",
     "intelligence-build": "creative_research.stages.intelligence_build",
@@ -74,6 +75,7 @@ Canonical evidence pipeline:
   discover-patterns   Discover deterministic evidence-backed recurring patterns
   infer-strategies    Promote patterns into reviewable strategy hypotheses
   promote-knowledge   Build strategies/rules/lessons/templates/playbooks bank
+  review-knowledge    Build/apply a prioritized human review queue
   build-intelligence-workspace Build static operator intelligence workspace
   intelligence       Serve a generated operator intelligence workspace
   intelligence-build Build/reuse the full deterministic intelligence pipeline
@@ -113,6 +115,7 @@ Examples:
   uv run creative-research discover-patterns
   uv run creative-research infer-strategies
   uv run creative-research promote-knowledge
+  uv run creative-research review-knowledge queue
   uv run creative-research build-intelligence-workspace
   uv run creative-research intelligence --open
   uv run creative-research intelligence-build --operators config/operators.toml
@@ -136,6 +139,7 @@ Detailed stage help:
   uv run creative-research discover-patterns --help
   uv run creative-research infer-strategies --help
   uv run creative-research promote-knowledge --help
+  uv run creative-research review-knowledge --help
   uv run creative-research build-intelligence-workspace --help
   uv run creative-research intelligence --help
   uv run creative-research intelligence-build --help
