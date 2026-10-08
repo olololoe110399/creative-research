@@ -4,12 +4,15 @@ import pandas as pd
 
 from creative_research.stages.judge_family_candidates import (
     FamilyPairJudgment,
+    TranslationVerification,
+    _apply_translation_verification,
     _cache_key,
     _evidence_hash,
     _retryable_api_error,
     build_evidence_lookup,
     build_plan,
     build_prompt,
+    build_translation_verifier_prompt,
     merge_judgment_frames,
     select_candidate_pairs,
 )
@@ -370,3 +373,102 @@ def test_prompt_explicitly_rejects_template_only_translation() -> None:
     assert "Electrolytes vs MRI Essentials" in prompt
     assert "same app funnel must be template_variant" in prompt
     assert "require semantic equivalence of the CENTRAL idea" in prompt
+
+
+def test_translation_verifier_prompt_hides_execution_evidence() -> None:
+    row = {
+        "left_language": "en",
+        "right_language": "es",
+        "left_hook_text": "Will make parents proud",
+        "right_hook_text": "Estudia hasta que estés emocionado por el examen.",
+        "left_topic": "study motivation",
+        "right_topic": "exam confidence",
+        "product_family": "SECRET_PRODUCT_SHOULD_NOT_APPEAR",
+        "creative_formula": "SECRET_TEMPLATE_SHOULD_NOT_APPEAR",
+    }
+    prompt = build_translation_verifier_prompt(row)
+    assert "Will make parents proud" in prompt
+    assert "Estudia hasta" in prompt
+    assert "SECRET_PRODUCT_SHOULD_NOT_APPEAR" not in prompt
+    assert "SECRET_TEMPLATE_SHOULD_NOT_APPEAR" not in prompt
+
+
+def test_translation_verifier_rejects_different_central_idea() -> None:
+    row = {
+        "decision": "same_core_concept",
+        "relationship": "translation_adaptation",
+        "confidence": 0.95,
+        "reason": "Primary judge called this a translation.",
+        "core_concept": "study motivation",
+    }
+    verification = TranslationVerification(
+        central_idea_equivalence="different",
+        translation_type="not_translation",
+        left_central_idea="Make parents proud through studying.",
+        right_central_idea="Study until exams feel exciting.",
+        confidence=0.96,
+        reason="The central promises are different.",
+    )
+    result = _apply_translation_verification(row, verification)
+    assert result["primary_relationship"] == "translation_adaptation"
+    assert result["decision"] == "different_core_concept"
+    assert result["relationship"] == "template_variant"
+    assert result["confidence"] == 0.96
+
+
+def test_translation_verifier_keeps_real_translation() -> None:
+    row = {
+        "decision": "same_core_concept",
+        "relationship": "translation_adaptation",
+        "confidence": 0.98,
+        "reason": "Primary translation.",
+        "core_concept": "study schedules for different students",
+    }
+    verification = TranslationVerification(
+        central_idea_equivalence="equivalent",
+        translation_type="direct_translation",
+        left_central_idea="Study schedules for different students.",
+        right_central_idea="Study schedules for different students.",
+        confidence=0.99,
+        reason="The hooks express the same specific idea.",
+    )
+    result = _apply_translation_verification(row, verification)
+    assert result["decision"] == "same_core_concept"
+    assert result["relationship"] == "translation_adaptation"
+    assert result["confidence"] == 0.98
+
+
+def test_translation_verifier_low_confidence_defers_to_deterministic() -> None:
+    row = {
+        "decision": "same_core_concept",
+        "relationship": "translation_adaptation",
+        "confidence": 0.95,
+        "reason": "Primary translation.",
+    }
+    verification = TranslationVerification(
+        central_idea_equivalence="equivalent",
+        translation_type="localized_paraphrase",
+        left_central_idea="Study smarter.",
+        right_central_idea="Study more effectively.",
+        confidence=0.70,
+        reason="Possibly equivalent.",
+    )
+    result = _apply_translation_verification(
+        row,
+        verification,
+        min_confidence=0.85,
+    )
+    assert result["decision"] == "uncertain"
+    assert result["relationship"] == "uncertain"
+
+
+def test_translation_verifier_schema_rejects_inconsistent_mapping() -> None:
+    import pytest
+
+    with pytest.raises(ValueError):
+        TranslationVerification(
+            central_idea_equivalence="different",
+            translation_type="direct_translation",
+            confidence=0.95,
+            reason="Contradictory output.",
+        )
