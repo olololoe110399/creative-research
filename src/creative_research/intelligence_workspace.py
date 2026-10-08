@@ -684,9 +684,6 @@ def _lab_payload(
         members=_records(family_members),
         posts=_records(posts),
         creative_analysis=_records(creative_analysis),
-        account_nodes=_account_network_payload(
-            accounts, role_evidence, propagation, strategies, role_index
-        )["nodes"],
         playbook_steps=playbook_draft["steps"],
     )
     return {
