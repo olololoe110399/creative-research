@@ -216,6 +216,7 @@ class OperatingStore:
                 not isinstance(doc.get("legacy_experiments"), list)
             ):
                 raise OperatingError("operating_state_wrong_operator_or_schema")
+            doc.setdefault("source_migrations",[])
             return doc
         return {
             "schema_version": SCHEMA,
@@ -228,6 +229,7 @@ class OperatingStore:
             "accounts": {},
             "outcomes": {},
             "legacy_experiments": self._legacy(operator_id),
+            "source_migrations": [],
             "migration": "legacy_read_only_experiment_history_imported_once",
         }
 
@@ -354,6 +356,7 @@ class OperatingStore:
                 key=lambda r: (r.get("recorded_at", ""),r.get("outcome_id", "")),
             ),
             "legacy_experiments": state["legacy_experiments"],
+            "source_migrations_count": len(state["source_migrations"]),
             "stale_work": stale,
             "stale_count": stale_count,
             "source_fingerprint": sources["kit"].get("source_fingerprint"),
@@ -432,6 +435,9 @@ class OperatingStore:
                     r"@?[A-Za-z0-9_.]{1,32}",handle,
                 ):
                     raise OperatingError("created_account_requires_owned_handle")
+                old = state["accounts"].get(name)
+                if old and old.get("source_signature") != _hash(row):
+                    raise OperatingError("source_changed_recheck_required")
                 state["accounts"][name] = {
                     "slot_id": name,
                     "source_signature": _hash(row),
@@ -555,6 +561,59 @@ class OperatingStore:
                 if len(state["outcomes"]) >= MAX_RESULTS and outcome_id not in state["outcomes"]:
                     raise OperatingError("too_many_results")
                 state["outcomes"][outcome_id] = record
+            elif action == "recheck":
+                if payload.get("confirm_source_change") is not True:
+                    raise OperatingError("explicit_source_recheck_required")
+                category = _text(payload.get("category",""),limit=20)
+                if category == "recipe":
+                    row = sources["families"].get(name)
+                    fingerprint = _recipe_signature(row) if row else ""
+                    collection = "recipes"
+                elif category == "asset":
+                    _,fingerprint = self._find_asset(sources,name)
+                    collection = "assets"
+                elif category == "slot":
+                    _,_,fingerprint = self._find_slot(sources,name)
+                    collection = "slots"
+                elif category == "account":
+                    row = sources["accounts"].get(name)
+                    fingerprint = _hash(row) if row else ""
+                    collection = "accounts"
+                else:
+                    raise OperatingError("invalid_recheck_category")
+                old = state[collection].get(name)
+                if not old or not fingerprint:
+                    raise OperatingError("missing_source_to_recheck")
+                if old.get("source_signature") == fingerprint:
+                    raise OperatingError("source_did_not_change")
+                if len(state["source_migrations"]) >= 1000:
+                    raise OperatingError("migration_history_full_backup_required")
+                state["source_migrations"].append({
+                    "category":category, "key":name,
+                    "old_work_snapshot":dict(old),
+                    "new_source_signature":fingerprint,
+                    "rechecked_at":now,
+                    "research_internal_intent_not_approved":True,
+                })
+                updated = dict(old)
+                updated["source_signature"] = fingerprint
+                updated["updated_at"] = now
+                if category == "recipe":
+                    updated["editorial_checked_by"] = ""
+                    updated["state"] = "edited"
+                elif category == "asset":
+                    updated.update({
+                        "state":"needed", "location":"",
+                        "license_evidence":"", "license_scope":"",
+                        "rights_checked_by":"", "editorial_checked_by":"",
+                    })
+                elif category == "slot":
+                    updated.update({
+                        "state":"draft", "published_url":"", "published_at":"",
+                    })
+                else:
+                    updated["state"]="planned"
+                state[collection][name] = updated
             else:
                 raise OperatingError("invalid_operating_action")
             state["revision"] += 1
