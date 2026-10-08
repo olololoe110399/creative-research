@@ -10,6 +10,7 @@ from creative_research.constants import WORKSPACE_DIRS
 def test_canonical_commands_exist() -> None:
     assert set(COMMANDS) == {
         "scrape",
+        "operator-setup",
         "select-accounts",
         "prepare-media",
         "manifest-slides",
