@@ -89,6 +89,15 @@ relative performance        account/operator chronology
       strategies / rules / lessons
       templates / playbooks
       + source/evidence lineage
+                       |
+                       v
+      build-intelligence-workspace
+                       |
+                       v
+       Operator Intelligence Workspace
+     Overview -> Accounts -> Timeline
+     -> Families -> Patterns -> Strategies
+     -> Knowledge -> Evidence
 ```
 
 ## Sources of truth
@@ -106,7 +115,8 @@ relative performance        account/operator chronology
 11. Evidence patterns: recurring observations with sample/effect metrics and explicit post/family/account evidence links.
 12. Strategy hypotheses: deterministic pattern promotion with confidence, counter evidence, alternative explanations, and inherited evidence lineage.
 13. Knowledge bank: typed strategies/rules/lessons/templates/playbooks with promotion/review status and inherited source/evidence lineage.
-14. Reference Workspace: a generated decision surface over the evidence, not a new truth source.
+14. Operator Intelligence Workspace: generated research surface over warehouse/analytics/knowledge with cross-layer evidence drill-down.
+15. Reference Workspace: generated creative-inspection/selection surface over the evidence, not a new truth source.
 
 ## Invariants
 
@@ -130,6 +140,8 @@ relative performance        account/operator chronology
 - Rejected/held knowledge is retained for audit and must not be treated as active guidance.
 - Review candidates should not drive high-impact automation until approved or otherwise explicitly accepted downstream.
 - Creative templates require repeated family evidence; singleton families never become templates.
+- Operator Intelligence Workspace only materializes existing outputs; it never creates or mutates evidence/analytics/knowledge.
+- Knowledge trust status must remain visible in the workspace so rejected/hold/review candidates are not confused with active guidance.
 - Pattern evidence must remain traceable to stable post/family/account IDs.
 - `creative_master` has one row per unique `account+post_id`.
 - Stable canonical post IDs are deterministic and shared with the Reference Workspace.

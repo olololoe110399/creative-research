@@ -21,6 +21,9 @@
 - Add `promote-knowledge` to build typed strategies, rules, lessons, templates, and playbooks with explicit promotion/review status, scope, validity, confidence, exceptions, and lineage.
 - Add Parquet + JSONL knowledge catalog/source/evidence-link exports plus an optional local `knowledge_reviews.toml` approval/reject/hold registry.
 - Promote creative-family structure templates only from repeated/cohesive families and keep singleton families out of the reusable template bank.
+- Add `build-intelligence-workspace` + `intelligence` for a static Overview → Accounts → Timeline → Families → Patterns → Strategies → Knowledge → Evidence research workspace.
+- Add browser drill-down from knowledge/strategy/pattern/family layers to canonical post evidence while keeping trust status and counter evidence visible.
+- Package and CI-verify a separate lightweight Operator Intelligence Workspace without replacing the creative-selection Reference Workspace.
 
 ## 0.9.1 - 2026-10-07
 
