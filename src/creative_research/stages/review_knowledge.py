@@ -480,10 +480,18 @@ def _queue_command(args: argparse.Namespace) -> None:
         if column
         not in {"decision", "note", "reviewed_by", "reviewed_at"}
     ]
-    decisions = queue[base_columns].copy()
-    for column in ("decision", "note", "reviewed_by", "reviewed_at"):
-        decisions[column] = ""
-    decisions = decisions[decision_columns]
+    if queue.empty:
+        decisions = pd.DataFrame(columns=decision_columns)
+    else:
+        decisions = queue[base_columns].copy()
+        for column in (
+            "decision",
+            "note",
+            "reviewed_by",
+            "reviewed_at",
+        ):
+            decisions[column] = ""
+        decisions = decisions[decision_columns]
     decisions.to_csv(decisions_csv, index=False, encoding="utf-8-sig")
     packet_md.write_text(_review_packet(queue), encoding="utf-8")
 
