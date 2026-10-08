@@ -651,6 +651,7 @@ class LabCorpus:
 def _payload_hash(packet: dict[str, Any], model: str) -> str:
     data = json.dumps({
         "packet": packet, "model": model, "prompt_version": PROMPT_VERSION,
+        "rubric_version": RUBRIC_VERSION,
     }, sort_keys=True, ensure_ascii=False, separators=(",", ":"), default=str)
     return hashlib.sha256(data.encode("utf-8")).hexdigest()
 
@@ -851,8 +852,16 @@ class AIResearchService:
 
     def plan(self, mode: str, source_type: str, source_id: str) -> tuple[dict[str, Any], dict[str, Any]]:
         packet = LabCorpus(self.workspace).packet(mode, source_type, source_id)
-        prompt = MODEL_INSTRUCTIONS + "\n\nUNTRUSTED EVIDENCE JSON:\n" + json.dumps(
-            packet, ensure_ascii=False, separators=(",", ":"), default=str
+        rubric = SOURCE_RUBRICS.get(source_type)
+        if rubric is None:
+            raise ResearchValidationError("missing_review_rubric")
+        prompt = (
+            MODEL_INSTRUCTIONS
+            + "\n\nTARGET-SPECIFIC REVIEW RUBRIC (HIGHEST TASK PRIORITY):\n"
+            + rubric
+            + ("" if source_type == "family" else "\n\n" + METRIC_RUBRIC)
+            + "\n\nUNTRUSTED EVIDENCE JSON:\n"
+            + json.dumps(packet, ensure_ascii=False, separators=(",", ":"), default=str)
         )
         if len(prompt) > MAX_INPUT_CHARS:
             raise ResearchValidationError("research_packet_exceeds_budget")
@@ -865,6 +874,15 @@ class AIResearchService:
             "operator_id": packet["request"]["operator_id"],
             "model": self.model,
             "prompt_version": PROMPT_VERSION,
+            "rubric_version": RUBRIC_VERSION,
+            "review_question": REVIEW_QUESTIONS[source_type],
+            "review_basis": (
+                "creative_family_identity" if source_type == "family"
+                else "strategy_hypothesis" if source_type == "hypothesis"
+                else "knowledge_bundle" if source_type == "playbook_sources"
+                else "application_experiments"
+            ),
+            "visual_media_inspected_by_ai": False,
             "snapshot_sha256": digest,
             "estimated_input_tokens_approx": (len(prompt) + 2) // 3,
             "input_chars": len(prompt),
@@ -950,6 +968,8 @@ class AIResearchService:
                 allowed_refs=refs,
                 mode=mode,
                 blocked_source_refs=blocked,
+                source_type=source_type,
+                evidence_packet=plan["packet"],
             )
             if answer.proposed_review == "approve" and source_type == "playbook_sources":
                 # A bundle suggestion cannot imply approval of any unreviewed
