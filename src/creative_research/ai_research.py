@@ -10,6 +10,7 @@ import hashlib
 import json
 import os
 import re
+import tempfile
 import threading
 from datetime import UTC, datetime
 from pathlib import Path
@@ -670,7 +671,12 @@ class AIResearchService:
             if report_path.is_file():
                 try:
                     record = json.loads(report_path.read_text(encoding="utf-8"))
-                    if record.get("snapshot_sha256") == meta["snapshot_sha256"]:
+                    if (
+                        isinstance(record, dict)
+                        and record.get("snapshot_sha256") == meta["snapshot_sha256"]
+                        and record.get("operator_id") == meta["operator_id"]
+                        and record.get("ai_status") == "proposal_only"
+                    ):
                         return {**record, "from_cache": True}
                 except (OSError, ValueError):
                     pass
@@ -722,13 +728,23 @@ class AIResearchService:
                 ],
                 "answer": answer.model_dump(mode="json"),
             }
-            self.report_dir.mkdir(parents=True, exist_ok=True)
-            temporary = report_path.with_suffix(".tmp")
-            temporary.write_text(
-                json.dumps(report, ensure_ascii=False, indent=2),
+            self.report_dir.mkdir(parents=True, exist_ok=True, mode=0o700)
+            # NamedTemporaryFile creates mode 0600 by default. Keep provider
+            # output and source excerpts private from other local OS users.
+            with tempfile.NamedTemporaryFile(
+                mode="w",
                 encoding="utf-8",
-            )
-            temporary.replace(report_path)
+                dir=self.report_dir,
+                prefix=meta["request_id"] + ".",
+                suffix=".tmp",
+                delete=False,
+            ) as handle:
+                temporary = Path(handle.name)
+                json.dump(report, handle, ensure_ascii=False, indent=2)
+            try:
+                temporary.replace(report_path)
+            finally:
+                temporary.unlink(missing_ok=True)
             return report
 
     def history(self, source_type: str, source_id: str) -> list[dict[str, Any]]:
