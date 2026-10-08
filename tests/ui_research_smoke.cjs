@@ -57,7 +57,8 @@ const lab={
   }
 };
 const payloads={
-  'workspace.json':{views:['brief','network','families','intelligence','playbook','experiments','advanced']},
+  'workspace.json':{workspace_schema_version:'operator-intelligence-lab-v3',
+    views:['brief','network','families','intelligence','playbook','experiments','advanced']},
   'overview.json':{counts:{}},
   'accounts.json':{accounts:[]},
   'timeline.json':{operator_windows:[],account_windows:[],comparisons:[]},
