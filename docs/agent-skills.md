@@ -131,6 +131,54 @@ invalid bridge input/dependency 2, timeout 124, interruption 130. Credentials/im
 not passed to the engine and `.env` is never loaded. This is a safety adapter,
 not an OS sandbox against malicious Python packages or unsafe local table files.
 
+## AI-native research (opt-in; full-build behavior unchanged)
+
+Use `creative-research intelligence-build --profile evidence-only --dry-run --json`
+to plan only the six upstream stages: warehouse, performance, cadence, families,
+propagation and timeline. After user approval, omit `--dry-run` to execute.
+It writes the run report to `data/06_analytics/evidence_pipeline_report.json`,
+not the existing Lab pipeline report. The default `--profile full` is still the
+original 12-stage build. `--through-stage timeline` remains supported.
+
+The portable Skill bridge supports `--profile evidence-only` with its established
+read-only plan / `--execute --approve-write` confirmation. It does **not** automatically
+scrape, invoke Gemini or call the host model; model reasoning is supplied by
+Claude Code or Codex.
+
+### Research tools (no provider calls)
+
+```sh
+python /path/to/installed-skill/scripts/run_cli.py --root /path/to/research \
+  compare-cohorts --group-by hook_technique --content-type slideshow
+
+python /path/to/installed-skill/scripts/run_cli.py --root /path/to/research \
+  mechanic-groups --axes hook_technique,content_format,cta_type \
+  --content-type slideshow --min-posts 5
+
+python /path/to/installed-skill/scripts/run_cli.py --root /path/to/research \
+  trace-mechanic --mechanic-id MECH-EXAMPLE_REPLACE_WITH_REAL_ID --limit 15
+
+python /path/to/installed-skill/scripts/run_cli.py --root /path/to/research \
+  verify-pattern --when hook_technique=how_to --content-type slideshow
+
+python /path/to/installed-skill/scripts/run_cli.py --root /path/to/research \
+  trace-strategy --hypothesis-id REPLACE_WITH_REAL_HYPOTHESIS_ID
+```
+
+These tools aggregate all eligible observations and bound only the displayed groups,
+examples or paged details. `verify-pattern` compares the matching subset against
+the remainder of the explicitly scoped population. It does not report p-values or
+causal effects; record every exploratory candidate to avoid selective reporting.
+`mechanic_id` derives from the ordered selected axes and values, not a new permanent
+warehouse ID. `trace-strategy` requires an existing deterministic baseline; this
+baseline may be absent/stale in evidence-only mode.
+
+Methodology: [creative mechanics](../skills/creative-research/references/creative-mechanics.md),
+[AI pattern discovery](../skills/creative-research/references/pattern-discovery.md)
+and [strategy investigation](../skills/creative-research/references/strategy-investigation.md).
+Research outputs remain agent drafts in `agent-reports/`; they do not overwrite
+core family, pattern, strategy or knowledge tables.
+
 ## Reports and quality limits
 
 Draft in chat unless saved output is requested. New Markdown/JSON pairs go only
