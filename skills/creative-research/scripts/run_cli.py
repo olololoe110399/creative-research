@@ -239,7 +239,7 @@ def command_arguments(ns: argparse.Namespace, root: Path) -> list[str]:
             "--examples",
             str(ns.examples),
         ]
-        for option in ("operator_id", "account_id", "family_id", "since", "until", "values"):
+        for option in ("operator_id", "account_id", "family_id", "since", "until", "values", "content_type"):
             value = getattr(ns, option, None)
             if value is not None:
                 if len(value) > 500 or "\x00" in value:
@@ -267,6 +267,48 @@ def command_arguments(ns: argparse.Namespace, root: Path) -> list[str]:
                 raise BridgeError("Invalid operator_id.")
             result += ["--operator-id", ns.operator_id]
         return result
+    if command in {"mechanic-groups", "trace-mechanic", "verify-pattern", "trace-strategy"}:
+        result = [command]
+        if command == "trace-strategy":
+            if not re.fullmatch(r"[A-Za-z0-9_:.~-]{1,200}", ns.hypothesis_id):
+                raise BridgeError("Invalid hypothesis ID")
+            return [
+                command, "--hypothesis-id", ns.hypothesis_id,
+                "--offset", str(ns.offset), "--limit", str(ns.limit),
+                "--max-patterns", str(ns.max_patterns),
+            ]
+        result += ["--metric", ns.metric, "--content-type", ns.content_type]
+        for key in ("operator_id", "account_id"):
+            value = getattr(ns, key, None)
+            if value is not None:
+                if len(value) > 200 or "\x00" in value:
+                    raise BridgeError(f"Invalid {key}")
+                result += [f"--{key.replace('_', '-')}", value]
+        if command in {"mechanic-groups", "trace-mechanic"}:
+            if not re.fullmatch(r"[a-z_,]{1,200}", ns.axes):
+                raise BridgeError("Invalid --axes; select two or three known fields")
+            result += ["--axes", ns.axes]
+        if command == "mechanic-groups":
+            result += [
+                "--min-posts", str(ns.min_posts), "--max-groups", str(ns.max_groups),
+                "--examples", str(ns.examples),
+            ]
+        elif command == "trace-mechanic":
+            if not re.fullmatch(r"MECH-[A-F0-9]{16}", ns.mechanic_id):
+                raise BridgeError("Invalid mechanic ID")
+            result += [
+                "--mechanic-id", ns.mechanic_id, "--offset", str(ns.offset),
+                "--limit", str(ns.limit), "--beats", str(ns.beats),
+            ]
+        else:
+            if not 1 <= len(ns.when) <= 3:
+                raise BridgeError("Supply one to three --when predicates")
+            for predicate in ns.when:
+                if len(predicate) > 350 or "\x00" in predicate:
+                    raise BridgeError("Invalid --when predicate")
+                result += ["--when", predicate]
+            result += ["--min-posts", str(ns.min_posts), "--max-accounts", str(ns.max_accounts)]
+        return result
     try:
         ZoneInfo(ns.timezone)
     except (ValueError, ZoneInfoNotFoundError) as exc:
@@ -285,7 +327,9 @@ def command_arguments(ns: argparse.Namespace, root: Path) -> list[str]:
                     "Build writes require --execute --approve-write after explicit user confirmation. First run the default dry-run."
                 )
             _write_preflight(root)
-        result += ["--json", "--workspace-out", DEFAULT_WORKSPACE]
+        result += ["--json", "--workspace-out", DEFAULT_WORKSPACE, "--profile", ns.profile]
+        if ns.profile == "evidence-only" and ns.through_stage not in (None, "timeline"):
+            raise BridgeError("evidence-only stops at timeline; incompatible --through-stage")
         if ns.through_stage:
             result += ["--through-stage", ns.through_stage]
     else:
@@ -341,6 +385,7 @@ def build_parser() -> argparse.ArgumentParser:
     compare.add_argument("--metric", default="views_vs_account_median")
     compare.add_argument("--operator-id")
     compare.add_argument("--account-id")
+    compare.add_argument("--content-type", choices=("all", "slideshow", "video"), default="all")
     compare.add_argument("--family-id")
     compare.add_argument("--since", help="Inclusive UTC YYYY-MM-DD")
     compare.add_argument("--until", help="Inclusive UTC YYYY-MM-DD")
@@ -353,6 +398,32 @@ def build_parser() -> argparse.ArgumentParser:
     family.add_argument("--offset", type=bounded_integer(0, 1000000), default=0)
     family.add_argument("--limit", type=bounded_integer(1, 100), default=20)
     family.add_argument("--beats", type=bounded_integer(0, 10), default=3)
+    for name in ("mechanic-groups", "trace-mechanic", "verify-pattern"):
+        command = commands.add_parser(name, allow_abbrev=False)
+        command.add_argument("--metric", default="views_vs_account_median")
+        command.add_argument("--content-type", choices=("all", "slideshow", "video"), default="all")
+        command.add_argument("--operator-id")
+        command.add_argument("--account-id")
+        if name != "verify-pattern":
+            command.add_argument("--axes", default="hook_technique,content_format,cta_type")
+        if name == "mechanic-groups":
+            command.add_argument("--min-posts", type=bounded_integer(2, 10000), default=3)
+            command.add_argument("--max-groups", type=bounded_integer(1, 30), default=12)
+            command.add_argument("--examples", type=bounded_integer(0, 3), default=2)
+        elif name == "trace-mechanic":
+            command.add_argument("--mechanic-id", required=True)
+            command.add_argument("--offset", type=bounded_integer(0, 1000000), default=0)
+            command.add_argument("--limit", type=bounded_integer(1, 50), default=15)
+            command.add_argument("--beats", type=bounded_integer(0, 5), default=2)
+        else:
+            command.add_argument("--when", action="append", required=True)
+            command.add_argument("--min-posts", type=bounded_integer(3, 10000), default=5)
+            command.add_argument("--max-accounts", type=bounded_integer(1, 30), default=12)
+    trace_strategy = commands.add_parser("trace-strategy", allow_abbrev=False)
+    trace_strategy.add_argument("--hypothesis-id", required=True)
+    trace_strategy.add_argument("--offset", type=bounded_integer(0, 1000000), default=0)
+    trace_strategy.add_argument("--limit", type=bounded_integer(1, 50), default=20)
+    trace_strategy.add_argument("--max-patterns", type=bounded_integer(1, 30), default=15)
     for name in ("intelligence-build", "quality-audit"):
         sub = commands.add_parser(name, allow_abbrev=False)
         sub.add_argument("--operators", default="config/operators.toml")
@@ -363,6 +434,7 @@ def build_parser() -> argparse.ArgumentParser:
             help="Records user-authorized writes, not blanket authorization.",
         )
         if name == "intelligence-build":
+            sub.add_argument("--profile", choices=("full", "evidence-only"), default="full")
             sub.add_argument(
                 "--execute",
                 action="store_true",
@@ -395,6 +467,9 @@ def main(argv: list[str] | None = None) -> int:
         if ns.command in {"compare-cohorts", "trace-family"}:
             research_script = Path(__file__).with_name("research_queries.py")
             argv = [python, "-I", str(research_script), "--root", str(root), *arguments]
+        elif ns.command in {"mechanic-groups", "trace-mechanic", "verify-pattern", "trace-strategy"}:
+            investigation_script = Path(__file__).with_name("creative_intelligence.py")
+            argv = [python, "-I", str(investigation_script), "--root", str(root), *arguments]
         else:
             argv = [python, "-I", *entrypoint, "--root", str(root), "--color", "never", *arguments]
         result = run_process(argv, timeout=ns.timeout, max_bytes=ns.max_output_bytes)
