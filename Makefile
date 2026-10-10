@@ -1,21 +1,22 @@
 UV ?= uv
 
-.PHONY: sync lint format format-check typecheck test ui-check docs-check check build release-check snapshot doctor
+.PHONY: sync lint format format-check typecheck test ui-check docs-check skill-check check build release-check snapshot doctor
 
 sync:
 	$(UV) sync --locked --all-groups
 
 lint:
-	$(UV) run ruff check src tests scripts
+	$(UV) run ruff check src tests scripts skills
 
 format:
-	$(UV) run ruff format src tests scripts
+	$(UV) run ruff format src tests scripts skills
 
 format-check:
-	$(UV) run ruff format --check src tests scripts
+	$(UV) run ruff format --check src tests scripts skills
 
 typecheck:
 	$(UV) run mypy
+	$(UV) run mypy --follow-imports=skip skills/creative-research/scripts scripts/install_agent_skill.py
 
 test:
 	$(UV) run python -m pytest --cov=creative_research --cov-report=term-missing --cov-fail-under=70
@@ -33,7 +34,10 @@ ui-check:
 docs-check:
 	$(UV) run python scripts/generate_cli_docs.py --check
 
-check: lint format-check typecheck test ui-check docs-check
+skill-check:
+	$(UV) run skills-ref validate skills/creative-research
+
+check: lint format-check typecheck test ui-check docs-check skill-check
 
 build:
 	$(UV) build

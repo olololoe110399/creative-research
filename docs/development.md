@@ -11,6 +11,7 @@ make typecheck            # mypy; annotations required for every package functio
 make test                 # pytest and branch coverage, minimum 70%
 make ui-check             # Six JS syntax checks and two Node smokes
 make docs-check           # Generated catalog, links and documented commands
+make skill-check          # Agent Skills specification validation
 make check                # All checks above
 make build                # Wheel/sdist and exact package-content verification
 make release-check        # Fresh installs and offline end-to-end commands
@@ -19,7 +20,10 @@ make snapshot             # Allowlisted public ZIP without Git history/local dat
 
 During iteration use a targeted regression, such as
 `uv run python -m pytest tests/pipeline/test_intelligence_pipeline.py -q`.
-Quality tools target owned `src/`, `tests/` and `scripts/`, not local user utilities.
+Quality tools target owned `src/`, `tests/`, `scripts/` and `skills/`, not local user utilities.
+Portable bridge scripts and installer have a separate mypy check. Skill contract
+tests live in `tests/skills/`; see [Agent Skills](agent-skills.md) for independent
+forward-use/host checks and the distinction between fixtures and AI accuracy.
 
 ## Testing boundaries
 

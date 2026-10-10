@@ -9,6 +9,7 @@ import sys
 import tempfile
 from pathlib import Path
 
+from install_agent_skill import install as install_skill
 from verify_distribution import ROOT, verify
 
 from creative_research import __version__
@@ -122,6 +123,34 @@ def main() -> None:
             if report["status"] != "complete" or len(report["stages"]) != 12:
                 raise RuntimeError("Installed package offline demo failed")
             run(cli + ["--root", str(demo), "validate", "--json"], cwd=isolated, env=env)
+            hosts = isolated / "agent-project"
+            hosts.mkdir()
+            for skill in install_skill(
+                ROOT / "skills/creative-research", hosts, ["claude", "codex"]
+            ):
+                doctor = json.loads(
+                    run([str(python), str(skill / "scripts/doctor.py")], cwd=hosts, env=env)
+                )
+                if not doctor["ok"] or doctor["providers_called"]:
+                    raise RuntimeError("Installed portable skill dependency check failed")
+                bridge = [str(python), str(skill / "scripts/run_cli.py"), "--root", str(demo)]
+                for arguments in (
+                    ["status"],
+                    ["validate"],
+                    ["rank-posts", "--top", "2"],
+                    [
+                        "query",
+                        "data/06_analytics/post_performance.parquet",
+                        "--columns",
+                        "post_uid,views",
+                        "--limit",
+                        "2",
+                    ],
+                    ["intelligence-build"],
+                ):
+                    response = json.loads(run(bridge + arguments, cwd=hosts, env=env))
+                    if response["exit_code"] or response["truncated"]:
+                        raise RuntimeError("Fresh portable skill bridge failed")
             rerun = json.loads(
                 run(
                     cli + ["--root", str(demo), "intelligence-build", "--json"],
