@@ -91,6 +91,23 @@ It does not automatically scrape, call Vision, publish or change private team st
 See [Agent Skills](docs/agent-skills.md) for dependencies, discovery, bridge commands,
 report validation and host-testing limits.
 
+### AI-native investigation of previously captured evidence
+
+For existing validated master data, the optional `evidence-only` profile computes
+only the first six offline stages without rebuilding legacy rule patterns, strategies,
+knowledge or Lab outputs. The default `full` profile still runs all 12 stages.
+
+```sh
+uv run creative-research intelligence-build --profile evidence-only --dry-run --json
+uv run creative-research intelligence-build --profile evidence-only --json
+```
+
+After a reviewed offline build, the portable Skill can group topic-independent
+creative mechanics, test AI-generated pattern candidates against full scoped cohorts,
+and trace rule-strategy hypotheses for critique. All agent interpretation remains
+separate from canonical Parquet and requires review. See
+[Agent Skills](docs/agent-skills.md).
+
 ## Configuration and real research
 
 Environment files are **never loaded automatically**. Copy `.env.example` to a
