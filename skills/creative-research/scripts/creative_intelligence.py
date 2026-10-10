@@ -503,6 +503,7 @@ def bounded(low: int, high: int) -> Any:
         if not low <= value <= high:
             raise argparse.ArgumentTypeError(f"Expected integer {low}..{high}")
         return value
+
     return parse
 
 
