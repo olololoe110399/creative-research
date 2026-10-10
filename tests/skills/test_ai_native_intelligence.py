@@ -94,7 +94,7 @@ def test_mechanic_groups_span_topics_and_more_than_100_posts(tools, evidence):
     assert sum(group["posts"] for group in result["groups"]) == 200
     group = next(row for row in result["groups"] if row["posts"] == 140)
     assert group["distinct_topics"] == 7
-    assert group["metric"] if "metric" in group else True
+    assert group["highest"][0]["post_uid"].startswith("POST-")
     assert group["median"] == 2.0
 
 
