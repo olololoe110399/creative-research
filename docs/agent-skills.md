@@ -85,6 +85,8 @@ python /path/to/installed-skill/scripts/run_cli.py --root /path/to/research inte
 root, including resolved symlinks; queries read tables in `data/`, not operating
 state. Query `--where` is repeatable; `--limit`/rank `--top` are 1–100 (default 20).
 No arbitrary command/flag passthrough, shell execution or query output path exists.
+Query/ranking float displays use 17 significant digits for source-value round trips;
+this changes presentation only, not filtering, ranking or computed metrics.
 
 `intelligence-build` defaults to read-only planning. After a user approves generated
 output writes, add `--execute --approve-write`; optionally `--through-stage cadence`

@@ -323,12 +323,20 @@ def main(argv: list[str] | None = None) -> int:
         arguments = command_arguments(ns, root)
         python = engine_python(ns.python)
         dependency = preflight(python)
+        entrypoint = ["-m", "creative_research"]
+        if ns.command in {"query", "rank-posts"}:
+            # Display-only round-trip precision; the unchanged CLI still calculates/filters.
+            entrypoint = [
+                "-c",
+                "import pandas as pd, runpy; "
+                "pd.set_option('display.float_format', lambda value: format(value, '.17g')); "
+                "runpy.run_module('creative_research', run_name='__main__')",
+            ]
         result = run_process(
             [
                 python,
                 "-I",
-                "-m",
-                "creative_research",
+                *entrypoint,
                 "--root",
                 str(root),
                 "--color",

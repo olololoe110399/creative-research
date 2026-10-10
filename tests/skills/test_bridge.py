@@ -5,6 +5,7 @@ import os
 import sys
 import time
 
+import pandas as pd
 import pytest
 
 from creative_research.cli.app import execute
@@ -192,3 +193,32 @@ def test_read_only_bridge_does_not_change_workspace_files(skill_modules, demo, c
         path.relative_to(demo): path.read_bytes() for path in demo.rglob("*") if path.is_file()
     }
     assert after == before
+
+
+@pytest.mark.parametrize("value", [0.12345678912345678, 0.3333333333333333, 1e-18, 1e21])
+def test_query_display_preserves_float_round_trip_without_metric_recalculation(
+    skill_modules, tmp_path, capsys, value
+):
+    bridge, _, _ = skill_modules
+    data = tmp_path / "data"
+    data.mkdir()
+    source = data / "metrics.parquet"
+    pd.DataFrame([{"post_uid": "P1", "ratio": value}]).to_parquet(source, index=False)
+    before = source.read_bytes()
+    assert (
+        bridge.main(
+            [
+                "--root",
+                str(tmp_path),
+                "query",
+                "data/metrics.parquet",
+                "--columns",
+                "post_uid,ratio",
+            ]
+        )
+        == 0
+    )
+    result = json.loads(capsys.readouterr().out)
+    printed = result["stdout"].splitlines()[1].split()[-1]
+    assert float(printed) == value
+    assert source.read_bytes() == before
