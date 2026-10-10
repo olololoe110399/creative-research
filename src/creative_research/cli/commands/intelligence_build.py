@@ -45,6 +45,12 @@ def build_parser() -> argparse.ArgumentParser:
         default=None,
         help="Defaults to quality_report.json inside --workspace-out.",
     )
+    parser.add_argument(
+        "--profile",
+        choices=("full", "evidence-only"),
+        default="full",
+        help="full (default) preserves all 12 stages; evidence-only ends at timeline.",
+    )
     parser.add_argument("--from-stage", choices=PIPELINE_STAGE_NAMES, default=None)
     parser.add_argument("--through-stage", choices=PIPELINE_STAGE_NAMES, default=None)
     parser.add_argument("--force", action="store_true")
@@ -63,6 +69,13 @@ def build_parser() -> argparse.ArgumentParser:
 def main(argv: list[str] | None = None) -> None:
     parser = build_parser()
     args = parser.parse_args(argv)
+    through_stage = args.through_stage
+    if args.profile == "evidence-only":
+        if through_stage not in (None, "timeline"):
+            parser.error("evidence-only cannot extend past timeline")
+        if args.from_stage and PIPELINE_STAGE_NAMES.index(args.from_stage) > PIPELINE_STAGE_NAMES.index("timeline"):
+            parser.error("evidence-only cannot start after timeline")
+        through_stage = "timeline"
     try:
         config = PipelineConfig.from_paths(
             root=resolve_path(args.root) if args.root else project_root(),
@@ -75,14 +88,18 @@ def main(argv: list[str] | None = None) -> None:
         specs = slice_specs(
             build_stage_specs(config),
             from_stage=args.from_stage,
-            through_stage=args.through_stage,
+            through_stage=through_stage,
         )
     except ValueError as exc:
         parser.error(str(exc))
     report_path = (
         resolve_path(args.report, config.root)
         if args.report
-        else config.workspace_out / "pipeline_report.json"
+        else (
+            config.root / "data/06_analytics/evidence_pipeline_report.json"
+            if args.profile == "evidence-only"
+            else config.workspace_out / "pipeline_report.json"
+        )
     )
     plans = plan_pipeline(specs, force=args.force)
 
@@ -99,10 +116,11 @@ def main(argv: list[str] | None = None) -> None:
         "reviews": str(config.reviews) if config.reviews else None,
         "workspace_out": str(config.workspace_out),
         "quality_out": str(config.quality_out),
+        "profile": args.profile,
         "dry_run": args.dry_run,
         "force": args.force,
         "from_stage": args.from_stage,
-        "through_stage": args.through_stage,
+        "through_stage": through_stage,
     }
     error = None
     try:
