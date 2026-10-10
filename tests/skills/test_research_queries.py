@@ -49,9 +49,7 @@ def corpus() -> dict[str, pd.DataFrame]:
             "post_uid": [f"P{i}" for i in range(count)],
             "topic": ["study"] * count,
             "content_angle": ["how_to"] * count,
-            "hook_technique": [
-                "question" if i % 2 else "list_or_number" for i in range(count)
-            ],
+            "hook_technique": ["question" if i % 2 else "list_or_number" for i in range(count)],
             "hook_psychological_trigger": ["curiosity"] * count,
             "content_format": ["tutorial"] * count,
             "video_format": ["talking_head"] * count,
@@ -96,8 +94,13 @@ def corpus() -> dict[str, pd.DataFrame]:
 def test_compare_cohorts_aggregates_beyond_100(queries, corpus):
     args = queries.parser().parse_args(
         [
-            "--root", "/tmp", "compare-cohorts", "--group-by", "hook_technique",
-            "--values", "question,list_or_number",
+            "--root",
+            "/tmp",
+            "compare-cohorts",
+            "--group-by",
+            "hook_technique",
+            "--values",
+            "question,list_or_number",
         ]
     )
     report = queries.compare_cohorts(args, Tables(corpus))
@@ -111,8 +114,17 @@ def test_compare_cohorts_aggregates_beyond_100(queries, corpus):
 def test_trace_family_pages_details_but_summarizes_all_members(queries, corpus):
     args = queries.parser().parse_args(
         [
-            "--root", "/tmp", "trace-family", "--family-id", "F1",
-            "--offset", "200", "--limit", "20", "--beats", "2",
+            "--root",
+            "/tmp",
+            "trace-family",
+            "--family-id",
+            "F1",
+            "--offset",
+            "200",
+            "--limit",
+            "20",
+            "--beats",
+            "2",
         ]
     )
     report = queries.trace_family(args, Tables(corpus))
@@ -125,19 +137,22 @@ def test_trace_family_pages_details_but_summarizes_all_members(queries, corpus):
     assert report["members"][0]["sequence_total"] == 3
     assert report["members"][0]["sequence_beats_omitted"] == 1
     assert report["dimensions"]["hook_technique"]["observed"] == 240
-    assert report["source_rows_missing"] == {
-        "creative_analysis": 0, "post_performance": 0
-    }
+    assert report["source_rows_missing"] == {"creative_analysis": 0, "post_performance": 0}
 
 
 def test_missing_metric_and_requested_cohort_are_not_zero(queries, corpus):
-    corpus["data/06_analytics/post_performance.parquet"].loc[
-        0, "save_rate_by_view"
-    ] = float("nan")
+    corpus["data/06_analytics/post_performance.parquet"].loc[0, "save_rate_by_view"] = float("nan")
     args = queries.parser().parse_args(
         [
-            "--root", "/tmp", "compare-cohorts", "--group-by", "content_type",
-            "--metric", "save_rate_by_view", "--values", "video,slideshow",
+            "--root",
+            "/tmp",
+            "compare-cohorts",
+            "--group-by",
+            "content_type",
+            "--metric",
+            "save_rate_by_view",
+            "--values",
+            "video,slideshow",
         ]
     )
     report = queries.compare_cohorts(args, Tables(corpus))
@@ -167,7 +182,8 @@ def test_bridge_runs_both_new_commands_without_editing_corpus(
         frame.to_parquet(path, index=False)
     protected = {
         path.relative_to(tmp_path): path.read_bytes()
-        for path in tmp_path.rglob("*") if path.is_file()
+        for path in tmp_path.rglob("*")
+        if path.is_file()
     }
     monkeypatch.setenv("APIFY_TOKEN", "must-not-be-forwarded")
     monkeypatch.setenv("GEMINI_API_KEY", "must-not-be-forwarded")
@@ -182,8 +198,7 @@ def test_bridge_runs_both_new_commands_without_editing_corpus(
         result = json.loads(envelope["stdout"])
         assert result["command"] == cmd[0]
     assert all(
-        (tmp_path / relative).read_bytes() == content
-        for relative, content in protected.items()
+        (tmp_path / relative).read_bytes() == content for relative, content in protected.items()
     )
 
 
@@ -211,8 +226,13 @@ def test_taxonomy_has_all_axes_and_linked_outputs():
     root = Path(__file__).resolve().parents[2] / "skills/creative-research"
     guide = (root / "references/creative-taxonomy.md").read_text()
     for axis in (
-        "Topic", "Hook", "Narrative structure", "Attention mechanism",
-        "Visual format", "Pacing", "CTA",
+        "Topic",
+        "Hook",
+        "Narrative structure",
+        "Attention mechanism",
+        "Visual format",
+        "Pacing",
+        "CTA",
     ):
         assert axis in guide
     assert (root / "assets/creative-mechanic-audit.md").is_file()
