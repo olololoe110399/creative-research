@@ -30,3 +30,6 @@ config/*.txt
 !config/*.example.txt
 config/*.toml
 !config/*.example.toml
+agent-reports/
+.claude/skills/creative-research/
+.agents/skills/creative-research/

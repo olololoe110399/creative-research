@@ -6,6 +6,7 @@
 - [Research workflow](research-workflow.md): capture, interpretation, stage-order diagram and handoff.
 - [Architecture](architecture.md): module-boundary and storage diagrams, failure semantics.
 - [Development](development.md): tests, quality gates and release preparation.
+- [Agent Skills](agent-skills.md): portable installation, offline bridge, reports and eval limits.
 - [Troubleshooting](troubleshooting.md): failures, recovery and safe debugging.
 
 Read [contributing](../CONTRIBUTING.md), [security](../SECURITY.md) and the

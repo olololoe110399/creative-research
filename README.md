@@ -21,6 +21,8 @@ to reuse copyrighted media.
   edits outside regenerated research files.
 - Provides plain/colored CLI help, machine-readable reports, structured logs,
   actionable errors and a synthetic offline demo.
+- Adds a portable Agent Skill for Claude Code/Codex: evidence investigation,
+  counterexamples, strategy reports and original production plans via an offline bridge.
 
 ## How it fits together
 
@@ -73,6 +75,21 @@ scrapes or calls Vision. Missing dependencies block execution before stage write
 Use `--from-stage` / `--through-stage` to rebuild a bounded slice, or `--force`
 when intentionally invalidating cached outputs.
 
+## Agent-assisted research
+
+Install the canonical skill into the project where you run Claude Code or Codex:
+
+```sh
+uv run python scripts/install_agent_skill.py --project /path/to/agent-project --target both
+```
+
+Invoke `/creative-research` in Claude Code or `$creative-research` in Codex. Supply
+the evidence root and engine Python explicitly. The skill investigates existing
+tables and drafts evidence-linked reports; rebuild/audit writes require confirmation.
+It does not automatically scrape, call Vision, publish or change private team state.
+See [Agent Skills](docs/agent-skills.md) for dependencies, discovery, bridge commands,
+report validation and host-testing limits.
+
 ## Configuration and real research
 
 Environment files are **never loaded automatically**. Copy `.env.example` to a
@@ -104,6 +121,7 @@ src/creative_research/
   workspaces/                    browser exports, HTTP adapters and assets/
   infrastructure/                configuration, paths, logging and shared I/O
 tests/<feature>/                 unit and integration regressions by responsibility
+skills/creative-research/        portable skill, references, bridge scripts and templates
 config/*.example.*               safe configuration templates
 docs/                            setup, engineering and research references
 data/                            ignored, local evidence and generated artifacts
@@ -133,6 +151,7 @@ public-server security or large-corpus performance.
 - [Contributing](CONTRIBUTING.md), [architecture](docs/architecture.md),
   [development](docs/development.md).
 - [Research workflow](docs/research-workflow.md), [all documentation](docs/README.md).
+- [Agent Skills](docs/agent-skills.md): Claude Code/Codex installation and safe AI research.
 - [Security](SECURITY.md).
 
 ## License and scope

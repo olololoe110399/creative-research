@@ -35,7 +35,7 @@ jobs:
       - name: Sync project
         run: uv sync --locked --all-groups
 
-      - name: Quality gate
+      - name: Quality gate (engine, portable skill and offline regressions)
         run: make check
 
       - name: Release verification and public snapshot
