@@ -229,25 +229,41 @@ def command_arguments(ns: argparse.Namespace, root: Path) -> list[str]:
         ]
     if command == "compare-cohorts":
         result = [
-            command, "--group-by", ns.group_by, "--metric", ns.metric,
-            "--max-groups", str(ns.max_groups), "--examples", str(ns.examples),
+            command,
+            "--group-by",
+            ns.group_by,
+            "--metric",
+            ns.metric,
+            "--max-groups",
+            str(ns.max_groups),
+            "--examples",
+            str(ns.examples),
         ]
         for option in ("operator_id", "account_id", "family_id", "since", "until", "values"):
             value = getattr(ns, option, None)
             if value is not None:
-                if len(value) > 500 or "\\x00" in value:
-                    raise BridgeError(f"--{option.replace('_', '-')} is invalid or exceeds 500 characters.")
+                if len(value) > 500 or "\x00" in value:
+                    raise BridgeError(
+                        f"--{option.replace('_', '-')} is invalid or exceeds 500 characters."
+                    )
                 result += [f"--{option.replace('_', '-')}", value]
         return result
     if command == "trace-family":
         if not re.fullmatch(r"[A-Za-z0-9_:.~-]{1,200}", ns.family_id):
             raise BridgeError("Invalid family_id; use a canonical family identifier.")
         result = [
-            command, "--family-id", ns.family_id, "--offset", str(ns.offset),
-            "--limit", str(ns.limit), "--beats", str(ns.beats),
+            command,
+            "--family-id",
+            ns.family_id,
+            "--offset",
+            str(ns.offset),
+            "--limit",
+            str(ns.limit),
+            "--beats",
+            str(ns.beats),
         ]
         if ns.operator_id is not None:
-            if len(ns.operator_id) > 200 or "\\x00" in ns.operator_id:
+            if len(ns.operator_id) > 200 or "\x00" in ns.operator_id:
                 raise BridgeError("Invalid operator_id.")
             result += ["--operator-id", ns.operator_id]
         return result
