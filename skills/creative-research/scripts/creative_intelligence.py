@@ -110,7 +110,8 @@ def axis_label(value: Any, axis: str) -> str | None:
             if axis == "attention_mechanisms":
                 items = sorted(set(items))
             raw = " → ".join(items) if axis == "narrative_structure" else " + ".join(items)
-    return raw.casefold()[:160]
+    normalized = raw.casefold()
+    return normalized if len(normalized) <= 160 else None
 
 
 def number(values: pd.Series) -> pd.Series:
