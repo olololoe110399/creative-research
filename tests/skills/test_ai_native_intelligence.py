@@ -124,6 +124,7 @@ def test_mechanic_trace_pages_without_losing_full_size(tools, evidence):
     assert result["page"]["next_offset"] == 6
     assert len(result["members"]) == 3
     assert result["members"][0]["sequence_beats"][0]["role"] == "hook"
+    assert result["members"][0]["sequence_beats_omitted"] == 0
 
 
 def test_verify_pattern_uses_all_posts_and_content_type_control(tools, evidence):
