@@ -75,6 +75,12 @@ def evidence(tmp_path):
     return root
 
 
+def test_mechanic_signatures_do_not_merge_distinct_long_labels(tools):
+    engine, _, _ = tools
+    assert engine.axis_label("x" * 161, "narrative_structure") is None
+    assert engine.axis_label("x" * 160, "narrative_structure") == "x" * 160
+
+
 def test_mechanic_groups_span_topics_and_more_than_100_posts(tools, evidence):
     engine, _, _ = tools
     args = engine.parser().parse_args(
