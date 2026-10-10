@@ -77,11 +77,10 @@ def scalar(value: Any) -> Any:
     if value is None:
         return None
     if isinstance(value, Real) and not isinstance(value, bool):
-        return (
-            (int(value) if float(value).is_integer() else float(value))
-            if math.isfinite(float(value))
-            else None
-        )
+        number = float(value)
+        if not math.isfinite(number):
+            return None
+        return int(number) if number.is_integer() else number
     if isinstance(value, (str, bool)):
         return value
     try:
