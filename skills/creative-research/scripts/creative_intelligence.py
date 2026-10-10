@@ -246,6 +246,7 @@ def trace_mechanic(args: argparse.Namespace, source: Sources) -> dict[str, Any]:
     group = group.sort_values(["post_uid"], kind="mergesort")
     page = group.iloc[args.offset : args.offset + args.limit]
     sequence_lookup: dict[str, list[dict[str, Any]]] = {}
+    sequence_lengths: dict[str, int] = {}
     if args.beats:
         seq = source.read(MASTER + "creative_sequence.parquet")
         if "post_uid" not in seq:
@@ -254,6 +255,7 @@ def trace_mechanic(args: argparse.Namespace, source: Sources) -> dict[str, Any]:
         if "position" in seq:
             seq = seq.sort_values(["post_uid", "position"], kind="mergesort")
         for uid, subset in seq.groupby("post_uid", sort=False):
+            sequence_lengths[str(uid)] = len(subset)
             sequence_lookup[str(uid)] = [
                 {
                     field: text(record.get(field), 160)
@@ -281,7 +283,9 @@ def trace_mechanic(args: argparse.Namespace, source: Sources) -> dict[str, Any]:
                 "axes": {key: text(record.get(key)) for key in AXES if key in record},
                 "metric": float(record["__metric"]) if pd.notna(record["__metric"]) else None,
                 "sequence_beats": sequence_lookup.get(uid, []),
-                "beats_truncated": bool(args.beats),
+                "sequence_beats_omitted": (
+                    max(0, sequence_lengths.get(uid, 0) - args.beats) if args.beats else None
+                ),
             }
         )
     summary = stats(group, args.metric)
