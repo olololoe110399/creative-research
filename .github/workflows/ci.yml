@@ -7,11 +7,17 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   test:
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
     strategy:
       matrix:
+        os: [ubuntu-latest, macos-latest]
         python-version: ["3.11", "3.13"]
 
     steps:
@@ -27,56 +33,10 @@ jobs:
           enable-cache: true
 
       - name: Sync project
-        run: uv sync --all-groups
+        run: uv sync --locked --all-groups
 
-      - name: Critical lint
-        run: uv run ruff check .
+      - name: Quality gate
+        run: make check
 
-      - name: Check workspace JavaScript
-        run: |
-          node --check src/creative_research/reference_workspace_static/app.js
-          node --check src/creative_research/intelligence_workspace_static/app.js
-          node --check src/creative_research/intelligence_workspace_static/product_ui.js
-          node --check src/creative_research/intelligence_workspace_static/research_ui.js
-          node --check src/creative_research/intelligence_workspace_static/operating_ui.js
-          node --check src/creative_research/intelligence_workspace_static/production_ui.js
-          node tests/ui_research_smoke.cjs
-
-      - name: Test
-        run: uv run pytest --cov=creative_research --cov-report=term-missing
-
-      - name: Build package
-        run: uv build
-
-      - name: Verify static assets in wheel
-        run: |
-          python - <<'PY'
-          import glob
-          import zipfile
-
-          wheel = glob.glob("dist/*.whl")[0]
-          required = {
-              "creative_research/reference_workspace_static/index.html",
-              "creative_research/reference_workspace_static/app.js",
-              "creative_research/reference_workspace_static/style.css",
-              "creative_research/reference_workspace_static/favicon.svg",
-              "creative_research/intelligence_workspace_static/index.html",
-              "creative_research/intelligence_workspace_static/app.js",
-              "creative_research/intelligence_workspace_static/product_ui.js",
-              "creative_research/intelligence_workspace_static/research_ui.js",
-              "creative_research/intelligence_workspace_static/operating_ui.js",
-              "creative_research/intelligence_workspace_static/production_ui.js",
-              "creative_research/intelligence_workspace_static/style.css",
-              "creative_research/intelligence_workspace_static/favicon.svg",
-          }
-          with zipfile.ZipFile(wheel) as archive:
-              names = set(archive.namelist())
-          missing = sorted(required - names)
-          if missing:
-              raise SystemExit("Missing workspace assets in wheel: " + ", ".join(missing))
-          retired = "creative_research/intelligence_workspace_static/ai_ui.js"
-          if retired in names:
-              raise SystemExit("Retired Copilot UI must not be packaged: " + retired)
-          print("Static assets packaged:", ", ".join(sorted(required)))
-          print("Retired Copilot asset absent: PASS")
-          PY
+      - name: Release verification and public snapshot
+        run: make release-check snapshot

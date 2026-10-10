@@ -1,4 +1,4 @@
-from creative_research.cli import main
+from creative_research.cli.app import main
 
 if __name__ == "__main__":
     main()
