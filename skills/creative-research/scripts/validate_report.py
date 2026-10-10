@@ -48,9 +48,9 @@ def validate_report(report: dict[str, Any], root: Path) -> list[str]:
     tables: dict[str, Any] = {}
     table_bytes = 0
 
-    def evidence(items: Any, label: str) -> set[tuple[str, str]]:
+    def evidence(items: Any, label: str) -> set[tuple[str, int]]:
         nonlocal table_bytes
-        identities: set[tuple[str, str]] = set()
+        identities: set[tuple[str, int]] = set()
         if not isinstance(items, list) or len(items) > 100:
             errors.append(f"{label}: expected a list of at most 100 source citations.")
             return identities
@@ -97,6 +97,8 @@ def validate_report(report: dict[str, Any], root: Path) -> list[str]:
                         tables[key] = pd.read_json(
                             path, lines=True, dtype=False, precise_float=True
                         )
+                    # Physical rows, not selectors or a possibly duplicated persisted index.
+                    tables[key] = tables[key].reset_index(drop=True)
                 matches = tables[key]
                 for column, value in selectors.items():
                     if column not in matches:
@@ -104,7 +106,7 @@ def validate_report(report: dict[str, Any], root: Path) -> list[str]:
                     matches = matches[matches[column].astype(str) == str(value)]
                 if len(matches) != 1:
                     raise BridgeError("citation must resolve to exactly one existing row")
-                identities.add((key, json.dumps(selectors, sort_keys=True)))
+                identities.add((key, int(matches.index[0])))
                 metrics = citation.get("metrics", {})
                 if not isinstance(metrics, dict):
                     raise BridgeError("metrics must be a map of exact source values")

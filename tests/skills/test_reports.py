@@ -111,6 +111,35 @@ def test_singleton_inference_cannot_pass_as_high_confidence(
     )
 
 
+def test_alternate_selectors_for_the_same_row_do_not_increase_evidence_count(
+    skill_modules, tmp_path, sourced_report
+):
+    _, validator, _ = skill_modules
+    finding = sourced_report["findings"][0]
+    finding.update(type="inference", confidence="high", alternative_explanations=["selection bias"])
+    first = finding["source_evidence"][0]
+    alternate = copy.deepcopy(first)
+    alternate["row"]["operator_id"] = "OP1"
+    finding["source_evidence"] = [first, alternate]
+    assert any(
+        "singleton" in error for error in validator.validate_report(sourced_report, tmp_path)
+    )
+
+
+def test_distinct_source_rows_remain_distinct_with_duplicate_persisted_indexes(
+    skill_modules, tmp_path, sourced_report
+):
+    _, validator, _ = skill_modules
+    frame = pd.DataFrame(CASES[0]["rows"])
+    frame.index = [7] * len(frame)
+    frame.to_parquet(tmp_path / "data/06_analytics/eval.parquet", index=True)
+    finding = sourced_report["findings"][0]
+    finding.update(type="inference", confidence="high", alternative_explanations=["selection bias"])
+    for citation in finding["source_evidence"]:
+        citation["table"] = "data/06_analytics/eval.parquet"
+    assert validator.validate_report(sourced_report, tmp_path) == []
+
+
 def test_duplicate_and_ambiguous_citations_and_production_contract(
     skill_modules, tmp_path, sourced_report
 ):
