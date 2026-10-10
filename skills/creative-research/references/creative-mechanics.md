@@ -3,16 +3,16 @@
 **Read [creative taxonomy](creative-taxonomy.md) first.** A core-concept family
 asks whether posts express the **same specific idea**. A mechanic candidate asks
 whether posts share an **execution structure** across possibly different topics.
-Mechanic membership never changes \`creative_families.parquet\`.
+Mechanic membership never changes `creative_families.parquet`.
 
 ## Investigation
 
-1. Run \`mechanic-groups\` over the selected population, preferably separately
-   for slideshow and video; start with \`hook_technique,content_format,cta_type\`.
+1. Run `mechanic-groups` over the selected population, preferably separately
+   for slideshow and video; start with `hook_technique,content_format,cta_type`.
 2. Review candidate signatures, distinct topics/accounts, the observed metric
    coverage and both high **and** low examples. A high median is association,
    not a mechanism that caused performance.
-3. Run \`trace-mechanic\` with the returned \`MECH-...\` ID, the **same** axes,
+3. Run `trace-mechanic` with the returned `MECH-...` ID, the **same** axes,
    and paged members. Review source Vision data and ordered sequence beats.
 4. Explain what is truly shared or variable on all seven taxonomy axes:
    topic, hook, narrative, attention, visual, pacing, CTA. Do not silently
@@ -22,7 +22,7 @@ Mechanic membership never changes \`creative_families.parquet\`.
 
 Only **2–3 selected axes** form a deterministic candidate signature. A single
 post can match different signatures if the selected axes change; this is not a
-canonical clustering model. \`mechanic_id\` is a hash of the ordered axes and
+canonical clustering model. `mechanic_id` is a hash of the ordered axes and
 normalized labels, **not** a persistent identifier across taxonomy revisions.
 Narrative/attention list values are descriptive Vision output, not verified
 psychological effects. Group size, distinct accounts and median are observations,
