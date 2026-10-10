@@ -78,6 +78,8 @@ python /path/to/installed-skill/scripts/run_cli.py --root /path/to/research stat
 python /path/to/installed-skill/scripts/run_cli.py --root /path/to/research validate
 python /path/to/installed-skill/scripts/run_cli.py --root /path/to/research query data/06_analytics/post_performance.parquet --columns post_uid,views --limit 20
 python /path/to/installed-skill/scripts/run_cli.py --root /path/to/research rank-posts --top 20
+python /path/to/installed-skill/scripts/run_cli.py --root /path/to/research compare-cohorts --group-by hook_technique --metric views_vs_account_median --operator-id OP1
+python /path/to/installed-skill/scripts/run_cli.py --root /path/to/research trace-family --family-id ACTUAL-FAMILY-ID --offset 0 --limit 20 --beats 3
 python /path/to/installed-skill/scripts/run_cli.py --root /path/to/research intelligence-build
 ```
 
@@ -85,6 +87,30 @@ python /path/to/installed-skill/scripts/run_cli.py --root /path/to/research inte
 root, including resolved symlinks; queries read tables in `data/`, not operating
 state. Query `--where` is repeatable; `--limit`/rank `--top` are 1–100 (default 20).
 No arbitrary command/flag passthrough, shell execution or query output path exists.
+
+### TikTok taxonomy and full-cohort investigation
+
+The [creative taxonomy](../skills/creative-research/references/creative-taxonomy.md)
+asks the agent to distinguish topic, hook, narrative structure, attention mechanism,
+visual format, pacing and CTA, each with source/basis/unknowns. It uses already
+captured Vision fields and sequence beats; it is **not** a new canonical schema or a
+claim that psychological mechanics caused views. Use the
+[creative audit](../skills/creative-research/assets/creative-mechanic-audit.md)
+and [tool guide](../skills/creative-research/references/investigation-tools.md).
+
+`compare-cohorts` aggregates the entire filtered population by a declared
+categorical field, optionally using account/operator/date/family filters.
+It returns actual group sizes, metric-coverage, medians/quartiles and high/low
+source IDs; only displayed groups/examples are bounded. `trace-family` joins
+**all** family members to analysis/performance and reports whole-family distributions,
+then pages source-linked members and timeline/slide beats with `next_offset`.
+Both are read-only and run under the bridge's existing clean subprocess environment.
+
+The legacy `query --limit` restriction is unchanged. New research scans have
+explicit limits: 256 MiB/table, 512 MiB/query and 1 million rows/table. The
+existing output/time caps still apply. If limits are hit, create a scoped subset
+explicitly outside this bridge; do not silently sample or increase limits.
+
 Query/ranking float displays use 17 significant digits for source-value round trips;
 this changes presentation only, not filtering, ranking or computed metrics.
 

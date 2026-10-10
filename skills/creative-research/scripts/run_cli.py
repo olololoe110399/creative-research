@@ -227,6 +227,46 @@ def command_arguments(ns: argparse.Namespace, root: Path) -> list[str]:
             "--top",
             str(ns.top),
         ]
+    if command == "compare-cohorts":
+        result = [
+            command,
+            "--group-by",
+            ns.group_by,
+            "--metric",
+            ns.metric,
+            "--max-groups",
+            str(ns.max_groups),
+            "--examples",
+            str(ns.examples),
+        ]
+        for option in ("operator_id", "account_id", "family_id", "since", "until", "values"):
+            value = getattr(ns, option, None)
+            if value is not None:
+                if len(value) > 500 or "\x00" in value:
+                    raise BridgeError(
+                        f"--{option.replace('_', '-')} is invalid or exceeds 500 characters."
+                    )
+                result += [f"--{option.replace('_', '-')}", value]
+        return result
+    if command == "trace-family":
+        if not re.fullmatch(r"[A-Za-z0-9_:.~-]{1,200}", ns.family_id):
+            raise BridgeError("Invalid family_id; use a canonical family identifier.")
+        result = [
+            command,
+            "--family-id",
+            ns.family_id,
+            "--offset",
+            str(ns.offset),
+            "--limit",
+            str(ns.limit),
+            "--beats",
+            str(ns.beats),
+        ]
+        if ns.operator_id is not None:
+            if len(ns.operator_id) > 200 or "\x00" in ns.operator_id:
+                raise BridgeError("Invalid operator_id.")
+            result += ["--operator-id", ns.operator_id]
+        return result
     try:
         ZoneInfo(ns.timezone)
     except (ValueError, ZoneInfoNotFoundError) as exc:
@@ -296,6 +336,23 @@ def build_parser() -> argparse.ArgumentParser:
     )
     rank.add_argument("--content-type", choices=("all", "slideshow", "video"), default="all")
     rank.add_argument("--top", type=bounded_integer(1, 100), default=20)
+    compare = commands.add_parser("compare-cohorts", allow_abbrev=False)
+    compare.add_argument("--group-by", required=True)
+    compare.add_argument("--metric", default="views_vs_account_median")
+    compare.add_argument("--operator-id")
+    compare.add_argument("--account-id")
+    compare.add_argument("--family-id")
+    compare.add_argument("--since", help="Inclusive UTC YYYY-MM-DD")
+    compare.add_argument("--until", help="Inclusive UTC YYYY-MM-DD")
+    compare.add_argument("--values", help="Explicit comma-separated cohort values")
+    compare.add_argument("--max-groups", type=bounded_integer(1, 30), default=10)
+    compare.add_argument("--examples", type=bounded_integer(0, 3), default=2)
+    family = commands.add_parser("trace-family", allow_abbrev=False)
+    family.add_argument("--family-id", required=True)
+    family.add_argument("--operator-id")
+    family.add_argument("--offset", type=bounded_integer(0, 1000000), default=0)
+    family.add_argument("--limit", type=bounded_integer(1, 100), default=20)
+    family.add_argument("--beats", type=bounded_integer(0, 10), default=3)
     for name in ("intelligence-build", "quality-audit"):
         sub = commands.add_parser(name, allow_abbrev=False)
         sub.add_argument("--operators", default="config/operators.toml")
@@ -332,20 +389,15 @@ def main(argv: list[str] | None = None) -> int:
                 "pd.set_option('display.float_format', lambda value: format(value, '.17g')); "
                 "runpy.run_module('creative_research', run_name='__main__')",
             ]
-        result = run_process(
-            [
-                python,
-                "-I",
-                *entrypoint,
-                "--root",
-                str(root),
-                "--color",
-                "never",
-                *arguments,
-            ],
-            timeout=ns.timeout,
-            max_bytes=ns.max_output_bytes,
-        )
+        # Research queries use fixed canonical tables, aggregate the full matching
+        # population and page only examples. Keep the same sanitized subprocess,
+        # timeout and output budget as the existing offline bridge.
+        if ns.command in {"compare-cohorts", "trace-family"}:
+            research_script = Path(__file__).with_name("research_queries.py")
+            argv = [python, "-I", str(research_script), "--root", str(root), *arguments]
+        else:
+            argv = [python, "-I", *entrypoint, "--root", str(root), "--color", "never", *arguments]
+        result = run_process(argv, timeout=ns.timeout, max_bytes=ns.max_output_bytes)
         result.update(
             command=ns.command,
             root=str(root),

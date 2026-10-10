@@ -18,3 +18,9 @@ Check observation age, publication age, content type, account baseline sample si
 and capture completeness. Views and saves can disagree; explain the objective
 tradeoff. Never invent attribution, revenue, conversion or an engagement aggregate.
 Describe association and propose a controlled test for causal questions.
+
+For full-population comparisons by observed creative dimensions, use
+[compare-cohorts](investigation-tools.md) rather than reading the first
+100 rows from `query`. Report denominator, eligible metric count, missingness,
+selection scope and low-performing counterexamples. The comparison does not
+recalculate source metrics or establish treatment effects.
