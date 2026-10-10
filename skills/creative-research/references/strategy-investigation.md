@@ -13,14 +13,14 @@ introducing a separate hidden LLM dependency:
 ## Baselines and lineage
 
 The old 12-stage pipeline remains available as a deterministic baseline.
-When \`strategy_hypotheses.parquet\` exists, inspect selected hypotheses
-with \`trace-strategy --hypothesis-id <actual ID>\`: it follows
+When `strategy_hypotheses.parquet` exists, inspect selected hypotheses
+with `trace-strategy --hypothesis-id <actual ID>`: it follows
 hypothesis → pattern → post/family/account evidence, with paginated source IDs.
 Preserve the engine's confidence and causal-claim fields exactly; **do not
 convert them into agent confidence scores**. A pattern echoed in new prose
 is not a novel hypothesis.
 
-When operating in \`evidence-only\` mode, these legacy artifacts can be absent
+When operating in `evidence-only` mode, these legacy artifacts can be absent
 or stale. Do not read them as though they were freshly built. AI must still
 research directly from performance, family, propagation and timeline evidence.
 
@@ -31,7 +31,7 @@ For each candidate strategy:
 - at least one rival explanation and possible counterexample;
 - direct observation versus Vision interpretation versus agent inference;
 - coverage and correlated-post caveats;
-- disposition \`supported_association | mixed | unsupported | unknown\`;
+- disposition `supported_association | mixed | unsupported | unknown`;
 - one original content experiment with a measurable primary signal,
   comparison group, decision date and stopping/adjustment rule.
 
