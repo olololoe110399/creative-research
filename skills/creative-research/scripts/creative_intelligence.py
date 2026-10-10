@@ -135,8 +135,11 @@ def stats(frame: pd.DataFrame, metric: str, *, examples: int = 2) -> dict[str, A
             ["__metric", "post_uid"], ascending=[ascending, True], kind="mergesort"
         ).head(examples)
         answer[name] = [
-            {"post_uid": str(v["post_uid"]), "account_id": text(v["account_id"], 100),
-             "metric": float(v["__metric"])}
+            {
+                "post_uid": str(v["post_uid"]),
+                "account_id": text(v["account_id"], 100),
+                "metric": float(v["__metric"]),
+            }
             for v in top.to_dict("records")
         ]
     return answer
@@ -179,7 +182,9 @@ def axes_from(raw: str) -> list[str]:
 
 
 def mechanic_id(axes: list[str], labels: tuple[str, ...]) -> str:
-    payload = json.dumps(list(zip(axes, labels, strict=True)), ensure_ascii=False, separators=(",", ":"))
+    payload = json.dumps(
+        list(zip(axes, labels, strict=True)), ensure_ascii=False, separators=(",", ":")
+    )
     return "MECH-" + hashlib.sha256(payload.encode("utf-8")).hexdigest()[:16].upper()
 
 
@@ -213,8 +218,7 @@ def mechanic_groups(args: argparse.Namespace, source: Sources) -> dict[str, Any]
         row.update(
             mechanic_id=ident,
             signature=signature,
-            distinct_topics=int(group["topic"].nunique(dropna=True))
-            if "topic" in group else None,
+            distinct_topics=int(group["topic"].nunique(dropna=True)) if "topic" in group else None,
         )
         result.append(row)
     return {
@@ -251,24 +255,35 @@ def trace_mechanic(args: argparse.Namespace, source: Sources) -> dict[str, Any]:
             seq = seq.sort_values(["post_uid", "position"], kind="mergesort")
         for uid, subset in seq.groupby("post_uid", sort=False):
             sequence_lookup[str(uid)] = [
-                {field: text(record.get(field), 160)
-                 for field in ("position", "role", "start_second", "end_second",
-                               "overlay_text", "spoken_summary", "visual_type")}
+                {
+                    field: text(record.get(field), 160)
+                    for field in (
+                        "position",
+                        "role",
+                        "start_second",
+                        "end_second",
+                        "overlay_text",
+                        "spoken_summary",
+                        "visual_type",
+                    )
+                }
                 for record in subset.head(args.beats).to_dict("records")
             ]
     rows = []
     for record in page.to_dict("records"):
         uid = str(record["post_uid"])
-        rows.append({
-            "post_uid": uid,
-            "account_id": text(record.get("account_id")),
-            "created_at": text(record.get("created_at"), 60),
-            "topic": text(record.get("topic")),
-            "axes": {key: text(record.get(key)) for key in AXES if key in record},
-            "metric": float(record["__metric"]) if pd.notna(record["__metric"]) else None,
-            "sequence_beats": sequence_lookup.get(uid, []),
-            "beats_truncated": bool(args.beats),
-        })
+        rows.append(
+            {
+                "post_uid": uid,
+                "account_id": text(record.get("account_id")),
+                "created_at": text(record.get("created_at"), 60),
+                "topic": text(record.get("topic")),
+                "axes": {key: text(record.get(key)) for key in AXES if key in record},
+                "metric": float(record["__metric"]) if pd.notna(record["__metric"]) else None,
+                "sequence_beats": sequence_lookup.get(uid, []),
+                "beats_truncated": bool(args.beats),
+            }
+        )
     summary = stats(group, args.metric)
     return {
         "command": "trace-mechanic",
@@ -279,8 +294,12 @@ def trace_mechanic(args: argparse.Namespace, source: Sources) -> dict[str, Any]:
         "all_members_aggregated": True,
         "summary": summary,
         "page": {
-            "offset": args.offset, "limit": args.limit, "returned": len(rows),
-            "next_offset": args.offset + args.limit if args.offset + args.limit < len(group) else None,
+            "offset": args.offset,
+            "limit": args.limit,
+            "returned": len(rows),
+            "next_offset": args.offset + args.limit
+            if args.offset + args.limit < len(group)
+            else None,
         },
         "members": rows,
         "sources": source.paths,
@@ -305,9 +324,12 @@ def verify_pattern(args: argparse.Namespace, source: Sources) -> dict[str, Any]:
         normalized = axis_label(value, key)
         if normalized is None:
             raise ResearchError("Unknown/uncertain labels are not pattern evidence")
-        mask &= work[key].map(lambda item, axis=key: axis_label(item, axis)).eq(
-            normalized
-        ).fillna(False)
+        mask &= (
+            work[key]
+            .map(lambda item, axis=key: axis_label(item, axis))
+            .eq(normalized)
+            .fillna(False)
+        )
         predicates.append({"axis": key, "value": normalized})
     target = work.loc[mask]
     control = work.loc[~mask]
@@ -325,19 +347,22 @@ def verify_pattern(args: argparse.Namespace, source: Sources) -> dict[str, Any]:
     for account_id, subset in work.groupby("account_id", dropna=True, sort=True):
         found = subset.loc[mask.loc[subset.index]]
         others = subset.loc[~mask.loc[subset.index]]
-        accounts.append({
-            "account_id": text(account_id, 100),
-            "target_posts": len(found),
-            "control_posts": len(others),
-            "target_median": stats(found, args.metric, examples=0)["median"],
-            "control_median": stats(others, args.metric, examples=0)["median"],
-        })
+        accounts.append(
+            {
+                "account_id": text(account_id, 100),
+                "target_posts": len(found),
+                "control_posts": len(others),
+                "target_median": stats(found, args.metric, examples=0)["median"],
+                "control_median": stats(others, args.metric, examples=0)["median"],
+            }
+        )
     accounts.sort(key=lambda item: (-item["target_posts"], str(item["account_id"])))
     return {
         "command": "verify-pattern",
         "predicates": predicates,
         "scope": {
-            "operator_id": args.operator_id, "account_id": args.account_id,
+            "operator_id": args.operator_id,
+            "account_id": args.account_id,
             "content_type": args.content_type,
         },
         "metric": args.metric,
@@ -347,7 +372,9 @@ def verify_pattern(args: argparse.Namespace, source: Sources) -> dict[str, Any]:
         "median_difference": comparison,
         "per_account": accounts[: args.max_accounts],
         "accounts_omitted": max(0, len(accounts) - args.max_accounts),
-        "disposition": "descriptive_association_only" if both_sufficient else "insufficient_evidence",
+        "disposition": "descriptive_association_only"
+        if both_sufficient
+        else "insufficient_evidence",
         "full_population_evaluated": True,
         "exploratory_multiple_testing_warning": True,
         "sources": source.paths,
@@ -372,47 +399,97 @@ def trace_strategy(args: argparse.Namespace, source: Sources) -> dict[str, Any]:
     if "pattern_id" not in matched_links:
         raise ResearchError("Missing pattern_id in strategy links")
     linked = matched_links.merge(
-        patterns[["pattern_id", *[k for k in (
-            "pattern_type", "title", "observation", "sample_size",
-            "evidence_strength", "counter_evidence_json"
-        ) if k in patterns]]],
-        on="pattern_id", how="left", validate="many_to_one", indicator=True,
+        patterns[
+            [
+                "pattern_id",
+                *[
+                    k
+                    for k in (
+                        "pattern_type",
+                        "title",
+                        "observation",
+                        "sample_size",
+                        "evidence_strength",
+                        "counter_evidence_json",
+                    )
+                    if k in patterns
+                ],
+            ]
+        ],
+        on="pattern_id",
+        how="left",
+        validate="many_to_one",
+        indicator=True,
     )
     if (linked["_merge"] == "left_only").any():
         raise ResearchError("Strategy references missing pattern rows")
     matched = evidence.loc[evidence["hypothesis_id"].astype(str).eq(args.hypothesis_id)]
     ordered = matched.sort_values(
-        [k for k in ("relation", "pattern_id", "post_uid", "family_id", "account_id") if k in matched],
-        na_position="last", kind="mergesort",
+        [
+            k
+            for k in ("relation", "pattern_id", "post_uid", "family_id", "account_id")
+            if k in matched
+        ],
+        na_position="last",
+        kind="mergesort",
     )
     excerpt = ordered.iloc[args.offset : args.offset + args.limit]
     headers = (
-        "hypothesis_id", "hypothesis_type", "title", "claim", "confidence_score",
-        "confidence_band", "supporting_patterns_count", "counter_patterns_count",
-        "alternative_explanations_json", "causal_claim",
+        "hypothesis_id",
+        "hypothesis_type",
+        "title",
+        "claim",
+        "confidence_score",
+        "confidence_band",
+        "supporting_patterns_count",
+        "counter_patterns_count",
+        "alternative_explanations_json",
+        "causal_claim",
     )
     return {
         "command": "trace-strategy",
         "hypothesis": {k: text(row.iloc[0][k], 500) for k in headers if k in row},
         "total_pattern_links": len(linked),
         "pattern_links": [
-            {k: text(rec.get(k), 250) for k in (
-                "pattern_id", "relation", "pattern_type", "title", "observation",
-                "sample_size", "evidence_strength", "counter_evidence_json"
-            ) if k in rec}
+            {
+                k: text(rec.get(k), 250)
+                for k in (
+                    "pattern_id",
+                    "relation",
+                    "pattern_type",
+                    "title",
+                    "observation",
+                    "sample_size",
+                    "evidence_strength",
+                    "counter_evidence_json",
+                )
+                if k in rec
+            }
             for rec in linked.head(args.max_patterns).to_dict("records")
         ],
         "patterns_omitted": max(0, len(linked) - args.max_patterns),
         "total_evidence_links": len(ordered),
         "page": {
-            "offset": args.offset, "limit": args.limit, "returned": len(excerpt),
+            "offset": args.offset,
+            "limit": args.limit,
+            "returned": len(excerpt),
             "next_offset": args.offset + args.limit
-            if args.offset + args.limit < len(ordered) else None,
+            if args.offset + args.limit < len(ordered)
+            else None,
         },
         "evidence": [
-            {k: text(record.get(k), 160)
-             for k in ("post_uid", "family_id", "account_id", "pattern_id", "relation", "link_role")
-             if k in record}
+            {
+                k: text(record.get(k), 160)
+                for k in (
+                    "post_uid",
+                    "family_id",
+                    "account_id",
+                    "pattern_id",
+                    "relation",
+                    "link_role",
+                )
+                if k in record
+            }
             for record in excerpt.to_dict("records")
         ],
         "sources": source.paths,

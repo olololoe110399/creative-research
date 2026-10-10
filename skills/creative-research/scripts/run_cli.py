@@ -239,7 +239,15 @@ def command_arguments(ns: argparse.Namespace, root: Path) -> list[str]:
             "--examples",
             str(ns.examples),
         ]
-        for option in ("operator_id", "account_id", "family_id", "since", "until", "values", "content_type"):
+        for option in (
+            "operator_id",
+            "account_id",
+            "family_id",
+            "since",
+            "until",
+            "values",
+            "content_type",
+        ):
             value = getattr(ns, option, None)
             if value is not None:
                 if len(value) > 500 or "\x00" in value:
@@ -273,9 +281,15 @@ def command_arguments(ns: argparse.Namespace, root: Path) -> list[str]:
             if not re.fullmatch(r"[A-Za-z0-9_:.~-]{1,200}", ns.hypothesis_id):
                 raise BridgeError("Invalid hypothesis ID")
             return [
-                command, "--hypothesis-id", ns.hypothesis_id,
-                "--offset", str(ns.offset), "--limit", str(ns.limit),
-                "--max-patterns", str(ns.max_patterns),
+                command,
+                "--hypothesis-id",
+                ns.hypothesis_id,
+                "--offset",
+                str(ns.offset),
+                "--limit",
+                str(ns.limit),
+                "--max-patterns",
+                str(ns.max_patterns),
             ]
         result += ["--metric", ns.metric, "--content-type", ns.content_type]
         for key in ("operator_id", "account_id"):
@@ -290,15 +304,25 @@ def command_arguments(ns: argparse.Namespace, root: Path) -> list[str]:
             result += ["--axes", ns.axes]
         if command == "mechanic-groups":
             result += [
-                "--min-posts", str(ns.min_posts), "--max-groups", str(ns.max_groups),
-                "--examples", str(ns.examples),
+                "--min-posts",
+                str(ns.min_posts),
+                "--max-groups",
+                str(ns.max_groups),
+                "--examples",
+                str(ns.examples),
             ]
         elif command == "trace-mechanic":
             if not re.fullmatch(r"MECH-[A-F0-9]{16}", ns.mechanic_id):
                 raise BridgeError("Invalid mechanic ID")
             result += [
-                "--mechanic-id", ns.mechanic_id, "--offset", str(ns.offset),
-                "--limit", str(ns.limit), "--beats", str(ns.beats),
+                "--mechanic-id",
+                ns.mechanic_id,
+                "--offset",
+                str(ns.offset),
+                "--limit",
+                str(ns.limit),
+                "--beats",
+                str(ns.beats),
             ]
         else:
             if not 1 <= len(ns.when) <= 3:
@@ -467,7 +491,12 @@ def main(argv: list[str] | None = None) -> int:
         if ns.command in {"compare-cohorts", "trace-family"}:
             research_script = Path(__file__).with_name("research_queries.py")
             argv = [python, "-I", str(research_script), "--root", str(root), *arguments]
-        elif ns.command in {"mechanic-groups", "trace-mechanic", "verify-pattern", "trace-strategy"}:
+        elif ns.command in {
+            "mechanic-groups",
+            "trace-mechanic",
+            "verify-pattern",
+            "trace-strategy",
+        }:
             investigation_script = Path(__file__).with_name("creative_intelligence.py")
             argv = [python, "-I", str(investigation_script), "--root", str(root), *arguments]
         else:

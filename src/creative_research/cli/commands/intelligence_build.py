@@ -73,7 +73,9 @@ def main(argv: list[str] | None = None) -> None:
     if args.profile == "evidence-only":
         if through_stage not in (None, "timeline"):
             parser.error("evidence-only cannot extend past timeline")
-        if args.from_stage and PIPELINE_STAGE_NAMES.index(args.from_stage) > PIPELINE_STAGE_NAMES.index("timeline"):
+        if args.from_stage and PIPELINE_STAGE_NAMES.index(
+            args.from_stage
+        ) > PIPELINE_STAGE_NAMES.index("timeline"):
             parser.error("evidence-only cannot start after timeline")
         through_stage = "timeline"
     try:
