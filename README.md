@@ -21,8 +21,9 @@ to reuse copyrighted media.
   edits outside regenerated research files.
 - Provides plain/colored CLI help, machine-readable reports, structured logs,
   actionable errors and a synthetic offline demo.
-- Adds a portable Agent Skill for Claude Code/Codex: evidence investigation,
-  counterexamples, strategy reports and original production plans via an offline bridge.
+- Adds a portable Agent Skill for Claude Code/Codex: seven-axis TikTok
+  creative taxonomy, full-cohort comparisons, paginated family evidence,
+  counterexamples and original strategy/production plans via an offline bridge.
 
 ## How it fits together
 
