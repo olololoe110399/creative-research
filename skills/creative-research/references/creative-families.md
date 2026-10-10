@@ -17,3 +17,11 @@ accounts can share a source and are not independent proof that a tactic works.
 For each useful family report: exact family/member IDs, observed common structure,
 variations, counterexamples, missing detail and a proposed original adaptation.
 Use structural inspiration; don't copy hooks, footage, visual identity or licensed assets.
+
+Use the [seven-axis creative taxonomy](creative-taxonomy.md) to distinguish
+shared topic from shared hook, narrative, attention device, visual modality,
+pacing and CTA. A Vision label is source evidence, not calibrated creative truth.
+For whole-family distributions and source-linked detail, use
+[trace-family](investigation-tools.md), paging through all required members.
+Compare full-family variants and outside-family negatives before labeling a
+common creative mechanic. Mark absent sequence/media as unknown.
