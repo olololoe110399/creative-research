@@ -37,6 +37,13 @@ creative-research --root ./demo-workspace --log-format json --verbose status --j
 creative-research adopt --master /path/to/completed-master --mode copy
 ```
 
+Use `intelligence-build --profile evidence-only` to execute/reuse the six-stage
+evidence prefix through `timeline`; default `--profile full` preserves the
+12-stage pipeline. Evidence-only reports go to
+`data/06_analytics/evidence_pipeline_report.json` rather than the Lab tree.
+Do not infer that skipped rule/knowledge/quality stages are fresh. An explicit
+`--through-stage` beyond timeline is rejected for evidence-only.
+
 Stage order: warehouse, performance, cadence, families, propagation, timeline,
 patterns, strategies, knowledge, workspace, audit, outcome. A dry run reports
 blocked inputs but performs no writes. An actual blocked/failed build returns 1

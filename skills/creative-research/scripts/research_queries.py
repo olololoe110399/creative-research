@@ -147,6 +147,11 @@ def parse_day(raw: str, name: str) -> date:
 
 def apply_scope(frame: pd.DataFrame, args: argparse.Namespace) -> pd.DataFrame:
     scoped = frame
+    content_type = getattr(args, "content_type", "all")
+    if content_type != "all":
+        if "content_type" not in scoped:
+            raise ResearchError("Missing content_type column for stratified comparison")
+        scoped = scoped.loc[scoped["content_type"].astype(str).eq(content_type)]
     for key in ("operator_id", "account_id"):
         value = getattr(args, key, None)
         if value is not None:
@@ -263,6 +268,7 @@ def compare_cohorts(args: argparse.Namespace, source: SourceTables) -> dict[str,
             "operator_id": args.operator_id,
             "account_id": args.account_id,
             "family_id": args.family_id,
+            "content_type": args.content_type,
             "since_utc": args.since,
             "until_utc": args.until,
         },
@@ -454,6 +460,7 @@ def parser() -> argparse.ArgumentParser:
     commands = p.add_subparsers(dest="command", required=True)
     compare = commands.add_parser("compare-cohorts", allow_abbrev=False)
     compare.add_argument("--group-by", choices=GROUP_BY, required=True)
+    compare.add_argument("--content-type", choices=("all", "slideshow", "video"), default="all")
     compare.add_argument("--metric", choices=METRICS, default="views_vs_account_median")
     for key in ("operator-id", "account-id", "family-id", "since", "until", "values"):
         compare.add_argument("--" + key)
