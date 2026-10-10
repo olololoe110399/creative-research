@@ -12,7 +12,6 @@ import hashlib
 import json
 import math
 import re
-from collections import Counter
 from pathlib import Path
 from typing import Any
 
@@ -180,7 +179,7 @@ def axes_from(raw: str) -> list[str]:
 
 
 def mechanic_id(axes: list[str], labels: tuple[str, ...]) -> str:
-    payload = json.dumps(list(zip(axes, labels)), ensure_ascii=False, separators=(",", ":"))
+    payload = json.dumps(list(zip(axes, labels, strict=True)), ensure_ascii=False, separators=(",", ":"))
     return "MECH-" + hashlib.sha256(payload.encode("utf-8")).hexdigest()[:16].upper()
 
 
