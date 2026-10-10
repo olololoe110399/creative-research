@@ -69,6 +69,7 @@ def bounded(low: int, high: int) -> Any:
         if not low <= value <= high:
             raise argparse.ArgumentTypeError(f"Must be between {low} and {high}")
         return value
+
     return parse
 
 
