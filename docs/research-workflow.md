@@ -98,6 +98,25 @@ not independently validate a creative strategy. `query`, `rank-posts` and
 Group performance rates exclude missing observations; a group with no usable
 observations has an unknown rate, not zero performance.
 
+## Opt-in evidence-only build for AI research
+
+```sh
+creative-research intelligence-build --profile evidence-only --dry-run --json
+# After approving the generated-output writes:
+creative-research intelligence-build --profile evidence-only --json
+```
+
+This profile ends after `timeline` (six deterministic stages) and writes its
+execution report to `data/06_analytics/evidence_pipeline_report.json`. It never
+rebuilds rule patterns/strategies, knowledge or the Lab. The original 12-stage
+`full` profile remains the default and continues to produce quality/outcome audits.
+
+For AI-native research, use the installed `creative-research` Skill's mechanic,
+pattern-verification and strategy-lineage tools on these canonical tables. Treat old
+rule-based outputs as a baseline only if they are fresh; do not infer that a
+passing evidence-only build refreshed legacy strategies. The agent creates
+source-linked drafts, not automatically approved knowledge.
+
 ## Production and durable results
 
 The Lab supports account setup, original slide edits, publishing slots, asset
