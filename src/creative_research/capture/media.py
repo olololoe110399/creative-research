@@ -9,9 +9,9 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import json
+import math
 import os
 import re
-import sys
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -19,7 +19,9 @@ from urllib.parse import urlparse
 
 import httpx
 
+from creative_research.capture.cache import attest, fingerprint, verified
 from creative_research.identity import clean_account_handle
+from creative_research.infrastructure.logging import redact
 from creative_research.infrastructure.paths import confined_path, resolve_path
 from creative_research.infrastructure.storage import (
     read_jsonl,
@@ -53,19 +55,13 @@ class MediaArchiveOptions:
     dry_run: bool
 
 
-def safe_name(value: str, max_len: int = 120) -> str:
-    value = str(value or "").strip()
-    value = re.sub(r"[^a-zA-Z0-9._@-]+", "_", value)
-    value = value.strip("._")
-    return value[:max_len] or "unknown"
-
-
 def account_from_post(post: dict[str, Any], fallback: str = "") -> str:
     author = post.get("authorMeta") or {}
     for value in (
+        post.get("account"),
         post.get("input"),
         author.get("name") if isinstance(author, dict) else None,
-        fallback,
+        fallback or Path(str(post.get("_source_file") or "")).stem,
     ):
         if isinstance(value, str) and value.strip():
             return clean_account_handle(value)
@@ -73,18 +69,18 @@ def account_from_post(post: dict[str, Any], fallback: str = "") -> str:
 
 
 def post_id(post: dict[str, Any]) -> str:
-    for key in ("id", "idStr", "postId", "awemeId", "aweme_id"):
+    for key in ("post_id", "id", "idStr", "postId", "awemeId", "aweme_id"):
         value = post.get(key)
-        if value is not None:
-            return str(value)
+        if value is not None and str(value).strip():
+            return str(value).strip()
 
-    url = post.get("webVideoUrl") or post.get("url")
-    if url:
-        m = re.search(r"/video/(\d+)", str(url))
+    for key in ("webVideoUrl", "url", "postUrl"):
+        m = re.search(r"/(?:video|photo)/(\d+)", str(post.get(key) or ""))
         if m:
             return m.group(1)
 
-    payload = json.dumps(post, sort_keys=True, ensure_ascii=False, default=str)
+    raw = {key: value for key, value in post.items() if key != "_source_file"}
+    payload = json.dumps(raw, sort_keys=True, ensure_ascii=False, default=str)
     return "sha1_" + hashlib.sha1(payload.encode("utf-8")).hexdigest()[:20]
 
 
@@ -307,7 +303,7 @@ def avatar_job_for_post(
         "post_id": None,
         "index": None,
         "candidates": candidates,
-        "path": confined_path(out, safe_name(account), "profile", "avatar.jpg"),
+        "path": confined_path(out, account, "profile", "avatar.jpg"),
     }
 
 
@@ -364,7 +360,17 @@ async def fetch_candidate(
                 )
 
                 if response.status_code == 200 and response.content:
-                    return response.content, attempt_log
+                    content_type = response.headers.get("content-type", "").split(";", 1)[0]
+                    if (
+                        not content_type
+                        or content_type.lower().startswith("image/")
+                        or (content_type.lower() == "application/octet-stream")
+                    ):
+                        return response.content, attempt_log
+                    attempt_log["attempts"][-1]["error"] = (
+                        f"Unexpected image content-type: {content_type}"
+                    )
+                    break
 
                 # Auth errors: move directly to next token.
                 if response.status_code in {401, 403}:
@@ -389,7 +395,7 @@ async def fetch_candidate(
                     {
                         "auth": auth_name,
                         "retry": retry,
-                        "error": f"{type(exc).__name__}: {exc}",
+                        "error": redact(f"{type(exc).__name__}: {exc}"),
                     }
                 )
                 if retry < retries:
@@ -420,10 +426,12 @@ async def download_one(
         "used_source": None,
         "attempt_log": [],
     }
-
-    if path.exists() and path.stat().st_size > 0:
+    source = fingerprint({key: value for key, value in job.items() if key != "path"})
+    cached = verified(path, source)
+    if cached:
         result["status"] = "existing"
         result["bytes"] = path.stat().st_size
+        result.update(cached)
         return result
 
     if dry_run:
@@ -445,6 +453,7 @@ async def download_one(
 
             if body:
                 write_bytes(path, body)
+                result.update(attest(path, source))
                 result["status"] = "downloaded"
                 result["bytes"] = len(body)
                 result["used_source"] = candidate["source"]
@@ -473,268 +482,136 @@ async def download_one(
     return result
 
 
-def load_previous_results(path: Path) -> tuple[list[dict[str, Any]], set[str]]:
-    rows = read_jsonl(path, missing_ok=True, tolerate_invalid=True)
-    done_paths: set[str] = set()
+async def archive_media(options: MediaArchiveOptions) -> dict[str, Any]:
 
-    for row in rows:
-        if row.get("status") in {"downloaded", "existing"}:
-            p = row.get("path")
-            if p and Path(p).exists() and Path(p).stat().st_size > 0:
-                done_paths.add(str(Path(p)))
-
-    return rows, done_paths
-
-
-async def archive_media(options: MediaArchiveOptions) -> None:
-
-    if options.concurrency < 1:
-        raise SystemExit("--concurrency must be >= 1")
-    if options.retries < 0:
-        raise SystemExit("--retries cannot be negative")
-    if options.checkpoint_every < 1:
-        raise SystemExit("--checkpoint-every must be >= 1")
-
-    root = resolve_path(options.input)
+    if options.concurrency < 1 or options.checkpoint_every < 1 or options.retries < 0:
+        raise ValueError("Concurrency/checkpoint must be positive; retries cannot be negative")
+    if not math.isfinite(options.timeout) or options.timeout <= 0:
+        raise ValueError("Timeout must be finite and positive")
+    root, out = resolve_path(options.input), resolve_path(options.out)
+    if out.is_relative_to(root) or root.is_relative_to(out):
+        raise ValueError("Media output overlaps the source dataset")
     posts_dir = root / "posts"
-
-    if not posts_dir.exists():
-        raise SystemExit(f"Missing posts directory: {posts_dir}")
-
-    out = resolve_path(options.out)
-    out.mkdir(parents=True, exist_ok=True)
-
-    selected = None
-    if options.accounts:
-        selected = {clean_account_handle(x).lower() for x in options.accounts}
-
-    posts: list[dict[str, Any]] = []
-
+    if not posts_dir.is_dir():
+        raise FileNotFoundError(f"Missing posts directory: {posts_dir}")
+    selected = {clean_account_handle(x).casefold() for x in options.accounts or []}
+    unique: dict[tuple[str, str], dict[str, Any]] = {}
     for file in sorted(posts_dir.glob("*.jsonl")):
-        fallback_account = clean_account_handle(file.stem)
-
-        if selected and fallback_account.lower() not in selected:
-            continue
-
-        for post in read_jsonl(file, missing_ok=True, tolerate_invalid=True):
-            acc = account_from_post(post, fallback_account)
-
-            if selected and acc.lower() not in selected:
+        if not file.resolve().is_relative_to(root):
+            raise ValueError("Source post file escapes input root")
+        for raw in read_jsonl(file):
+            account = account_from_post(raw, file.stem)
+            if selected and account.casefold() not in selected:
                 continue
-
-            post["_source_file"] = file.name
-            posts.append(post)
-
-    # De-duplicate by account + post_id.
-    deduped: dict[tuple[str, str], dict[str, Any]] = {}
-    for post in posts:
-        acc = account_from_post(post)
-        deduped[(acc.lower(), post_id(post))] = post
-
-    posts = list(deduped.values())
-    posts.sort(
-        key=lambda p: (
-            account_from_post(p).lower(),
-            str(p.get("createTimeISO") or ""),
-            post_id(p),
+            key = account.casefold(), post_id(raw)
+            if (
+                key in unique
+                and {k: v for k, v in unique[key].items() if k != "_source_file"} != raw
+            ):
+                raise ValueError(f"Conflicting source post: {key}")
+            post = dict(raw, _source_file=file.name)
+            unique[key] = post
+    posts = [unique[key] for key in sorted(unique)]
+    if not posts:
+        raise ValueError("No matching posts in input dataset")
+    # Preflight every path and job before writing or opening a connection.
+    destinations = [confined_path(out, account_from_post(p), post_id(p)) for p in posts]
+    jobs: list[dict[str, Any]] = []
+    avatars: dict[str, dict[str, Any]] = {}
+    for post, directory in zip(posts, destinations, strict=True):
+        confined_path(directory, "raw.json")
+        confined_path(directory, "meta.json")
+        jobs.extend(
+            media_jobs_for_post(post, directory, not options.no_covers, not options.no_slides)
         )
-    )
-
-    # Reject the entire unsafe batch before writing metadata or starting downloads.
-    destinations = [
-        confined_path(out, safe_name(account_from_post(post)), post_id(post)) for post in posts
-    ]
-    for post_dir in destinations:
-        confined_path(post_dir, "raw.json")
-        confined_path(post_dir, "meta.json")
-
-    tokens = load_apify_tokens()
-
-    print(f"Input: {root}")
-    print(f"Unique posts: {len(posts)}")
-    print(f"Apify fallback tokens detected: {len(tokens)}")
-
-    all_jobs: list[dict[str, Any]] = []
-    avatar_jobs: dict[str, dict[str, Any]] = {}
-    post_manifest: list[dict[str, Any]] = []
-
-    for post, post_dir in zip(posts, destinations, strict=True):
-        acc = account_from_post(post)
-        pid = post_id(post)
-
-        raw_copy = dict(post)
-        raw_copy.pop("_source_file", None)
-
-        write_json(confined_path(post_dir, "raw.json"), raw_copy)
-        write_json(confined_path(post_dir, "meta.json"), compact_meta(post))
-
-        all_jobs.extend(
-            media_jobs_for_post(
-                post,
-                post_dir,
-                include_cover=not options.no_covers,
-                include_slides=not options.no_slides,
+        avatar = avatar_job_for_post(post, out) if not options.no_avatars else None
+        if avatar:
+            avatars.setdefault(account_from_post(post).casefold(), avatar)
+    jobs.extend(avatars.values())
+    for job in jobs:
+        job["snapshot_fingerprint"] = (
+            fingerprint(
+                {
+                    key: value
+                    for key, value in unique[(job["account"].casefold(), job["post_id"])].items()
+                    if key != "_source_file"
+                }
             )
+            if job.get("post_id")
+            else fingerprint(job["candidates"])
         )
-
-        if not options.no_avatars and acc.lower() not in avatar_jobs:
-            avatar_job = avatar_job_for_post(post, out)
-            if avatar_job:
-                avatar_jobs[acc.lower()] = avatar_job
-
-        post_manifest.append(
-            {
-                "account": acc,
-                "post_id": pid,
-                "url": post.get("webVideoUrl"),
-                "created_at": post.get("createTimeISO"),
-                "is_slideshow": bool(post.get("isSlideshow")),
-                "slide_count": len(post.get("slideshowImageLinks") or []),
-                "views": post.get("playCount"),
-                "likes": post.get("diggCount"),
-                "comments": post.get("commentCount"),
-                "shares": post.get("shareCount"),
-                "saves": post.get("collectCount"),
-                "post_dir": str(post_dir),
-            }
-        )
-
-    all_jobs.extend(avatar_jobs.values())
-    write_jsonl(out / "post_manifest.jsonl", post_manifest)
-
-    manifest_path = out / "media_manifest.jsonl"
-    previous_rows, previously_done_paths = load_previous_results(manifest_path)
-
-    # Existing actual files are also considered complete, even if manifest was interrupted.
-    filtered_jobs: list[dict[str, Any]] = []
-    for job in all_jobs:
-        path = Path(job["path"])
-        if str(path) in previously_done_paths or (path.exists() and path.stat().st_size > 0):
-            continue
-        filtered_jobs.append(job)
-
-    print(f"Media jobs total: {len(all_jobs)}")
-    print(
-        f"  slides: {sum(j['kind'] == 'slide' for j in all_jobs)} | "
-        f"covers: {sum(j['kind'] == 'cover' for j in all_jobs)} | "
-        f"avatars: {sum(j['kind'] == 'avatar' for j in all_jobs)}"
-    )
-    print(f"Already completed/skipped: {len(all_jobs) - len(filtered_jobs)}")
-    print(f"Remaining jobs: {len(filtered_jobs)}")
-
+    report: dict[str, Any] = {
+        "posts": len(posts),
+        "accounts": sorted({account_from_post(p) for p in posts}),
+        "post_keys": [(account_from_post(p), post_id(p)) for p in posts],
+        "video_posts": sum(
+            not bool(p.get("isSlideshow", p.get("slideshowImageLinks"))) for p in posts
+        ),
+        "media_jobs_total": len(jobs),
+        "dry_run": options.dry_run,
+    }
     if options.dry_run:
-        print("Dry run: no media will be downloaded.")
-
-    limits = httpx.Limits(
-        max_connections=max(options.concurrency * 2, 20),
-        max_keepalive_connections=max(options.concurrency, 10),
-    )
-
+        report.update(
+            failed=0,
+            pending=sum(
+                not Path(j["path"]).is_file() or Path(j["path"]).stat().st_size == 0 for j in jobs
+            ),
+        )
+        return report
+    for post, directory in zip(posts, destinations, strict=True):
+        raw = {k: v for k, v in post.items() if k != "_source_file"}
+        write_json(directory / "raw.json", raw)
+        meta = compact_meta(post)
+        meta["account"] = account_from_post(post)
+        meta["is_slideshow"] = bool(post.get("isSlideshow", post.get("slideshowImageLinks")))
+        write_json(directory / "meta.json", meta)
+    manifest = out / "media_manifest.jsonl"
+    rows: list[dict[str, Any]] = []
     sem = asyncio.Semaphore(options.concurrency)
-    current_rows = list(previous_rows)
-
-    async with httpx.AsyncClient(limits=limits, http2=False) as client:
+    limits = httpx.Limits(
+        max_connections=options.concurrency, max_keepalive_connections=options.concurrency
+    )
+    async with httpx.AsyncClient(limits=limits) as client:
         try:
-            for start in range(0, len(filtered_jobs), options.checkpoint_every):
-                chunk = filtered_jobs[start : start + options.checkpoint_every]
-
+            for start in range(0, len(jobs), options.checkpoint_every):
+                chunk = jobs[start : start + options.checkpoint_every]
                 tasks = [
                     asyncio.create_task(
                         download_one(
-                            client=client,
-                            sem=sem,
-                            job=job,
-                            tokens=tokens,
-                            retries=options.retries,
-                            timeout=options.timeout,
-                            dry_run=options.dry_run,
+                            client,
+                            sem,
+                            job,
+                            load_apify_tokens(),
+                            options.retries,
+                            options.timeout,
+                            False,
                         )
                     )
                     for job in chunk
                 ]
-
-                chunk_results = await asyncio.gather(*tasks)
-                current_rows.extend(chunk_results)
-
-                # Checkpoint after every chunk.
-                write_jsonl(manifest_path, current_rows)
-
-                counts: dict[str, int] = {}
-                source_counts: dict[str, int] = {}
-
-                for row in current_rows:
-                    status = str(row.get("status"))
-                    counts[status] = counts.get(status, 0) + 1
-                    source = row.get("used_source")
-                    if source:
-                        source_counts[source] = source_counts.get(source, 0) + 1
-
-                done = min(start + len(chunk), len(filtered_jobs))
-                print(
-                    f"[{done}/{len(filtered_jobs)} remaining] "
-                    f"status={counts} sources={source_counts}"
-                )
-
-        except KeyboardInterrupt:
-            print("\nInterrupted. Checkpoint already saved.", file=sys.stderr)
-
-    # Final report from manifest.
-    final_rows = read_jsonl(manifest_path, missing_ok=True, tolerate_invalid=True)
-
-    status_counts: dict[str, int] = {}
-    source_counts = {}
-    failed_examples: list[dict[str, Any]] = []
-
-    for row in final_rows:
-        status = str(row.get("status"))
-        status_counts[status] = status_counts.get(status, 0) + 1
-
-        source = row.get("used_source")
-        if source:
-            source_counts[source] = source_counts.get(source, 0) + 1
-
-        if status == "failed" and len(failed_examples) < 30:
-            failed_examples.append(row)
-
-    report = {
-        "input": str(root),
-        "output": str(out),
-        "accounts": sorted({account_from_post(p) for p in posts}),
-        "account_count": len({account_from_post(p) for p in posts}),
-        "posts": len(posts),
-        "slideshow_posts": sum(bool(p.get("isSlideshow")) for p in posts),
-        "video_posts": sum(not bool(p.get("isSlideshow")) for p in posts),
-        "slide_images_expected": sum(len(p.get("slideshowImageLinks") or []) for p in posts),
-        "media_jobs_total": len(all_jobs),
-        "status_counts": status_counts,
-        "source_counts": source_counts,
-        "apify_tokens_detected": len(tokens),
-        "failed_examples": failed_examples,
-        "dry_run": options.dry_run,
-    }
-
-    write_json(out / "download_report.json", report)
-
-    print()
-    print("=" * 72)
-    print("DONE / CHECKPOINTED")
-    print("=" * 72)
-    print(f"Posts                 : {report['posts']}")
-    print(f"Slideshow posts       : {report['slideshow_posts']}")
-    print(f"Video posts           : {report['video_posts']}")
-    print(f"Expected slide images : {report['slide_images_expected']}")
-    print(f"Media status          : {status_counts}")
-    print(f"Sources used          : {source_counts}")
-    print(f"Apify tokens detected : {len(tokens)}")
-    print(f"Output                : {out}")
-    print(f"Report                : {out / 'download_report.json'}")
-
-    if status_counts.get("failed"):
-        print()
-        print(
-            "There are failed items. Check download_report.json -> failed_examples.\n"
-            "Typical meanings:\n"
-            "  TikTok 403/404 + Apify 404/410: both signed CDN URL and KVS object expired.\n"
-            "  Apify 401/403 on all tokens: none of the configured tokens can access that KVS.\n"
-            "  TikTok success: no Apify token was needed for that file."
-        )
+                try:
+                    results = await asyncio.gather(*tasks)
+                except BaseException:
+                    for task in tasks:
+                        task.cancel()
+                    await asyncio.gather(*tasks, return_exceptions=True)
+                    rows.extend(
+                        task.result()
+                        for task in tasks
+                        if not task.cancelled() and task.exception() is None
+                    )
+                    raise
+                rows.extend(results)
+                write_jsonl(manifest, rows)
+        finally:
+            write_jsonl(manifest, rows)
+    report.update(
+        failed=sum(row["status"] == "failed" for row in rows),
+        status_counts={
+            status: sum(row["status"] == status for row in rows)
+            for status in ("downloaded", "existing", "failed")
+        },
+    )
+    write_json(out / "image_report.json", report)
+    print(json.dumps(report, ensure_ascii=False, indent=2))
+    return report

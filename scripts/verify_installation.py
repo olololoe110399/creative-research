@@ -9,7 +9,6 @@ import sys
 import tempfile
 from pathlib import Path
 
-from install_agent_skill import install as install_skill
 from verify_distribution import ROOT, verify
 
 from creative_research import __version__
@@ -107,105 +106,132 @@ def main() -> None:
             for spec in COMMAND_SPECS:
                 run(cli + [spec.name, "--help"], cwd=isolated, env=env)
             run(cli + ["unknown-command"], cwd=isolated, env=env, expected=2)
-            blocked = json.loads(
+            accounts = isolated / "accounts.txt"
+            accounts.write_text("synthetic_creator\n")
+            run(
+                cli + ["scrape", "--accounts-file", str(accounts), "--preflight"],
+                cwd=isolated,
+                env=env,
+            )
+            source = isolated / "crawl/posts"
+            source.mkdir(parents=True)
+            (source / "synthetic_creator.jsonl").write_text(
+                json.dumps(
+                    {
+                        "id": "7649340799209065748",
+                        "input": "synthetic_creator",
+                        "text": "synthetic fixture",
+                        "isSlideshow": False,
+                        "webVideoUrl": "https://example.test/video/1",
+                    }
+                )
+                + "\n"
+            )
+            media = isolated / "media/synthetic_creator/7649340799209065748"
+            media.mkdir(parents=True)
+            (media / "cover.jpg").write_bytes(b"synthetic-image")
+            (media / "video.mp4").write_bytes(b"synthetic-video")
+            export = isolated / "handoff"
+            arguments = [
+                "export-dataset",
+                "--input",
+                str(source.parent),
+                "--media-root",
+                str(media.parent.parent),
+                "--out",
+                str(export),
+                "--zip",
+            ]
+            dry = json.loads(run(cli + arguments + ["--dry-run"], cwd=isolated, env=env))
+            if not dry["dry_run"] or export.exists():
+                raise RuntimeError("Installed export dry-run wrote files")
+            report = json.loads(run(cli + arguments, cwd=isolated, env=env))
+            if report["counts"]["posts"] != 1 or report["counts"]["missing_assets"]:
+                raise RuntimeError("Installed export inventory failed")
+            import zipfile
+
+            with zipfile.ZipFile(report["zip"]) as archive:
+                archive.extractall(isolated / "relocated")
+            relocated = isolated / "relocated/handoff"
+            import shutil
+
+            shutil.rmtree(source.parent)
+            shutil.rmtree(media.parent.parent)
+            valid = json.loads(
                 run(
-                    cli + ["intelligence-build", "--dry-run", "--json"],
-                    cwd=isolated,
-                    env=env,
+                    cli + ["validate", "--dataset", str(relocated), "--json"], cwd=isolated, env=env
                 )
             )
-            if blocked["status"] != "blocked":
-                raise RuntimeError("Empty workspace should report blocked inputs")
-            demo = isolated / "demo"
-            report = json.loads(
-                run(cli + ["demo", "--out", str(demo), "--json"], cwd=isolated, env=env)
+            if not valid["ok"]:
+                raise RuntimeError("Relocated dataset depends on original sources")
+            run(
+                cli + ["validate", "--dataset", str(isolated / "missing"), "--json"],
+                cwd=isolated,
+                env=env,
+                expected=1,
             )
-            if report["status"] != "complete" or len(report["stages"]) != 12:
-                raise RuntimeError("Installed package offline demo failed")
-            run(cli + ["--root", str(demo), "validate", "--json"], cwd=isolated, env=env)
-            hosts = isolated / "agent-project"
-            hosts.mkdir()
-            for skill in install_skill(
-                ROOT / "skills/creative-research", hosts, ["claude", "codex"]
+            run(cli + arguments, cwd=isolated, env=env, expected=2)
+            for retired in (
+                "lab",
+                "vision-videos",
+                "intelligence-build",
+                "production-kit",
+                "prepare-media",
+                "download-videos",
             ):
-                doctor = json.loads(
-                    run([str(python), str(skill / "scripts/doctor.py")], cwd=hosts, env=env)
-                )
-                if not doctor["ok"] or doctor["providers_called"]:
-                    raise RuntimeError("Installed portable skill dependency check failed")
-                bridge = [str(python), str(skill / "scripts/run_cli.py"), "--root", str(demo)]
-                for arguments in (
-                    ["status"],
-                    ["validate"],
-                    ["rank-posts", "--top", "2"],
-                    [
-                        "query",
-                        "data/06_analytics/post_performance.parquet",
-                        "--columns",
-                        "post_uid,views",
-                        "--limit",
-                        "2",
-                    ],
-                    ["intelligence-build"],
-                ):
-                    response = json.loads(run(bridge + arguments, cwd=hosts, env=env))
-                    if response["exit_code"] or response["truncated"]:
-                        raise RuntimeError("Fresh portable skill bridge failed")
-            rerun = json.loads(
-                run(
-                    cli + ["--root", str(demo), "intelligence-build", "--json"],
-                    cwd=isolated,
-                    env=env,
-                )
-            )
-            if rerun["status"] != "complete" or not all(
-                s["status"] == "reused" for s in rerun["stages"]
-            ):
-                raise RuntimeError("Installed package did not reuse fresh stages")
-            run(cli + ["demo", "--out", str(demo)], cwd=isolated, env=env, expected=2)
-            master = "data/05_master/creative_master.parquet"
-            for args in (
-                ["status", "--json"],
-                ["calibrate-families", "--progress-every", "0"],
-                ["preview-families-v2"],
-                ["judge-family-candidates", "--dry-run"],
-                ["rank-posts", master, "--top", "3", "--out", "ranked.csv"],
-                [
-                    "query",
-                    master,
-                    "--where",
-                    "views>=1000",
-                    "--columns",
-                    "account,post_id",
-                    "--out",
-                    "filtered.csv",
-                ],
-                [
-                    "extract-references",
-                    master,
-                    "--out",
-                    "references",
-                    "--media",
-                    "none",
-                    "--top",
-                    "3",
-                ],
-                ["group-references", "references/references.parquet"],
-                ["review-knowledge", "queue"],
-                ["production-kit"],
-            ):
-                run(cli + ["--root", str(demo)] + args, cwd=isolated, env=env)
-            for name in (
-                "ranked.csv",
-                "filtered.csv",
-                "references/references.parquet",
-                "references/index.html",
-                "references/candidate_groups.csv",
-            ):
-                if not (demo / name).is_file():
-                    raise RuntimeError(f"Installed CLI did not produce {name}")
+                run(cli + [retired], cwd=isolated, env=env, expected=2)
+            # Exercise the installed orchestrator with synthetic providers only.
+            pipeline_check = isolated / "check_pipeline.py"
+            pipeline_check.write_text("""
+from types import SimpleNamespace
+from unittest.mock import patch
+import httpx
+from creative_research.capture import media, scrape, videos
+from creative_research.capture.pipeline import read_run
+from creative_research.cli.app import execute
+from pathlib import Path
+
+calls = []
+requests = []
+post = {"id": "1", "input": "synthetic_creator", "webVideoUrl": "https://example.test/video/1",
+        "videoMeta": {"originalCoverUrl": "https://example.test/cover"}, "isSlideshow": False}
+class Client:
+    def __init__(self, *args, **kwargs): pass
+    def actor(self, name):
+        def start(**kwargs):
+            calls.append(kwargs)
+            return {"id": "synthetic-run", "status": "RUNNING"}
+        return SimpleNamespace(start=start)
+    def run(self, run_id):
+        return SimpleNamespace(wait_for_finish=lambda **kwargs:
+            {"id": run_id, "status": "SUCCEEDED", "defaultDatasetId": "synthetic-dataset"})
+    def dataset(self, dataset_id):
+        return SimpleNamespace(iterate_items=lambda **kwargs: iter([post]))
+actual_client = httpx.AsyncClient
+def transport(request):
+    requests.append(str(request.url))
+    return httpx.Response(200, content=b"synthetic-image")
+def image_client(**kwargs):
+    return actual_client(transport=httpx.MockTransport(transport), **kwargs)
+def video(url, out, browser, cookies):
+    target = out / "video.mp4"
+    target.write_bytes(b"synthetic-video")
+    return target, None
+with patch.dict("os.environ", {"APIFY_TOKEN": "synthetic-private-token"}), \\
+     patch.object(scrape, "ApifyClient", Client), \\
+     patch.object(media.httpx, "AsyncClient", image_client), \\
+     patch.object(videos, "download_ytdlp", video), \\
+     patch.object(videos, "ffprobe", lambda path: {}):
+    assert execute(["run", "--accounts-file", "accounts.txt", "--out", "data/runs/synthetic", "--zip", "--json"]) == 0
+    assert execute(["run", "--out", "data/runs/synthetic", "--resume", "--json"]) == 0
+    assert len(calls) == 1 and len(requests) == 1
+    state = read_run(Path("data/runs/synthetic"))
+    assert state["complete"] and state["status"] == "completed"
+    assert execute(["validate", "--dataset", state["dataset"], "--json"]) == 0
+""")
+            run([str(python), str(pipeline_check)], cwd=isolated, env=env)
             print(
-                f"Fresh {kind} install: all command help, failure paths, 12-stage demo, reuse and offline utilities passed"
+                f"Fresh {kind} install: help, preflight, offline export, ZIP relocation, pipeline/resume and validation passed"
             )
 
 

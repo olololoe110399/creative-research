@@ -5,19 +5,15 @@ import json
 import logging
 from pathlib import Path
 
-import pandas as pd
 import pytest
 
 from creative_research.infrastructure import storage
 from creative_research.infrastructure.config import RuntimeSettings, load_env_file, project_context
 from creative_research.infrastructure.logging import logging_context
-from creative_research.infrastructure.source_graph import implementation_sources
 
 
 @pytest.mark.parametrize("value", ["0", "-1", "nan", "inf", "invalid"])
-@pytest.mark.parametrize(
-    "setting", ["REQUEST_TIMEOUT", "SUBPROCESS_TIMEOUT", "SERVER_REQUEST_TIMEOUT", "AI_TIMEOUT"]
-)
+@pytest.mark.parametrize("setting", ["REQUEST_TIMEOUT", "SUBPROCESS_TIMEOUT"])
 def test_timeout_settings_reject_non_positive_or_non_finite_numbers(setting, value) -> None:
     with pytest.raises(ValueError, match=setting):
         RuntimeSettings.from_environ({"CREATIVE_RESEARCH_" + setting: value})
@@ -83,7 +79,7 @@ def test_project_context_restores_after_failure(tmp_path, monkeypatch) -> None:
 @pytest.mark.parametrize("structured", [False, True])
 def test_logging_redacts_credentials_and_restores_handlers(monkeypatch, structured) -> None:
     secret = 'credential-with-"quote\\and-unicode-đ'
-    monkeypatch.setenv("GEMINI_API_KEY", secret)
+    monkeypatch.setenv("APIFY_TOKEN", secret)
     logger = logging.getLogger("creative_research.test")
     app_logger = logging.getLogger("creative_research")
     previous = (app_logger.handlers[:], app_logger.level, app_logger.propagate)
@@ -141,37 +137,14 @@ def test_atomic_writer_cleans_up_on_serialization_failure(tmp_path) -> None:
     assert list(tmp_path.iterdir()) == [path]
 
 
-def test_private_json_and_dataframe_outputs_round_trip(tmp_path) -> None:
+def test_private_json_and_append_checkpoints_round_trip(tmp_path) -> None:
     path = tmp_path / "private.json"
     storage.write_json(path, {"state": "planned"}, mode=0o600)
     assert path.stat().st_mode & 0o777 == 0o600
     storage.write_json(path, {"state": "running"})
     assert path.stat().st_mode & 0o777 == 0o600
-    frame = pd.DataFrame([{"id": "a", "value": 42}])
-    storage.write_csv(tmp_path / "table.csv", frame, encoding="utf-8-sig")
-    storage.write_parquet(tmp_path / "table.parquet", frame)
-    pd.testing.assert_frame_equal(pd.read_csv(tmp_path / "table.csv"), frame)
-    pd.testing.assert_frame_equal(pd.read_parquet(tmp_path / "table.parquet"), frame)
     storage.append_jsonl_rows(tmp_path / "checkpoint.jsonl", [{"id": 1}, {"id": 2}])
     assert len((tmp_path / "checkpoint.jsonl").read_text().splitlines()) == 2
-
-
-def test_pipeline_implementation_graph_includes_domain_and_infrastructure() -> None:
-    paths = implementation_sources("creative_research.cli.commands.build_warehouse")
-    assert any(path.parts[-2:] == ("analysis", "build_warehouse.py") for path in paths)
-    assert any(path.parts[-2:] == ("infrastructure", "storage.py") for path in paths)
-    assert implementation_sources("creative_research_other.module") == ()
-    assert all(isinstance(path, Path) and path.is_file() for path in paths)
-
-
-def test_analysis_does_not_import_cli_adapters() -> None:
-    import ast
-
-    root = Path(__file__).resolve().parents[2] / "src/creative_research/analysis"
-    for path in root.glob("*.py"):
-        for node in ast.walk(ast.parse(path.read_text())):
-            if isinstance(node, ast.ImportFrom):
-                assert not (node.module or "").startswith("creative_research.cli.commands"), path
 
 
 def test_jsonl_defaults_to_strict_location_errors_without_payload_disclosure(tmp_path):
@@ -211,12 +184,6 @@ def test_tolerant_jsonl_does_not_suppress_io_failures(tmp_path, monkeypatch):
         storage.read_jsonl(tmp_path / "cache", tolerate_invalid=True)
 
 
-def test_shared_cache_fingerprint_preserves_sha1_identity(tmp_path):
-    path = tmp_path / "media"
-    path.write_bytes(b"abc")
-    assert storage.file_sha1(path) == "a9993e364706816aba3e25717850c26c9cd0d89d"
-
-
 def test_json_metadata_recovery_is_explicit_and_does_not_hide_io(tmp_path, monkeypatch, caplog):
     path = tmp_path / "metadata.json"
     assert storage.read_json_object(path, missing_ok=True) == {}
@@ -241,24 +208,6 @@ def test_json_metadata_recovery_is_explicit_and_does_not_hide_io(tmp_path, monke
         storage.read_json_object(path, tolerate_invalid=True)
 
 
-def test_directory_replacement_retains_backup_and_partial_failures_keep_old_tree(tmp_path):
-    target = tmp_path / "media"
-    target.mkdir()
-    (target / "original.txt").write_text("old")
-    with pytest.raises(OSError, match="copy failed"):
-        with storage.replace_directory(target) as staged:
-            (staged / "partial.txt").write_text("partial")
-            raise OSError("copy failed")
-    assert list(tmp_path.iterdir()) == [target]
-    assert (target / "original.txt").read_text() == "old"
-    with storage.replace_directory(target) as staged:
-        (staged / "new.txt").write_text("new")
-    backups = list(tmp_path.glob(".media.backup-*"))
-    assert len(backups) == 1
-    assert (backups[0] / "original.txt").read_text() == "old"
-    assert list(target.iterdir()) == [target / "new.txt"]
-
-
 def test_atomic_output_replaces_leaf_symlink_without_modifying_external_target(tmp_path):
     outside = tmp_path / "outside.json"
     outside.write_text("private original")
@@ -268,27 +217,3 @@ def test_atomic_output_replaces_leaf_symlink_without_modifying_external_target(t
     assert outside.read_text() == "private original"
     assert not target.is_symlink()
     assert json.loads(target.read_text()) == {"safe": True}
-
-
-def test_directory_publication_failure_rolls_back_and_symlinks_are_rejected(tmp_path, monkeypatch):
-    target = tmp_path / "details"
-    target.mkdir()
-    (target / "original.txt").write_text("old")
-    original = Path.replace
-
-    def fail_staged(path, destination):
-        if path.name == "content":
-            raise OSError("publish failed")
-        return original(path, destination)
-
-    monkeypatch.setattr(Path, "replace", fail_staged)
-    with pytest.raises(OSError, match="publish failed"):
-        with storage.replace_directory(target) as staged:
-            (staged / "new.txt").write_text("new")
-    assert list(tmp_path.iterdir()) == [target]
-    assert (target / "original.txt").read_text() == "old"
-    alias = tmp_path / "alias"
-    alias.symlink_to(target, target_is_directory=True)
-    with pytest.raises(ValueError, match="regular output directory"):
-        with storage.replace_directory(alias):
-            pytest.fail("Must reject symlink before writing")

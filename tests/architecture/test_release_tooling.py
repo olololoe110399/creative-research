@@ -5,6 +5,8 @@ from pathlib import Path
 
 import pytest
 
+from creative_research import __version__
+
 
 @pytest.fixture
 def release_tools(monkeypatch):
@@ -37,7 +39,7 @@ def test_secret_audit_reports_location_without_exposing_match(release_tools):
 def test_public_allowlist_rejects_accidental_private_configuration(release_tools, tmp_path):
     distribution, _ = release_tools
     (tmp_path / "pyproject.toml").write_text(
-        '[project]\nversion = "1.0.0"\nlicense = "MIT"\n'
+        f'[project]\nversion = "{__version__}"\nlicense = "MIT"\n'
         '[tool.hatch.build.targets.sdist]\ninclude = ["/config/private.toml"]\n'
     )
     config = tmp_path / "config"
@@ -50,11 +52,12 @@ def test_public_allowlist_rejects_accidental_private_configuration(release_tools
 def test_distribution_metadata_requires_consistent_version_and_license(release_tools):
     distribution, _ = release_tools
     valid = (
-        b"Name: creative-research\nVersion: 1.0.0\nLicense-Expression: MIT\nLicense-File: LICENSE\n"
-    )
+        f"Name: creative-research\nVersion: {__version__}\n"
+        "License-Expression: MIT\nLicense-File: LICENSE\n"
+    ).encode()
     distribution.check_metadata(valid)
     with pytest.raises(ValueError, match="differs"):
-        distribution.check_metadata(valid.replace(b"1.0.0", b"99.0.0"))
+        distribution.check_metadata(valid.replace(__version__.encode(), b"99.0.0"))
     with pytest.raises(ValueError, match="missing the MIT license"):
         distribution.check_metadata(valid.replace(b"License-Expression: MIT\n", b""))
 
@@ -68,7 +71,9 @@ def test_documentation_checks_reject_bad_links_commands_and_options(release_tool
     path.write_text("```sh\ncreative-research invented-command\n```\n")
     with pytest.raises(ValueError, match="Unknown documented command"):
         docs.validate_docs(tmp_path)
-    path.write_text("```sh\ncreative-research demo --invented-option value\n```\n")
+    path.write_text(
+        "```sh\ncreative-research scrape --accounts-file fake.txt --invented-option value\n```\n"
+    )
     with pytest.raises(ValueError, match="Invalid CLI example"):
         docs.validate_docs(tmp_path)
 
@@ -77,7 +82,7 @@ def test_documentation_examples_are_parsed_without_execution(release_tools, tmp_
     _, docs = release_tools
     path = tmp_path / "README.md"
     path.write_text(
-        "```sh\ncreative-research demo --out should-not-exist\ncreative-research scrape fake.txt\n```\n"
+        "```sh\ncreative-research download-media --input fake --out should-not-exist\ncreative-research scrape --accounts-file fake.txt\n```\n"
     )
     assert docs.validate_docs(tmp_path) == (0, 2)
     assert list(tmp_path.iterdir()) == [path]

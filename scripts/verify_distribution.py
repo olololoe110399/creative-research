@@ -30,7 +30,6 @@ SOURCE_EXTENSIONS = {
     "tests": {".py", ".cjs"},
     "scripts": {".py"},
     "docs": {".md"},
-    "skills": {".md", ".py"},
 }
 CREDENTIAL_PATTERNS = {
     "private key": r"-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----",

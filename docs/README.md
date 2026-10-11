@@ -1,19 +1,21 @@
 # Documentation
 
-- [Installation](installation.md): prerequisites, offline demo and clean package installs.
-- [Configuration](configuration.md): paths, environment settings and private state.
-- [CLI reference](cli-reference.md) and [command catalog](commands.md): options and automation.
-- [Research workflow](research-workflow.md): capture, interpretation, stage-order diagram and handoff.
-- [Architecture](architecture.md): module-boundary and storage diagrams, failure semantics.
-- [Development](development.md): tests, quality gates and release preparation.
-- [Agent Skills](agent-skills.md): portable installation, offline bridge, reports and eval limits.
-- [Troubleshooting](troubleshooting.md): failures, recovery and safe debugging.
+Start with the capture workflow to acquire a dataset, or the consumer guide to
+process an existing handoff. Documentation describes the 1.0 CLI.
 
-Read [contributing](../CONTRIBUTING.md), [security](../SECURITY.md) and the
-[MIT license](../LICENSE) before sharing code, logs or research artifacts.
+| Task | Guide |
+| --- | --- |
+| Install the package and dependencies | [Installation](installation.md) |
+| Configure accounts, credentials, paths and timeouts | [Configuration](configuration.md) |
+| Run acquisition and find the output to hand off | [Capture workflow](capture-workflow.md) |
+| Resume, inspect stage states and understand partial runs | [Pipeline contract](pipeline-contract.md) |
+| Read an extracted dataset in another system | [Consumer guide](consume-dataset.md) |
+| Implement dataset/schema compatibility | [Dataset contract](dataset-contract.md) |
+| Find CLI options, defaults and exit codes | [CLI reference](cli-reference.md), [command catalog](commands.md) |
+| Resolve capture, download or publication errors | [Troubleshooting](troubleshooting.md) |
+| Maintain or release this package | [Architecture](architecture.md), [development](development.md) |
 
-## Reading the diagrams
-
-Diagrams use Mermaid code fences, which [GitHub renders in Markdown](https://docs.github.com/en/get-started/writing-on-github/working-with-advanced-formatting/creating-diagrams).
-Other readers may show the diagram source; adjacent prose explains the same
-boundaries. Keep diagrams aligned with code when changing modules, stages or storage.
+The command catalog is generated from cli/registry.py. Run `make docs-check` to
+check catalog drift, local links and CLI syntax in shell examples. This parses
+examples without running acquisition or making provider requests; it does not
+certify that a live provider or account will succeed.

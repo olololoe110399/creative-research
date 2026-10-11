@@ -57,12 +57,7 @@ class RedactingFormatter(logging.Formatter):
             rendered = super().format(record)
             if isinstance(context, Mapping):
                 fields = _safe_fields(context)
-                if record.getMessage() in {"stage_started", "stage_complete"}:
-                    state = "running" if record.getMessage() == "stage_started" else "complete"
-                    elapsed = f" ({fields['seconds']}s)" if "seconds" in fields else ""
-                    rendered = f"{record.levelname} [{fields.get('step')}/{fields.get('total')}] {fields.get('stage')}: {state}{elapsed}"
-                else:
-                    rendered += " " + " ".join(f"{key}={value}" for key, value in fields.items())
+                rendered += " " + " ".join(f"{key}={value}" for key, value in fields.items())
             return redact(rendered)
         payload: dict[str, Any] = {
             "timestamp": datetime.fromtimestamp(record.created, UTC).isoformat(),

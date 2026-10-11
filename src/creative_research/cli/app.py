@@ -14,7 +14,6 @@ from creative_research.cli.console import Console
 from creative_research.cli.registry import COMMAND_SPECS, COMMANDS
 from creative_research.cli.runtime import run_stage
 from creative_research.cli.workspace import (
-    cmd_adopt,
     cmd_doctor,
     cmd_init,
     cmd_status,
@@ -46,7 +45,7 @@ def _global_parser() -> argparse.ArgumentParser:
 def print_help(console: Console | None = None) -> None:
     console = console or Console()
     console.heading(f"Creative Research {__version__}")
-    console.write("Evidence-backed research. Offline builds; paid provider calls are explicit.")
+    console.write("Capture public records, download files and export portable datasets.")
     console.write()
     console.write("Usage: creative-research [global options] <command> [command options]")
     groups = dict.fromkeys(spec.group for spec in COMMAND_SPECS)
@@ -74,10 +73,12 @@ def print_help(console: Console | None = None) -> None:
     for example in (
         "creative-research init",
         "creative-research doctor --json",
-        "creative-research demo --out ./demo-workspace",
-        "creative-research intelligence-build --dry-run --json",
-        "creative-research --root /path/to/project intelligence-build",
-        "creative-research lab --read-only --open",
+        "creative-research run --accounts-file accounts.txt --out data/runs/run-001 --zip",
+        "creative-research run --out data/runs/run-001 --resume --json",
+        "creative-research scrape --accounts-file accounts.txt --out data/raw/run-001",
+        "creative-research download-media --input data/raw/run-001 --out data/media",
+        "creative-research export-dataset --input data/raw/run-001 --out exports/dataset-001 --zip",
+        "creative-research validate --dataset exports/dataset-001 --json",
         "creative-research <command> --help",
     ):
         console.write("  " + example)
@@ -100,8 +101,6 @@ def _dispatch(args: list[str]) -> int:
         return cmd_status(rest)
     if command == "validate":
         return cmd_validate(rest)
-    if command == "adopt":
-        return cmd_adopt(rest)
     matches = difflib.get_close_matches(command, [spec.name for spec in COMMAND_SPECS], n=1)
     hint = f"Did you mean {matches[0]!r}?" if matches else "Run creative-research --help."
     raise ApplicationError(

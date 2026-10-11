@@ -1,8 +1,7 @@
-"""Atomic file writes and recoverable directory replacement, not stage transactions."""
+"""Atomic file writes and durable append checkpoints, not stage transactions."""
 
 from __future__ import annotations
 
-import hashlib
 import json
 import logging
 import os
@@ -10,11 +9,7 @@ import tempfile
 from collections.abc import Iterable, Iterator
 from contextlib import contextmanager
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
-from uuid import uuid4
-
-if TYPE_CHECKING:
-    import pandas as pd
+from typing import Any
 
 
 @contextmanager
@@ -51,37 +46,6 @@ def write_text(path: Path, text: str, *, mode: int | None = None) -> None:
 def write_bytes(path: Path, payload: bytes) -> None:
     with atomic_output(path) as temporary:
         temporary.write_bytes(payload)
-
-
-@contextmanager
-def replace_directory(path: Path) -> Iterator[Path]:
-    """Stage a complete tree; retain a backup and roll back publication errors.
-
-    Two renames are not crash-atomic. Callers must run one writer and preserve backups.
-    """
-    if path.is_symlink() or (path.exists() and not path.is_dir()):
-        raise ValueError(f"Expected a regular output directory: {path}")
-    path = path.absolute()
-    path.parent.mkdir(parents=True, exist_ok=True)
-    with tempfile.TemporaryDirectory(prefix=f".{path.name}-", dir=path.parent) as temporary:
-        staged = Path(temporary) / "content"
-        staged.mkdir()
-        yield staged
-        backup = (
-            path.with_name(f".{path.name}.backup-{uuid4().hex[:12]}") if path.exists() else None
-        )
-        if backup is not None:
-            path.replace(backup)
-        try:
-            staged.replace(path)
-        except BaseException:
-            if backup is not None:
-                backup.replace(path)
-            raise
-        if backup is not None:
-            logging.getLogger(__name__).warning(
-                "previous_directory_retained", extra={"context": {"backup": str(backup)}}
-            )
 
 
 def write_json(path: Path, payload: Any, *, mode: int | None = None) -> None:
@@ -143,12 +107,6 @@ def read_jsonl(
     return rows
 
 
-def file_sha1(path: Path) -> str:
-    """Content fingerprint for cache identity only, not security verification."""
-    with path.open("rb") as handle:
-        return hashlib.file_digest(handle, "sha1").hexdigest()
-
-
 def append_jsonl(path: Path, row: Any) -> None:
     append_jsonl_rows(path, [row])
 
@@ -161,29 +119,3 @@ def append_jsonl_rows(path: Path, rows: Iterable[Any]) -> None:
             handle.write(json.dumps(row, ensure_ascii=False, default=str) + "\n")
         handle.flush()
         os.fsync(handle.fileno())
-
-
-def write_parquet(path: Path, frame: pd.DataFrame) -> None:
-    with atomic_output(path) as temporary:
-        frame.to_parquet(temporary, index=False)
-
-
-def write_csv(path: Path, frame: pd.DataFrame, **options: Any) -> None:
-    options.setdefault("index", False)
-    with atomic_output(path) as temporary:
-        frame.to_csv(temporary, **options)
-
-
-def read_table(path: Path) -> pd.DataFrame:
-    import pandas as pd
-
-    if not path.exists():
-        raise FileNotFoundError(path)
-    suffix = path.suffix.lower()
-    if suffix == ".parquet":
-        return pd.read_parquet(path)
-    if suffix == ".csv":
-        return pd.read_csv(path)
-    if suffix == ".jsonl":
-        return pd.read_json(path, lines=True)
-    raise ValueError(f"Unsupported table format: {path}")

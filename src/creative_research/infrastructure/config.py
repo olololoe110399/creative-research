@@ -34,8 +34,6 @@ class RuntimeSettings:
     log_format: str = "text"
     request_timeout: float = 30.0
     subprocess_timeout: float = 900.0
-    server_request_timeout: float = 15.0
-    ai_timeout: float = 90.0
 
     @classmethod
     def from_environ(cls, env: Mapping[str, str] | None = None) -> RuntimeSettings:
@@ -53,8 +51,6 @@ class RuntimeSettings:
             log_format=log_format,
             request_timeout=_positive_number(values, "REQUEST_TIMEOUT", 30.0),
             subprocess_timeout=_positive_number(values, "SUBPROCESS_TIMEOUT", 900.0),
-            server_request_timeout=_positive_number(values, "SERVER_REQUEST_TIMEOUT", 15.0),
-            ai_timeout=_positive_number(values, "AI_TIMEOUT", 90.0),
         )
 
 

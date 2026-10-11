@@ -14,7 +14,7 @@ def clean_account_handle(value: object) -> str:
 
 
 def normalize_account(value: object) -> str:
-    """Normalize an account handle for registry matching."""
+    """Normalize an account handle for stable identifier comparison."""
     text = str(value).strip()
     if text.startswith("@"):
         text = text[1:]
@@ -28,6 +28,6 @@ def stable_account_id(account: object) -> str:
 
 
 def stable_post_id(account: object, post_id: object) -> str:
-    """Return the same stable POST id used by the reference workspace."""
+    """Return a deterministic post identifier using the account's display casing."""
     raw = f"{str(account).strip()}\0{str(post_id).strip()}".encode()
     return "POST-" + hashlib.sha1(raw).hexdigest()[:12].upper()

@@ -9,9 +9,18 @@ import creative_research.capture.scrape as service
 
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(description="Archive public TikTok profile posts via Apify.")
+    p.add_argument("--resume", action="store_true", help="Resume matching batch checkpoints")
+    p.add_argument(
+        "--recover-run",
+        dest="recover_runs",
+        action="append",
+        metavar="BATCH=RUN_ID",
+        help="Attach a known Apify run after an uncertain launch; requires --resume",
+    )
 
     p.add_argument(
-        "accounts_file",
+        "--accounts-file",
+        required=True,
         help="Text file: one TikTok username or profile URL per line",
     )
     p.add_argument(
@@ -50,48 +59,6 @@ def build_parser() -> argparse.ArgumentParser:
     )
 
     p.add_argument(
-        "--download-videos",
-        action="store_true",
-        help="Download videos into Apify KVS, then mirror locally",
-    )
-
-    p.set_defaults(download_covers=True)
-    p.add_argument(
-        "--no-covers",
-        dest="download_covers",
-        action="store_false",
-        help="Do not download cover images",
-    )
-
-    p.set_defaults(download_slides=True)
-    p.add_argument(
-        "--no-slides",
-        dest="download_slides",
-        action="store_false",
-        help="Do not download slideshow images",
-    )
-
-    p.set_defaults(download_avatars=True)
-    p.add_argument(
-        "--no-avatars",
-        dest="download_avatars",
-        action="store_false",
-        help="Do not download profile avatars",
-    )
-
-    p.add_argument(
-        "--subtitles",
-        choices=[
-            "NEVER_DOWNLOAD_SUBTITLES",
-            "DOWNLOAD_SUBTITLES",
-            "DOWNLOAD_AND_TRANSCRIBE_VIDEOS_WITHOUT_SUBTITLES",
-            "TRANSCRIBE_ALL_VIDEOS",
-        ],
-        default="NEVER_DOWNLOAD_SUBTITLES",
-        help="Default: NEVER_DOWNLOAD_SUBTITLES",
-    )
-
-    p.add_argument(
         "--comments",
         type=int,
         default=0,
@@ -122,25 +89,9 @@ def build_parser() -> argparse.ArgumentParser:
     )
 
     p.add_argument(
-        "--skip-media-sync",
-        action="store_true",
-        help="Keep media in Apify KVS but do not mirror it locally.",
-    )
-
-    p.add_argument(
-        "--operators",
-        default="config/operators.toml",
-        help="Researcher-confirmed operator registry; mandatory before paid scrape.",
-    )
-    p.add_argument(
-        "--operator-id",
-        default=None,
-        help="Optional expected operator ID; reject accounts assigned elsewhere.",
-    )
-    p.add_argument(
         "--preflight",
         action="store_true",
-        help="Validate account grouping without token, network, or charges.",
+        help="Validate account inputs and budgets without token, network, or charges.",
     )
     return p
 

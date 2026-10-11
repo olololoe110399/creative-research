@@ -21,11 +21,11 @@ demo-workspace/
 .download-*/
 .DS_Store
 
-# Research datasets/media are local artifacts, never source control.
+# Captured datasets/media are local artifacts, never source control.
 data/
 !data/.gitkeep
 
-# Local research configuration. Commit only explicit example files.
+# Private configuration and local state. Commit only explicit example files.
 config/*.txt
 !config/*.example.txt
 config/*.toml
@@ -33,3 +33,7 @@ config/*.toml
 agent-reports/
 .claude/skills/creative-research/
 .agents/skills/creative-research/
+
+# Portable handoffs may contain real source data and media.
+exports/
+.capture.lock

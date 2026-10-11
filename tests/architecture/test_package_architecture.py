@@ -34,7 +34,7 @@ def _module_graph():
     return graph
 
 
-def test_package_has_no_local_import_cycles_and_analysis_is_provider_independent():
+def test_package_has_no_local_import_cycles_and_business_does_not_import_cli():
     graph = _module_graph()
     visited = set()
 
@@ -55,19 +55,6 @@ def test_package_has_no_local_import_cycles_and_analysis_is_provider_independent
             assert not any(
                 dependency.startswith("creative_research.cli") for dependency in graph[module]
             ), f"Business/infrastructure code must not depend on CLI: {module}"
-    for path in (PACKAGE / "analysis").glob("*.py"):
-        for node in ast.walk(ast.parse(path.read_text())):
-            imports = []
-            if isinstance(node, ast.Import):
-                imports = [alias.name for alias in node.names]
-            elif isinstance(node, ast.ImportFrom):
-                imports = [node.module or ""]
-            assert not any(
-                imported.startswith(
-                    ("google", "apify_client", "httpx", "urllib.request", "argparse")
-                )
-                for imported in imports
-            ), path
 
 
 def test_package_root_contains_only_bootstrap_and_shared_primitives():
@@ -91,11 +78,11 @@ def test_argument_parsing_and_provider_dependencies_stay_in_their_adapters():
                 imports = [node.module or ""]
             if any(name.startswith("argparse") for name in imports):
                 assert relative.parts[0] == "cli", path
-            if any(name.startswith(("google", "apify_client")) for name in imports):
-                assert (
-                    relative.parts[0] in {"capture", "vision"}
-                    or relative.as_posix() == "infrastructure/gemini.py"
-                ), path
+            assert not any(name.startswith(("google", "pandas", "pyarrow")) for name in imports), (
+                path
+            )
+            if any(name.startswith("apify_client") for name in imports):
+                assert relative.as_posix() == "capture/scrape.py", path
 
 
 def test_command_catalog_cannot_be_mutated():
@@ -115,14 +102,11 @@ def test_importing_entire_package_does_not_load_config_make_requests_or_write_fi
     code = """
 import importlib, os, pkgutil
 from unittest.mock import patch
-import apify_client, httpx, pandas
-from google import genai
+import apify_client, httpx
 import creative_research
 def forbidden(*args, **kwargs):
     raise AssertionError("Import-time external effect")
-with patch.object(genai, "Client", forbidden), patch.object(apify_client, "ApifyClient", forbidden), \\
-     patch.object(httpx.Client, "request", forbidden), patch.object(pandas, "read_csv", forbidden), \\
-     patch.object(pandas, "read_parquet", forbidden):
+with patch.object(apify_client, "ApifyClient", forbidden), patch.object(httpx.Client, "request", forbidden):
     for module in pkgutil.walk_packages(creative_research.__path__, creative_research.__name__ + "."):
         importlib.import_module(module.name)
 assert "CREATIVE_RESEARCH_IMPORT_SENTINEL" not in os.environ
@@ -138,3 +122,16 @@ assert "CREATIVE_RESEARCH_IMPORT_SENTINEL" not in os.environ
     assert result.returncode == 0, result.stderr
     assert result.stdout == ""
     assert list(tmp_path.iterdir()) == [tmp_path / ".env"]
+
+
+def test_package_contains_only_capture_cli_and_infrastructure():
+    assert {
+        path.name for path in PACKAGE.iterdir() if path.is_dir() and path.name != "__pycache__"
+    } == {"capture", "cli", "infrastructure"}
+    graph = _module_graph()
+    for module in (
+        "creative_research.capture.normalization",
+        "creative_research.capture.export_dataset",
+        "creative_research.capture.validation",
+    ):
+        assert "creative_research.capture.scrape" not in graph[module]

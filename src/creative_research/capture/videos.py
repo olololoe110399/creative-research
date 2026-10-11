@@ -14,16 +14,16 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-import pandas as pd
-
+from creative_research.capture.cache import attest, fingerprint, verified
 from creative_research.infrastructure.config import RuntimeSettings
+from creative_research.infrastructure.logging import redact
 from creative_research.infrastructure.paths import confined_path, portable_path, resolve_path
 from creative_research.infrastructure.storage import (
     append_jsonl,
     atomic_output,
     read_json_object,
-    write_csv,
     write_json,
+    write_jsonl,
 )
 
 VIDEO_EXTS = {".mp4", ".mov", ".m4v", ".webm", ".mkv"}
@@ -38,9 +38,7 @@ class VideoDownloadOptions:
     out: str
     cookies_from_browser: str | None
     cookies_file: str | None
-    limit: int | None
-    force: bool
-    no_direct_fallback: bool
+    post_keys: list[tuple[str, str]] | None = None
 
 
 def first(*vals: Any) -> Any:
@@ -105,7 +103,11 @@ def is_slideshow(meta: dict[str, Any], raw: dict[str, Any], post_dir: Path) -> b
 def existing_video(post_out: Path) -> Path | None:
     if not post_out.exists():
         return None
-    xs = [p for p in post_out.iterdir() if p.is_file() and p.suffix.lower() in VIDEO_EXTS]
+    xs = [
+        p
+        for p in post_out.iterdir()
+        if p.is_file() and p.suffix.lower() in VIDEO_EXTS and p.stat().st_size > 0
+    ]
     return max(xs, key=lambda p: p.stat().st_size) if xs else None
 
 
@@ -152,9 +154,13 @@ def download_ytdlp(
                 None,
                 "yt-dlp timed out; increase CREATIVE_RESEARCH_SUBPROCESS_TIMEOUT or retry this post",
             )
+        except OSError as exc:
+            return None, redact(f"Cannot run yt-dlp: {type(exc).__name__}: {exc}")
         video = existing_video(staged)
         if p.returncode != 0 or video is None or video.stat().st_size == 0:
-            return None, (p.stdout or f"yt-dlp exit {p.returncode}; no complete video")[-5000:]
+            return None, redact(p.stdout or f"yt-dlp exit {p.returncode}; no complete video")[
+                -5000:
+            ]
         target = out_dir / video.name
         with atomic_output(target) as temporary:
             video.replace(temporary)
@@ -192,7 +198,7 @@ def download_direct(urls: list[str], out_dir: Path) -> tuple[Path | None, str | 
                 return target, None
         except Exception as e:
             errs.append(f"{i}: {type(e).__name__}: {e}")
-    return None, " | ".join(errs[-5:])
+    return None, redact(" | ".join(errs[-5:]))
 
 
 def ffprobe(path: Path) -> dict[str, Any]:
@@ -289,23 +295,29 @@ def discover(root: Path) -> list[dict[str, Any]]:
     return rows
 
 
-def download_videos(options: VideoDownloadOptions) -> None:
+def download_videos(options: VideoDownloadOptions) -> dict[str, Any]:
 
     root, out = resolve_path(options.input), resolve_path(options.out)
     out.mkdir(parents=True, exist_ok=True)
     items = discover(root)
-    if options.limit is not None:
-        items = items[: options.limit]
+    if options.post_keys is not None:
+        selected = {(account.casefold(), post_id) for account, post_id in options.post_keys}
+        items = [
+            item for item in items if (item["account"].casefold(), item["post_id"]) in selected
+        ]
     destinations = [confined_path(out, item["account"], item["post_id"]) for item in items]
     for destination in destinations:
         confined_path(destination, "source_meta.json")
-    rows, failures = [], []
+    rows: list[dict[str, Any]] = []
+    failures: list[dict[str, Any]] = []
 
     for i, (item, post_out) in enumerate(zip(items, destinations, strict=True), 1):
         account, post_id = item["account"], item["post_id"]
         post_out.mkdir(parents=True, exist_ok=True)
         video = existing_video(post_out)
-        method = "cached" if video and not options.force else None
+        source = fingerprint({"raw": item.get("_raw"), "meta": item.get("_meta")})
+        cached = verified(video, source) if video else None
+        method = "cached" if cached else None
         if method:
             print(f"[{i}/{len(items)}] cached @{account}/{post_id}")
         else:
@@ -322,7 +334,7 @@ def download_videos(options: VideoDownloadOptions) -> None:
                     errors.append("yt-dlp: " + err)
             else:
                 errors.append("No TikTok post URL found")
-            if video is None and not options.no_direct_fallback:
+            if video is None:
                 video, err = download_direct(direct_video_urls(item["_raw"]), post_out)
                 if video:
                     method = "direct_raw_url"
@@ -358,60 +370,22 @@ def download_videos(options: VideoDownloadOptions) -> None:
                 "audio_codec": probe.get("audio_codec"),
             }
         )
+        row.update(cached if method == "cached" and cached else attest(video, source))
         write_json(
             confined_path(post_out, "source_meta.json"),
             {"manifest": row, "meta": item["_meta"], "raw": item["_raw"]},
         )
         rows.append(row)
+        write_jsonl(out / "video_manifest.jsonl", rows)
 
-    df = pd.DataFrame(rows)
-    if not df.empty:
-        for c in [
-            "views",
-            "likes",
-            "comments",
-            "shares",
-            "saves",
-            "duration_seconds",
-            "file_size_bytes",
-        ]:
-            if c in df:
-                df[c] = pd.to_numeric(df[c], errors="coerce")
-        df["created_at"] = pd.to_datetime(df["created_at"], errors="coerce", utc=True)
-        df["share_rate"] = df["shares"] / df["views"].replace(0, pd.NA)
-        df["save_rate"] = df["saves"] / df["views"].replace(0, pd.NA)
-        df["account_views_pct"] = df.groupby("account")["views"].rank(pct=True, method="average")
-        df["global_views_pct"] = df["views"].rank(pct=True, method="average")
-    write_csv(out / "video_manifest.csv", df, index=False, encoding="utf-8-sig")
-    with atomic_output(out / "video_manifest.jsonl") as temporary:
-        with temporary.open("w", encoding="utf-8") as f:
-            for r in df.to_dict(orient="records"):
-                if hasattr(r.get("created_at"), "isoformat"):
-                    r["created_at"] = r["created_at"].isoformat()
-                f.write(json.dumps(r, ensure_ascii=False, default=str) + "\n")
+    write_jsonl(out / "video_manifest.jsonl", rows)
     report = {
         "discovered_video_posts": len(items),
         "downloaded_or_cached": len(rows),
         "failed": len(failures),
-        "total_bytes": int(
-            pd.to_numeric(df.get("file_size_bytes", pd.Series(dtype=float)), errors="coerce")
-            .fillna(0)
-            .sum()
-        )
-        if not df.empty
-        else 0,
-        "duration_seconds_total": float(
-            pd.to_numeric(df.get("duration_seconds", pd.Series(dtype=float)), errors="coerce")
-            .fillna(0)
-            .sum()
-        )
-        if not df.empty
-        else 0.0,
-        "download_methods": {
-            str(k): int(v) for k, v in df["download_method"].value_counts().to_dict().items()
-        }
-        if not df.empty
-        else {},
+        "total_bytes": sum(row["file_size_bytes"] for row in rows),
+        "failures": failures,
     }
-    write_json(out / "report.json", report)
-    print("\nDONE\n" + json.dumps(report, ensure_ascii=False, indent=2))
+    write_json(out / "video_report.json", report)
+    print("\nVideo downloads\n" + json.dumps(report, ensure_ascii=False, indent=2))
+    return report

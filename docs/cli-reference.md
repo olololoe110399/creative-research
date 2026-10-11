@@ -1,78 +1,86 @@
 # CLI reference
 
-```text
-creative-research [global options] <command> [command options]
-creative-research <command> --help
-```
+See the generated [command catalog](commands.md). Commands accept --help without
+requests or writes. Use global --root for a project directory and --env-file to
+load credentials explicitly; place global options before the command.
 
-The [command catalog](commands.md) is generated from `cli/registry.py`.
-`lab` is the single command for serving the Operator Intelligence Lab.
-Command-specific help is authoritative for provider/corpus options.
-
-## Global behavior
-
-- `--root PATH`: resolve project paths consistently without changing cwd.
-- `--env-file PATH`: explicitly load literal environment assignments.
-- `--verbose` / `-v`: debugging logs and unexpected-error traceback on stderr.
-- `--quiet` / `-q`: suppress human stdout and informational application logs.
-  Explicit `--json` reports and help remain visible.
-- `--log-format text|json`: select application log representation, always stderr.
-- `--color auto|always|never`: auto colors only in a TTY, respecting `NO_COLOR`.
-- `--help`, `--version` / `-V`: discovery or installed version, without provider calls.
-
-Interactive prompts are restricted to `operator-setup` when requested. Pipelines,
-the demo and normal command execution work non-interactively. No spinner/control
-sequences are added to redirected output.
-
-## Common workflows
+## Coordinated pipeline
 
 ```sh
-creative-research init
-creative-research doctor --json
-creative-research demo --out ./demo-workspace --json
-creative-research --root ./demo-workspace lab --read-only --open
-creative-research --root ./demo-workspace intelligence-build --dry-run --json
-creative-research --root ./demo-workspace intelligence-build --from-stage workspace --force
-creative-research --root ./demo-workspace --log-format json --verbose status --json
-creative-research adopt --master /path/to/completed-master --mode copy
+creative-research run --accounts-file accounts.txt --out data/runs/run-001 --max-charge-usd 1 --zip --json
+creative-research run --out data/runs/run-001 --resume --json
+creative-research status --run data/runs/run-001 --json
 ```
 
-Use `intelligence-build --profile evidence-only` to execute/reuse the six-stage
-evidence prefix through `timeline`; default `--profile full` preserves the
-12-stage pipeline. Evidence-only reports go to
-`data/06_analytics/evidence_pipeline_report.json` rather than the Lab tree.
-Do not infer that skipped rule/knowledge/quality stages are fresh. An explicit
-`--through-stage` beyond timeline is rejected for evidence-only.
+Run saves its accounts/settings, isolates media and exports, checks downloaded
+source/hash attestations and validates before reporting completion. Resume can
+omit accounts/settings; explicitly different values require a new run. Use
+--recover-run BATCH=RUN_ID for an uncertain launch and --allow-partial to permit a
+partial export (exit 1). See [pipeline contract](pipeline-contract.md).
 
-Stage order: warehouse, performance, cadence, families, propagation, timeline,
-patterns, strategies, knowledge, workspace, audit, outcome. A dry run reports
-blocked inputs but performs no writes. An actual blocked/failed build returns 1
-and saves diagnostics; successful completion of the build is distinct from a
-quality/outcome report containing warnings or failing acceptance.
+Defaults for a new run:
 
-`--json` is supported by init, doctor, status, validate, demo and intelligence-build,
-not automatically by every stage. Pipeline/demo JSON mode emits one report on
-stdout; stage prints and the human plan go to stderr. `--log-format json` formats
-application logs only, not every stage progress line. Avoid parsing human
-progress text; parse the explicit JSON report and inspect its `status`.
+| Option | Default | Scope |
+| --- | --- | --- |
+| --accounts-file | Required | Normalized and saved as accounts.txt |
+| --out | Required | New run directory; existing runs require --resume |
+| --batch-size | 4 | Profiles per actor batch |
+| --max-posts | 10000 | Maximum requested posts per profile |
+| --actor-timeout | 7200 | Seconds per actor batch |
+| --max-charge-usd | Unset | Optional USD cap per batch, not a total run budget |
+| --oldest-date / --newest-date | Unset | Provider date filters |
+| --concurrency | 12 | Concurrent image downloads |
+| --timeout | 35 | Seconds per image request |
+| --retries | 1 | Image request retries |
+| --zip | Off | Also publish and verify the revision ZIP |
 
-## Exit codes and automation
+On resume, omitted options use saved values. Explicitly different values or accounts
+are rejected; use a new run for a different observation. --allow-partial is an
+invocation choice and can change on resume. Tokens and cookie options are not saved
+in the frozen configuration; reprovide --env-file and any needed cookie options.
+Video subprocess/HTTP timeouts use the [runtime settings](configuration.md).
+
+## Standalone stages
+
+For existing inputs or manual orchestration:
+
+```sh
+creative-research scrape --accounts-file accounts.txt --out data/raw/run-001 \
+  --max-charge-usd 1
+creative-research download-media --input data/raw/run-001 --out data/media --dry-run --json
+creative-research download-media --input data/raw/run-001 --out data/media --json
+creative-research export-dataset --input data/raw/run-001 --media-root data/media \
+  --out exports/dataset-001 --require-verified-media --zip
+creative-research validate --dataset exports/dataset-001 --json
+creative-research status --json
+```
+
+Scrape captures records with batch/post/date/comment limits. Media files are
+downloaded by download-media into one archive. Scrape has no --json option. Standalone scrape
+--resume still requires its account file and matching acquisition settings.
+
+Download supports account subsets, explicit cookies, skipping selected media kinds
+and checkpointing. Export reads all image/video files from --media-root.
+Download/export --dry-run performs no writes or network calls. Export
+--require-verified-media reads download_report.json and only packages files verified
+for the selected capture; run always enables this. Standalone export can package
+explicit local files without attestations when that flag is omitted.
+
+## Reports and exit codes
+
+Run --json sends one final state to stdout and progress to stderr. Setup errors
+before initialization can produce no JSON report. Download --json also separates
+progress from its final report; export always prints JSON. Status is a read-only
+query: --run reads that pipeline checkpoint; without it, status counts local
+workspace files.
 
 | Code | Meaning |
 | --- | --- |
-| `0` | Command completed, help/version shown, or read-only plan produced |
-| `1` | Execution/check failure; inspect error and report |
-| `2` | Invalid usage, configuration or user path |
-| `130` | Interrupted; completed outputs/checkpoints retained |
+| 0 | Command succeeded; for run, a complete validated handoff |
+| 1 | Acquisition/download/integrity failure; run also uses this for partial output or an error caught during stage execution |
+| 2 | CLI usage or configuration/path errors; for run, setup errors before stage execution |
+| 130 | Keyboard interruption; completed files/checkpoints are retained |
 
-Strict validators may return 1 for invalid evidence. A dry-run
-exit 0 does not mean dependencies exist; its report can have `status: blocked`.
-Broken stdout pipes are handled without a traceback.
-
-```sh
-creative-research intelligence-build --json >report.json 2>progress.log
-```
-
-For a failed/interrupted run, correct the cause and rerun the same command. Running
-markers prevent accidentally reusing partial stage outputs. Do not delete private
-creator-team state to fix generated output errors.
+Standalone export/validate can succeed with inventoried missing assets; run requires
+completeness unless --allow-partial is explicit. Status returns 0 when the checkpoint
+can be read, including failed/partial runs; this does not mean the pipeline succeeded.

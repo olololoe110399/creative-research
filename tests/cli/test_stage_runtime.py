@@ -51,5 +51,10 @@ def test_cli_dispatch_uses_shared_runtime_and_preserves_stage_exit(monkeypatch) 
         "import_module",
         lambda module: SimpleNamespace(main=lambda: calls.append((module, sys.argv[:]))),
     )
-    assert dispatch_stage("lab", ["--help"]) == 0
-    assert calls == [("creative_research.cli.commands.lab", ["creative-research lab", "--help"])]
+    assert dispatch_stage("download-media", ["--help"]) == 0
+    assert calls == [
+        (
+            "creative_research.cli.commands.download_media",
+            ["creative-research download-media", "--help"],
+        )
+    ]
